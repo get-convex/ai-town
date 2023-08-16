@@ -22,7 +22,7 @@ The primary goal of this project, beyond just being a lot of fun to work on, is 
 ## Stack
 
 - Game engine & Database: [Convex](https://convex.dev/)
-- VectorDB: [Pinecone](https://www.pinecone.io/)
+- VectorDB: Convex or [Pinecone](https://www.pinecone.io/)
 - Auth: [Clerk](https://clerk.com/)
 - Text model: [OpenAI](https://platform.openai.com/docs/models)
 - Deployment: [Fly](https://fly.io/)
@@ -64,7 +64,11 @@ b. **OpenAI API key**
 
 Visit https://platform.openai.com/account/api-keys to get your OpenAI API key if you're using OpenAI for your language model.
 
-c. **Pinecone API keys**
+c. **Pinecone API keys (Optional)**
+
+By default it will use the Convex vector storage.
+If you plan to store more than 100k vectors, you can use Pinecone.
+It will use Pinecone if you set the associated Pinecone environment variables.
 
 - Create a Pinecone index by visiting https://app.pinecone.io/ and click on "Create Index"
 - Give it an index name (this will be the environment variable `PINECONE_INDEX_NAME`)
