@@ -30,8 +30,8 @@ export default function PlayButton() {
   const handleKeyPress = useCallback(
     (event: { key: string }) => {
       if (isPlaying) {
-        if (event.key === 'f') {
-          void navigate({direction: 'f'});
+        if (event.key === 'w') {
+          void navigate({direction: 'w'});
         }
       }
     },

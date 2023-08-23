@@ -1,13 +1,22 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PlayerDetails from './PlayerDetails';
 import Game from './Game';
 
 import { useElementSize } from 'usehooks-ts';
 import { Id } from '../../convex/_generated/dataModel';
+import { useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export default function GameWrapper() {
   const [selectedPlayer, setSelectedPlayer] = useState<Id<'players'>>();
+  const talkToMe = useAction(api.agent.talkToMe);
+
+  useEffect(() => {
+    if (selectedPlayer) {
+      void talkToMe({target: selectedPlayer});
+    }
+  }, [selectedPlayer]);
 
   const [gameWrapperRef, { width, height }] = useElementSize();
 

@@ -3,10 +3,10 @@
 // ^ This tells Convex to run this in a `node` environment.
 // Read more: https://docs.convex.dev/functions/runtimes
 import { v } from 'convex/values';
-import { internal } from './_generated/api';
+import { internal, api } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import { ActionCtx, internalAction } from './_generated/server';
+import { ActionCtx, action, internalAction } from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -20,6 +20,27 @@ import { getNearbyPlayers } from './lib/physics';
 import { CONVERSATION_TIME_LIMIT, CONVERSATION_PAUSE } from './config';
 
 const awaitTimeout = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
+
+export const talkToMe = action({
+  args: {
+    target: v.id('players'),
+  },
+  handler: async (ctx, { target }) => {
+    const memory = MemoryDB(ctx);
+    const activePlayer = await ctx.runQuery(api.players.getActivePlayer);
+    if (!activePlayer) {
+      return;
+    }
+    if (activePlayer.id === target) {
+      return;
+    }
+    const { players } = await ctx.runQuery(internal.journal.getSnapshot, {
+      playerIds: [activePlayer.id, target],
+    });
+    const done: DoneFn = handleDone(ctx);
+    await handleAgentInteraction(ctx, players, memory, done);
+  },
+});
 
 export const runAgentBatch = internalAction({
   args: {
@@ -130,6 +151,15 @@ async function handleAgentSolo(ctx: ActionCtx, player: Player, memory: MemoryDB,
   await done(player.agentId, { type: walk ? 'walk' : 'continue', ignore });
 }
 
+function pickLeader(players: Player[]): Player {
+  for (const player of players) {
+    if (!player.agentId) {
+      return player;
+    }
+  }
+  return players[0];
+}
+
 export async function handleAgentInteraction(
   ctx: ActionCtx,
   players: Player[],
@@ -137,7 +167,7 @@ export async function handleAgentInteraction(
   done: DoneFn,
 ) {
   // TODO: pick a better conversation starter
-  const leader = players[0];
+  const leader = pickLeader(players);
   for (const player of players) {
     const imWalkingHere =
       player.motion.type === 'walking' && player.motion.targetEndTs > Date.now();

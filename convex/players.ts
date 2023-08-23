@@ -93,7 +93,7 @@ export const getActivePlayer = query({
 });
 
 export const navigateActivePlayer = mutation({
-  args: { direction: v.literal('f') },
+  args: { direction: v.literal('w') },
   handler: async (ctx, { direction: _direction }) => {
     const world = await activeWorld(ctx.db);
     const player = await activePlayer(ctx.db);
@@ -107,12 +107,12 @@ export const createCharacter = mutation({
     name: v.string(),
     spritesheetData: Characters.fields.spritesheetData,
   },
-  handler: async (ctx, {name, spritesheetData}) => {
+  handler: async (ctx, { name, spritesheetData }) => {
     return await ctx.db.insert('characters', {
-        name,
-        textureUrl: '/ai-town/assets/32x32folk.png',
-        spritesheetData,
-        speed: 0.1,
+      name,
+      textureUrl: '/ai-town/assets/32x32folk.png',
+      spritesheetData,
+      speed: 0.1,
     });
   },
 });
