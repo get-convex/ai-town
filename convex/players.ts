@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { Id } from './_generated/dataModel';
+import { Doc, Id } from './_generated/dataModel';
 import { DatabaseReader, mutation, query } from './_generated/server';
 import { enqueueAgentWake } from './engine';
 import { HEARTBEAT_PERIOD, WORLD_IDLE_THRESHOLD } from './config';
@@ -71,7 +71,7 @@ export const playerState = query({
   },
 });
 
-const activePlayer = async (db: DatabaseReader): Promise<Player | null> => {
+export const activePlayerDoc = async (db: DatabaseReader): Promise<Doc<"players"> | null> => {
   const world = await activeWorld(db);
   if (!world) {
     return null;
@@ -81,6 +81,11 @@ const activePlayer = async (db: DatabaseReader): Promise<Player | null> => {
     .query('players')
     .withIndex('by_user', (q) => q.eq('worldId', world._id).eq('controller', userId))
     .first();
+  return playerDoc;
+};
+
+export const activePlayer = async (db: DatabaseReader): Promise<Player | null> => {
+  const playerDoc = await activePlayerDoc(db);
   if (!playerDoc) return null;
   return getPlayer(db, playerDoc);
 };

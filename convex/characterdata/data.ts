@@ -1,13 +1,14 @@
-import { data as f1SpritesheetData } from './spritesheets/f1';
+// import { data as f1SpritesheetData } from './spritesheets/f1';
 import { data as f2SpritesheetData } from './spritesheets/f2';
 import { data as f3SpritesheetData } from './spritesheets/f3';
-import { data as f4SpritesheetData } from './spritesheets/f4';
-import { data as f5SpritesheetData } from './spritesheets/f5';
-import { data as f6SpritesheetData } from './spritesheets/f6';
-import { data as f7SpritesheetData } from './spritesheets/f7';
-import { data as f8SpritesheetData } from './spritesheets/f8';
+// import { data as f4SpritesheetData } from './spritesheets/f4';
+// import { data as f5SpritesheetData } from './spritesheets/f5';
+// import { data as f6SpritesheetData } from './spritesheets/f6';
+// import { data as f7SpritesheetData } from './spritesheets/f7';
+// import { data as f8SpritesheetData } from './spritesheets/f8';
 
 export const Descriptions = [
+  /*
   {
     name: 'Alex',
     character: 'f5',
@@ -86,6 +87,7 @@ export const Descriptions = [
     ],
     position: { x: 6, y: 6 },
   },
+  */
   {
     name: 'Kurt',
     character: 'f2',
@@ -115,12 +117,18 @@ export const Descriptions = [
           speaks in oblique riddles. She comes across as confused and forgetful.`,
       },
       {
+        type: 'relationship' as const,
+        description: 'You like kurt',
+        playerName: 'Kurt',
+      },
+      {
         type: 'plan' as const,
         description: 'You want to figure out how the world works.',
       },
     ],
     position: { x: 4, y: 4 },
   },
+  /*
   {
     name: 'Pete',
     character: 'f7',
@@ -156,15 +164,17 @@ export const Descriptions = [
     ],
     position: { x: 4, y: 10 },
   },
+  */
 ];
 
 export const characters = [
+  /*
   {
     name: 'f1',
     textureUrl: '/ai-town/assets/32x32folk.png',
     spritesheetData: f1SpritesheetData,
     speed: 0.1,
-  },
+  },*/
   {
     name: 'f2',
     textureUrl: '/ai-town/assets/32x32folk.png',
@@ -177,6 +187,7 @@ export const characters = [
     spritesheetData: f3SpritesheetData,
     speed: 0.1,
   },
+  /*
   {
     name: 'f4',
     textureUrl: '/ai-town/assets/32x32folk.png',
@@ -207,4 +218,5 @@ export const characters = [
     spritesheetData: f8SpritesheetData,
     speed: 0.1,
   },
+  */
 ];

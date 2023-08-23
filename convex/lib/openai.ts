@@ -14,6 +14,7 @@ export async function chatCompletion(
   }
 
   body.model = body.model ?? 'gpt-3.5-turbo-16k';
+  console.log(body);
   const {
     result: json,
     retries,
@@ -31,7 +32,9 @@ export async function chatCompletion(
     if (!result.ok) {
       throw {
         retry: result.status === 429 || result.status >= 500,
-        error: new Error(`Embedding failed with code ${result.status}: ${await result.text()}`),
+        error: new Error(
+          `Chat completion failed with code ${result.status}: ${await result.text()}`,
+        ),
       };
     }
     return (await result.json()) as CreateChatCompletionResponse;

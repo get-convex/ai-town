@@ -1,7 +1,8 @@
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import clsx from 'clsx';
+import { useState } from 'react';
 
 function Messages({
   conversationId,
@@ -42,8 +43,54 @@ function Messages({
             )}
           </div>
         ))}
+        <MessageInput currentPlayerId={currentPlayerId} />
     </>
   );
+}
+
+function MessageInput({
+  currentPlayerId,
+}: {
+  currentPlayerId: Id<'players'>;
+}) {
+  const activePlayer = useQuery(api.players.getActivePlayer);
+  const [inProgressMessage, setInProgressMessage] = useState<string>("");
+  const userTalk = useMutation(api.journal.userTalk);
+
+  const keyPress = async (key: string) => {
+    if (key === 'Enter') {
+      await userTalk({content: inProgressMessage});
+      setInProgressMessage('');
+    } else if (key === 'Backspace') {
+      setInProgressMessage(inProgressMessage.slice(0, -1));
+    } else if (key === 'Shift') {
+      // skip
+    } else {
+      setInProgressMessage(inProgressMessage + key);
+    }
+  };
+
+  if (activePlayer?.id !== currentPlayerId) {
+    return null;
+  }
+  return <div className="leading-tight mb-6">
+    <div className="flex gap-4">
+      <span className="uppercase flex-grow">{activePlayer.name}</span>
+    </div>
+    <div
+      className={clsx('bubble', 'bubble-mine')}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        void keyPress(e.key);
+      }}
+      style={{outline: 'none'}}
+    >
+      <p className="bg-white -mx-3 -my-1">
+        {inProgressMessage}
+      </p>
+    </div>
+  </div>;
 }
 
 export default function PlayerDetails({ playerId }: { playerId: Id<'players'> }) {

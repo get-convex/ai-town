@@ -1,6 +1,12 @@
 import { v } from 'convex/values';
 import { Doc, Id } from './_generated/dataModel';
-import { DatabaseReader, MutationCtx, internalMutation, internalQuery } from './_generated/server';
+import {
+  DatabaseReader,
+  MutationCtx,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from './_generated/server';
 import {
   Position,
   EntryOfType,
@@ -11,7 +17,7 @@ import {
   MemoryType,
 } from './schema';
 import { asyncMap, pruneNull } from './lib/utils';
-import { getAllPlayers } from './players';
+import { activePlayerDoc, getAllPlayers } from './players';
 import { CLOSE_DISTANCE, DEFAULT_START_POSE, STUCK_CHILL_TIME, TIME_PER_STEP } from './config';
 import { findCollision, findRoute } from './lib/routing';
 import {
@@ -166,6 +172,28 @@ export const makeConversation = internalMutation({
   },
 });
 
+export const userTalk = mutation({
+  args: {
+    content: v.string(),
+  },
+  handler: async (ctx, { content }) => {
+    const playerDoc = await activePlayerDoc(ctx.db);
+    if (!playerDoc) return;
+    const player = await getPlayer(ctx.db, playerDoc);
+    if (!player.lastChat) return;
+    await ctx.db.insert('journal', {
+      playerId: player.id,
+      data: {
+        type: 'talking',
+        audience: [],
+        conversationId: player.lastChat!.conversationId,
+        content,
+        relatedMemoryIds: [],
+      },
+    });
+  },
+});
+
 export const talk = internalMutation({
   args: {
     playerId: v.id('players'),
@@ -261,9 +289,9 @@ export const walk = internalMutation({
 
 export const walkToTarget = async (
   ctx: MutationCtx,
-  playerId: Id<"players">,
-  worldId: Id<"worlds">,
-  ignore: Id<"players">[],
+  playerId: Id<'players'>,
+  worldId: Id<'worlds'>,
+  ignore: Id<'players'>[],
   targetPosition: Position,
 ) => {
   const ts = Date.now();

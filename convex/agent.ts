@@ -250,25 +250,36 @@ export async function handleAgentInteraction(
       break;
     }
 
-    // TODO - playerRelations is not used today because of https://github.com/a16z-infra/ai-town/issues/56
-    const playerRelations = relationshipsByPlayerId.get(speaker.id) ?? [];
-    let playerCompletion;
-    if (messages.length === 0) {
-      playerCompletion = await startConversation(ctx, playerRelations, memory, speaker);
+    if (speaker.agentId) {
+      const playerRelations = relationshipsByPlayerId.get(speaker.id) ?? [];
+      let playerCompletion;
+      if (messages.length === 0) {
+        playerCompletion = await startConversation(ctx, playerRelations, memory, speaker);
+      } else {
+        // TODO: stream the response and write to the mutation for every sentence.
+        playerCompletion = await converse(ctx, chatHistory, speaker, playerRelations, memory);
+      }
+
+      const message = await ctx.runMutation(internal.journal.talk, {
+        playerId: speaker.id,
+        audience,
+        content: playerCompletion.content,
+        relatedMemoryIds: playerCompletion.memoryIds,
+        conversationId,
+      });
+
+      if (message) {
+        messages.push(message);
+      }
     } else {
-      // TODO: stream the response and write to the mutation for every sentence.
-      playerCompletion = await converse(ctx, chatHistory, speaker, playerRelations, memory);
-    }
-
-    const message = await ctx.runMutation(internal.journal.talk, {
-      playerId: speaker.id,
-      audience,
-      content: playerCompletion.content,
-      relatedMemoryIds: playerCompletion.memoryIds,
-      conversationId,
-    });
-
-    if (message) {
+      let message: Message | null = null;
+      while (!message || message.from !== speaker.id || message.type !== 'responded') {
+        message = await ctx.runQuery(internal.chat.lastMessage, {
+          conversationId,
+        });
+        // wait for user to type message.
+        await awaitTimeout(CONVERSATION_PAUSE);
+      }
       messages.push(message);
     }
 

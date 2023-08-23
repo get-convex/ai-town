@@ -9,6 +9,7 @@ export default function PlayButton() {
   const navigate = useMutation(api.players.navigateActivePlayer);
   const createCharacter = useMutation(api.players.createCharacter);
   const createPlayer = useMutation(api.players.createPlayer);
+  const userTalk = useMutation(api.journal.userTalk);
   const isPlaying = !!player;
 
   const startPlaying = async () => {
@@ -32,6 +33,8 @@ export default function PlayButton() {
       if (isPlaying) {
         if (event.key === 'w') {
           void navigate({direction: 'w'});
+        } else if (event.key === 't') {
+          void userTalk({content: "Hi there! Can you teach me something new?"});
         }
       }
     },

@@ -1,11 +1,9 @@
-import { Id } from './_generated/dataModel';
 import { ActionCtx } from './_generated/server';
 import { fetchEmbeddingWithCache } from './lib/cached_llm';
 import { MemoryDB, filterMemoriesType } from './lib/memory';
 import { LLMMessage, chatCompletion, fetchEmbedding } from './lib/openai';
-import { Message } from './schema';
+import { Message, Player } from './schema';
 
-type Player = { id: Id<'players'>; name: string; identity: string };
 type Relation = Player & { relationship?: string };
 
 export async function startConversation(
@@ -114,7 +112,7 @@ export async function decideWhoSpeaksNext(
   const { content } = await chatCompletion({ messages: prompt, max_tokens: 300 });
   let speakerId: string | undefined = undefined;
   try {
-    const contentJSON = JSON.parse(content) as {id: string};
+    const contentJSON = JSON.parse(content) as { id: string };
     speakerId = contentJSON.id;
   } catch (e) {
     console.error('error parsing speakerId: ', e);
@@ -188,6 +186,9 @@ export async function converse(
 }
 
 export async function walkAway(messages: LLMMessage[], player: Player): Promise<boolean> {
+  if (!player.agentId) {
+    return false;
+  }
   const prompt: LLMMessage[] = [
     {
       role: 'user',
