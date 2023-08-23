@@ -6,6 +6,7 @@ import { HEARTBEAT_PERIOD, WORLD_IDLE_THRESHOLD } from './config';
 import { Characters, Player, Pose } from './schema';
 import { getPlayer, getRandomPosition, walkToTarget } from './journal';
 import { internal } from './_generated/api';
+import { getPoseFromMotion, roundPose } from './lib/physics';
 
 const activeWorld = async (db: DatabaseReader) => {
   // Future: based on auth, fetch the user's world
@@ -71,7 +72,7 @@ export const playerState = query({
   },
 });
 
-export const activePlayerDoc = async (db: DatabaseReader): Promise<Doc<"players"> | null> => {
+export const activePlayerDoc = async (db: DatabaseReader): Promise<Doc<'players'> | null> => {
   const world = await activeWorld(db);
   if (!world) {
     return null;
@@ -98,12 +99,39 @@ export const getActivePlayer = query({
 });
 
 export const navigateActivePlayer = mutation({
-  args: { direction: v.literal('w') },
-  handler: async (ctx, { direction: _direction }) => {
+  args: {
+    direction: v.union(
+      v.literal('r'),
+      v.literal('w'),
+      v.literal('a'),
+      v.literal('s'),
+      v.literal('d'),
+    ),
+  },
+  handler: async (ctx, { direction }) => {
     const world = await activeWorld(ctx.db);
     const player = await activePlayer(ctx.db);
+    if (!player) {
+      return;
+    }
     const map = await ctx.db.get(world!.mapId);
-    await walkToTarget(ctx, player!.id, world!._id, [], getRandomPosition(map!));
+    const maxX = world!.height! - 1;
+    const maxY = world!.width! - 1;
+    const currentPosition = roundPose(getPoseFromMotion(player.motion, Date.now())).position;
+    const position =
+      direction === 'r'
+        ? getRandomPosition(map!)
+        : direction === 'a'
+        ? { x: 0, y: currentPosition.y }
+        : direction === 's'
+        ? { x: currentPosition.x, y: maxY }
+        : direction === 'w'
+        ? { x: currentPosition.x, y: 0 }
+        : direction === 'd'
+        ? { x: maxX, y: currentPosition.y }
+        : currentPosition;
+    console.log(`walking to x: ${position.x}, y: ${position.y}`);
+    await walkToTarget(ctx, player.id, world!._id, [], position);
   },
 });
 
