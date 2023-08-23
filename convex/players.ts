@@ -3,17 +3,25 @@ import { Id } from './_generated/dataModel';
 import { DatabaseReader, mutation, query } from './_generated/server';
 import { enqueueAgentWake } from './engine';
 import { HEARTBEAT_PERIOD, WORLD_IDLE_THRESHOLD } from './config';
-import { Pose } from './schema';
-import { getPlayer } from './journal';
+import { Characters, Player, Pose } from './schema';
+import { getPlayer, getRandomPosition, walkToTarget } from './journal';
 import { internal } from './_generated/api';
+
+const activeWorld = async (db: DatabaseReader) => {
+  // Future: based on auth, fetch the user's world
+  const world = await db.query('worlds').order('desc').first();
+  if (!world) {
+    console.error('No world found');
+    return null;
+  }
+  return world;
+};
 
 export const getWorld = query({
   args: {},
   handler: async (ctx, _args) => {
-    // Future: based on auth, fetch the user's world
-    const world = await ctx.db.query('worlds').order('desc').first();
+    const world = await activeWorld(ctx.db);
     if (!world) {
-      console.error('No world found');
       return null;
     }
     const map = await ctx.db.get(world.mapId);
@@ -63,23 +71,71 @@ export const playerState = query({
   },
 });
 
+const activePlayer = async (db: DatabaseReader): Promise<Player | null> => {
+  const world = await activeWorld(db);
+  if (!world) {
+    return null;
+  }
+  const userId = 'LEE';
+  const playerDoc = await db
+    .query('players')
+    .withIndex('by_user', (q) => q.eq('worldId', world._id).eq('controller', userId))
+    .first();
+  if (!playerDoc) return null;
+  return getPlayer(db, playerDoc);
+};
+
+export const getActivePlayer = query({
+  args: {},
+  handler: async (ctx, _args) => {
+    return activePlayer(ctx.db);
+  },
+});
+
+export const navigateActivePlayer = mutation({
+  args: { direction: v.literal('f') },
+  handler: async (ctx, { direction: _direction }) => {
+    const world = await activeWorld(ctx.db);
+    const player = await activePlayer(ctx.db);
+    const map = await ctx.db.get(world!.mapId);
+    await walkToTarget(ctx, player!.id, world!._id, [], getRandomPosition(map!));
+  },
+});
+
+export const createCharacter = mutation({
+  args: {
+    name: v.string(),
+    spritesheetData: Characters.fields.spritesheetData,
+  },
+  handler: async (ctx, {name, spritesheetData}) => {
+    return await ctx.db.insert('characters', {
+        name,
+        textureUrl: '/ai-town/assets/32x32folk.png',
+        spritesheetData,
+        speed: 0.1,
+    });
+  },
+});
+
 export const createPlayer = mutation({
   args: {
     pose: Pose,
     name: v.string(),
-    worldId: v.id('worlds'),
     characterId: v.id('characters'),
+    forUser: v.optional(v.literal(true)),
   },
-  handler: async (ctx, { name, worldId, characterId, ...args }) => {
+  handler: async (ctx, { name, characterId, pose, forUser }) => {
+    const world = await activeWorld(ctx.db);
     // Future: associate this with an authed user
     const playerId = await ctx.db.insert('players', {
       name,
       characterId,
-      worldId,
+      worldId: world!._id,
+      controller: forUser ? 'LEE' : undefined,
     });
     await ctx.db.insert('journal', {
       playerId,
-      data: { type: 'stopped', reason: 'idle', pose: args.pose },
+      data: { type: 'stopped', reason: 'idle', pose },
     });
     return playerId;
   },

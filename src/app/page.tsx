@@ -1,4 +1,5 @@
 import GameWrapper from '@/components/GameWrapper';
+import PlayButton from '@/components/PlayButton';
 import dynamic from 'next/dynamic';
 
 // Disabling SSR for these since they don't work server side.
@@ -34,6 +35,7 @@ export default function Home() {
                 </span>
               </div>
             </a>
+          <PlayButton />
           </div>
           <a href="https://a16z.com">
             <img className="w-8 h-8 pointer-events-auto" src="/ai-town/a16z.png" alt="a16z" />

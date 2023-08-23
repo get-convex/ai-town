@@ -249,10 +249,12 @@ export default defineSchema(
     players: defineTable({
       name: v.string(),
       worldId: v.id('worlds'),
+      controller: v.optional(v.string()),  // TODO(lee) v.id("users")
       // For NPCs, this is set to the agent's state.
       agentId: v.optional(v.id('agents')),
       characterId: v.id('characters'),
-    }).index('by_worldId', ['worldId']),
+    }).index('by_worldId', ['worldId'])
+    .index("by_user", ["worldId", "controller"]),
     // For tracking the engine's processing of agents
     agents: defineTable({
       worldId: v.id('worlds'),
