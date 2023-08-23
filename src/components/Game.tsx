@@ -35,6 +35,8 @@ export const Game = ({
           worldHeight={worldState.map.tileSetDim}
         >
           <PixiStaticMap map={worldState.map}></PixiStaticMap>
+          {/* Re-propagate context because contexts are not shared between renderers.
+https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
           <ConvexProvider client={convex}>
             {players.map((player) => (
               <Player
@@ -79,11 +81,11 @@ const useServerTimeOffset = (worldId: Id<'worlds'> | undefined) => {
       prev.current.push(newOffset);
       if (prev.current.length > 5) prev.current.shift();
       const rollingOffset =
-        prev.current.length === 1
+        prev.current.length < 3
           ? prev.current
           : // Take off the max & min as outliers
             [...prev.current].sort().slice(1, -1);
-      const avgOffset = rollingOffset.reduce((a, b) => a + b, 0) / prev.current.length;
+      const avgOffset = rollingOffset.reduce((a, b) => a + b, 0) / rollingOffset.length;
       setOffset(avgOffset);
     };
     void updateOffset();
