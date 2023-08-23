@@ -145,7 +145,7 @@ export const createCharacter = mutation({
       name,
       textureUrl: '/ai-town/assets/32x32folk.png',
       spritesheetData,
-      speed: 0.1,
+      speed: 0.2,
     });
   },
 });

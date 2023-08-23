@@ -287,6 +287,11 @@ export const walk = internalMutation({
   },
 });
 
+const isNPC = async (db: DatabaseReader, playerId: Id<'players'>) => {
+  const player = await db.get(playerId);
+  return player && !!player.agentId;
+};
+
 export const walkToTarget = async (
   ctx: MutationCtx,
   playerId: Id<'players'>,
@@ -332,7 +337,8 @@ export const walkToTarget = async (
     };
   }
   const exclude = new Set([...ignore, playerId]);
-  const targetEndTs = ts + distance * TIME_PER_STEP;
+  const speed = (await isNPC(ctx.db, playerId)) ? 1 : 2;
+  const targetEndTs = ts + (distance * TIME_PER_STEP) / speed;
   let endOrientation: number | undefined;
   if (manhattanDistance(targetPosition, route[route.length - 1]) > 0) {
     endOrientation = calculateOrientation(route[route.length - 1], targetPosition);
