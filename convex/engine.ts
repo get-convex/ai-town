@@ -1,13 +1,10 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
-import {
-  DatabaseReader,
-  MutationCtx,
-  internalMutation,
-} from './_generated/server';
+import { DatabaseReader, MutationCtx, internalMutation } from './_generated/server';
 import { TICK_DEBOUNCE, WORLD_IDLE_THRESHOLD } from './config';
 import { asyncMap, pruneNull } from './lib/utils';
+import { activePlayer } from './players';
 
 export const tick = internalMutation({
   args: { worldId: v.id('worlds'), noSchedule: v.optional(v.boolean()) },
@@ -42,7 +39,8 @@ export const tick = internalMutation({
         worldId,
       });
     }
-    if (!agentsEagerToWake.length) {
+    const userPlayer = await activePlayer(ctx.db);
+    if (!agentsEagerToWake.length && !userPlayer) {
       console.debug("Didn't tick: spurious, no agents eager to wake up");
       return;
     }
@@ -53,6 +51,9 @@ export const tick = internalMutation({
       await ctx.db.patch(agentDoc._id, { thinking: true, lastWakeTs: ts });
     }
     const playerIds = agentsToWake.map((a) => a.playerId);
+    if (userPlayer) {
+      playerIds.push(userPlayer.id);
+    }
     await ctx.scheduler.runAfter(0, internal.agent.runAgentBatch, { playerIds, noSchedule });
   },
 });

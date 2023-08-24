@@ -134,6 +134,9 @@ function divideIntoGroups(players: Player[]) {
 }
 
 async function handleAgentSolo(ctx: ActionCtx, player: Player, memory: MemoryDB, done: DoneFn) {
+  if (!player.agentId) {
+    return;
+  }
   // console.debug('handleAgentSolo: ', player.name, player.id);
   // Handle new observations: it can look at the agent's lastWakeTs for a delta.
   //   Calculate scores
@@ -168,6 +171,7 @@ export async function handleAgentInteraction(
 ) {
   // TODO: pick a better conversation starter
   const leader = pickLeader(players);
+  const talkingToUser = !leader.agentId;
   for (const player of players) {
     const imWalkingHere =
       player.motion.type === 'walking' && player.motion.targetEndTs > Date.now();
@@ -231,10 +235,11 @@ export async function handleAgentInteraction(
           );
     lastSpeakerId = speaker.id;
     const audience = players.filter((p) => p.id !== speaker.id).map((p) => p.id);
-    const shouldWalkAway = audience.length === 0 || (await walkAway(chatHistory, speaker));
+    const shouldWalkAway =
+      !talkingToUser && (audience.length === 0 || (await walkAway(chatHistory, speaker)) || Date.now() > endAfterTs);
 
     // Decide if we keep talking.
-    if (shouldWalkAway || Date.now() > endAfterTs) {
+    if (shouldWalkAway) {
       // It's to chatty here, let's go somewhere else.
       await ctx.runMutation(internal.journal.leaveConversation, {
         playerId: speaker.id,

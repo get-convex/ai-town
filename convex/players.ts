@@ -106,6 +106,7 @@ export const navigateActivePlayer = mutation({
       v.literal('a'),
       v.literal('s'),
       v.literal('d'),
+      v.literal('q'),
     ),
   },
   handler: async (ctx, { direction }) => {
