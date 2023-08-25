@@ -98,10 +98,6 @@ export function getRouteDistance(route: Position[]): number {
   }, 0);
 }
 
-export function roundPosition(pos: Position): Position {
-  return { x: Math.round(pos.x), y: Math.round(pos.y) };
-}
-
 export function roundPose(pose: Pose): Pose {
   const p = pose.position;
   // Degress counter-clockwise from East/Right
