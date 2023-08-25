@@ -281,7 +281,7 @@ export const walk = internalMutation({
     const world = (await ctx.db.get(worldId))!;
     const map = (await ctx.db.get(world.mapId))!;
     const targetPosition = target
-      ? getPoseFromMotion(await getLatestPlayerMotion(ctx.db, target), Date.now()).position
+      ? roundPose(getPoseFromMotion(await getLatestPlayerMotion(ctx.db, target), Date.now())).position
       : getRandomPosition(map);
     return await walkToTarget(ctx, playerId, worldId, ignore, targetPosition);
   },
