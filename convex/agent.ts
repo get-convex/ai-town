@@ -6,12 +6,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import {
-  ActionCtx,
-  internalAction,
-  internalMutation,
-  internalQuery,
-} from './_generated/server';
+import { ActionCtx, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -310,6 +305,7 @@ export const planCollisions = internalMutation({
         ignore: [],
       });
     }
+    console.log('planning new collisions');
     await ctx.scheduler.runAfter(0, internal.agent.agentsDone, {
       worldId: args.worldId,
       playerActivities,

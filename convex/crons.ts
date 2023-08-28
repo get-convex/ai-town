@@ -1,6 +1,6 @@
 import { cronJobs } from 'convex/server';
-import { internalMutation } from './_generated/server';
-import { getLatestPlayerMotion } from './journal';
+import { DatabaseReader, internalMutation } from './_generated/server';
+import { getLatestPlayerMotion, latestEntryOfType } from './journal';
 import {
   AGENT_THINKING_TOO_LONG,
   VACUUM_BATCH_SIZE,
@@ -9,7 +9,46 @@ import {
 } from './config';
 import { enqueueAgentWake } from './engine';
 import { internal } from './_generated/api';
-import { TableNames } from './_generated/dataModel';
+import { Id, TableNames } from './_generated/dataModel';
+
+const currentConversation = async (db: DatabaseReader, playerId: Id<'players'>) => {
+  const conversationEvents = [];
+  for (const event of [
+    await latestEntryOfType(db, playerId, 'startConversation'),
+    await latestEntryOfType(db, playerId, 'talking'),
+    await latestEntryOfType(db, playerId, 'leaveConversation')]) {
+    if (event) {
+      conversationEvents.push({creationTime: event._creationTime, data: event.data });
+    }
+  }
+  conversationEvents.sort((a, b) => (a.creationTime - b.creationTime));
+  if (conversationEvents.length === 0) {
+    return null;
+  }
+  const lastEvent = conversationEvents[conversationEvents.length - 1];
+  if (lastEvent.data.type === 'leaveConversation') {
+    return null;
+  }
+  return lastEvent.data;
+};
+
+const talkingToUser = async (db: DatabaseReader, playerId: Id<'players'>) => {
+  const lastConversation = await currentConversation(db, playerId);
+  if (!lastConversation) {
+    return null;
+  }
+  for (const audienceId of lastConversation.audience) {
+    const player = await db.get(audienceId);
+    if (player && player.agentId) {
+      continue; // Not a user.
+    }
+    const playerConversation = await currentConversation(db, audienceId);
+    if (playerConversation?.conversationId === lastConversation.conversationId) {
+      return true;
+    }
+  }
+  return false;
+};
 
 export const recoverThinkingAgents = internalMutation({
   args: {},
@@ -23,10 +62,19 @@ export const recoverThinkingAgents = internalMutation({
       .withIndex('by_worldId_thinking', (q) => q.eq('worldId', world._id).eq('thinking', true))
       .filter((q) => q.lt(q.field('lastWakeTs'), Date.now() - AGENT_THINKING_TOO_LONG))
       .collect();
-    if (agentDocs.length !== 0) {
+    const idleAgents = [];
+    for (const agentDoc of agentDocs) {
+      // Don't interrupt an agent if they are talking to an active player.
+      if (await talkingToUser(ctx.db, agentDoc.playerId)) {
+        console.log(`Agent ${agentDoc._id} was thinking too long, but they are talking to a user`);
+      } else {
+        idleAgents.push(agentDoc);
+      }
+    }
+    if (idleAgents.length !== 0) {
       // We can just enqueue one, since they're all at the same time.
-      const scheduled = await enqueueAgentWake(ctx, agentDocs[0]._id, world._id, ts);
-      for (const agentDoc of agentDocs) {
+      const scheduled = await enqueueAgentWake(ctx, idleAgents[0]._id, world._id, ts);
+      for (const agentDoc of idleAgents) {
         console.error(`Agent ${agentDoc._id} was thinking too long. Resetting`);
         await ctx.db.patch(agentDoc._id, {
           thinking: false,
@@ -146,7 +194,11 @@ export const vacuumOldMemories = internalMutation({
 });
 
 const crons = cronJobs();
-crons.interval('generate new background music', { hours: 24 }, internal.lib.replicate.enqueueBackgroundMusicGeneration);
+crons.interval(
+  'generate new background music',
+  { hours: 24 },
+  internal.lib.replicate.enqueueBackgroundMusicGeneration,
+);
 crons.interval('restart idle agents', { seconds: 60 }, internal.crons.recoverStoppedAgents);
 crons.interval('restart thinking agents', { seconds: 60 }, internal.crons.recoverThinkingAgents);
 crons.interval('vacuum old journal entries', { hours: 1 }, internal.crons.vacuumOldEntries, {
