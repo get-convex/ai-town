@@ -3,12 +3,11 @@
 // ^ This tells Convex to run this in a `node` environment.
 // Read more: https://docs.convex.dev/functions/runtimes
 import { v } from 'convex/values';
-import { internal, api } from './_generated/api';
+import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
 import {
   ActionCtx,
-  action,
   internalAction,
   internalMutation,
   internalQuery,
@@ -29,27 +28,6 @@ import { agentDone } from './engine';
 import { getAllPlayers } from './players';
 
 const awaitTimeout = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
-
-export const talkToMe = action({
-  args: {
-    target: v.id('players'),
-  },
-  handler: async (ctx, { target }) => {
-    const memory = MemoryDB(ctx);
-    const activePlayer = await ctx.runQuery(api.players.getActivePlayer);
-    if (!activePlayer) {
-      return;
-    }
-    if (activePlayer.id === target) {
-      return;
-    }
-    const { players } = await ctx.runQuery(internal.journal.getSnapshot, {
-      playerIds: [activePlayer.id, target],
-    });
-    const done: DoneFn = handleDone(ctx);
-    await handleAgentInteraction(ctx, players, memory, done);
-  },
-});
 
 export const runAgentBatch = internalAction({
   args: {

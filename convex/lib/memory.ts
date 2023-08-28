@@ -4,6 +4,7 @@ import { Doc, Id } from '../_generated/dataModel.js';
 import {
   ActionCtx,
   DatabaseReader,
+  internalAction,
   internalMutation,
   internalQuery,
 } from '../_generated/server.js';
@@ -288,14 +289,14 @@ function makeRange(values: number[]) {
   return [min, max] as const;
 }
 
-// Unused, but in case they're helpful later.
-// export const embedMemory = internalAction({
-//   args: { memory: v.object(NewMemory) },
-//   handler: async (ctx, args): Promise<Id<'memories'>> => {
-//     return (await MemoryDB(ctx).addMemories([args.memory]))[0];
-//   },
-// });
+export const embedMemory = internalAction({
+  args: { memory: v.object(NewMemory) },
+  handler: async (ctx, args) => {
+    await MemoryDB(ctx).addMemories([args.memory]);
+  },
+});
 
+// Unused, but in case they're helpful later.
 // export const embedMemories = internalAction({
 //   args: { memories: v.array(v.object(NewMemory)) },
 //   handler: async (ctx, args): Promise<Id<'memories'>[]> => {

@@ -3,18 +3,12 @@ import { Doc, Id } from './_generated/dataModel';
 import {
   DatabaseReader,
   MutationCtx,
+  internalAction,
   internalMutation,
   internalQuery,
   mutation,
 } from './_generated/server';
-import {
-  Position,
-  EntryOfType,
-  EntryType,
-  MessageEntry,
-  MemoryOfType,
-  MemoryType,
-} from './schema';
+import { Position, EntryOfType, EntryType, MessageEntry, MemoryOfType, MemoryType } from './schema';
 import { asyncMap, pruneNull } from './lib/utils';
 import { activePlayerDoc, getAllPlayers } from './players';
 import { CLOSE_DISTANCE, DEFAULT_START_POSE, STUCK_CHILL_TIME, TIME_PER_STEP } from './config';
@@ -29,6 +23,7 @@ import {
   roundPose,
 } from './lib/physics';
 import { clientMessageMapper } from './chat';
+import { internal } from './_generated/api';
 
 /**
  * Reading state about the world
@@ -41,6 +36,23 @@ export const getSnapshot = internalQuery({
     return {
       players: await asyncMap(playerDocs, (playerDoc) => getPlayer(ctx.db, playerDoc)),
     };
+  },
+});
+
+// Call this from the Convex dashboard function runner.
+export const setIdentity = internalAction({
+  args: {
+    playerId: v.id('players'),
+    identity: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.runAction(internal.lib.memory.embedMemory, {
+      memory: {
+        playerId: args.playerId,
+        data: { type: 'identity' },
+        description: args.identity,
+      },
+    });
   },
 });
 
@@ -280,7 +292,8 @@ export const walk = internalMutation({
     const world = (await ctx.db.get(worldId))!;
     const map = (await ctx.db.get(world.mapId))!;
     const targetPosition = target
-      ? roundPose(getPoseFromMotion(await getLatestPlayerMotion(ctx.db, target), Date.now())).position
+      ? roundPose(getPoseFromMotion(await getLatestPlayerMotion(ctx.db, target), Date.now()))
+          .position
       : getRandomPosition(map);
     return await walkToTarget(ctx, playerId, worldId, ignore, targetPosition);
   },
@@ -361,7 +374,12 @@ export const walkToTarget = async (
   };
 };
 
-export const getPlayerNextCollision = async (db: DatabaseReader, worldId: Id<"worlds">, playerId: Id<"players">, ignore: Id<"players">[]) => {
+export const getPlayerNextCollision = async (
+  db: DatabaseReader,
+  worldId: Id<'worlds'>,
+  playerId: Id<'players'>,
+  ignore: Id<'players'>[],
+) => {
   const ts = Date.now();
   const exclude = new Set([...ignore, playerId]);
   const otherPlayers = await asyncMap(
@@ -383,7 +401,7 @@ export const getPlayerNextCollision = async (db: DatabaseReader, worldId: Id<"wo
       agentIds: pruneNull(collisions.hits.map(({ agentId }) => agentId)),
     },
   };
-}
+};
 
 export function getRandomPosition(map: Doc<'maps'>): Position {
   let pos;

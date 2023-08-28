@@ -12,6 +12,7 @@ export async function startConversation(
   memory: MemoryDB,
   player: Player,
 ) {
+  console.log(`${player.id} starting a new conversation`);
   const newFriendsNames = audience.map((p) => p.name);
   const newFriendsNamesStr = newFriendsNames.join(',');
 
