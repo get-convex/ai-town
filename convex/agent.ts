@@ -6,7 +6,13 @@ import { v } from 'convex/values';
 import { internal, api } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import { ActionCtx, action, internalAction, internalMutation, internalQuery } from './_generated/server';
+import {
+  ActionCtx,
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -172,6 +178,7 @@ export async function handleAgentInteraction(
   memory: MemoryDB,
   done: DoneFn,
 ) {
+  console.log(`${players.length} players starting to interact`);
   // TODO: pick a better conversation starter
   const leader = pickLeader(players);
   const talkingToUser = !leader.agentId;
@@ -313,7 +320,7 @@ type DoneFn = (
 
 export const planCollisions = internalMutation({
   args: {
-    worldId: v.id("worlds"),
+    worldId: v.id('worlds'),
   },
   handler: async (ctx, args) => {
     const players = await getAllPlayers(ctx.db, args.worldId);
@@ -329,21 +336,23 @@ export const planCollisions = internalMutation({
       worldId: args.worldId,
       playerActivities,
     });
-  }
-})
+  },
+});
 
 export const agentsDone = internalMutation({
   args: {
-    worldId: v.id("worlds"),
+    worldId: v.id('worlds'),
     noSchedule: v.optional(v.boolean()),
-    playerActivities: v.array(v.object({
-      playerId: v.id("players"),
-      activity: v.union(v.literal('walk'), v.literal('continue')),
-      ignore: v.array(v.id("players")),
-    })),
+    playerActivities: v.array(
+      v.object({
+        playerId: v.id('players'),
+        activity: v.union(v.literal('walk'), v.literal('continue')),
+        ignore: v.array(v.id('players')),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
-    for (const {playerId, activity, ignore} of args.playerActivities) {
+    for (const { playerId, activity, ignore } of args.playerActivities) {
       const player = (await ctx.db.get(playerId))!;
       if (!player.agentId) {
         continue;
@@ -368,32 +377,34 @@ export const agentsDone = internalMutation({
         otherAgentIds: walkResult.nextCollision?.agentIds,
         wakeTs: walkResult.nextCollision?.ts ?? walkResult.targetEndTs,
         noSchedule: args.noSchedule,
-      })
+      });
     }
   },
 });
 
 export const getAgent = internalQuery({
-  args: {agentId: v.id("agents")},
-  handler: async (ctx, {agentId}) => {
+  args: { agentId: v.id('agents') },
+  handler: async (ctx, { agentId }) => {
     const agentDoc = (await ctx.db.get(agentId))!;
     const { playerId, worldId } = agentDoc;
-    return {playerId, worldId};
-  }
-})
+    return { playerId, worldId };
+  },
+});
 
 function handleDone(ctx: ActionCtx, noSchedule?: boolean): DoneFn {
   const doIt: DoneFn = async (agentId, activity) => {
     // console.debug('handleDone: ', agentId, activity);
     if (!agentId) return;
-    const { playerId, worldId } = await ctx.runQuery(internal.agent.getAgent, {agentId});
+    const { playerId, worldId } = await ctx.runQuery(internal.agent.getAgent, { agentId });
     await ctx.runMutation(internal.agent.agentsDone, {
       worldId,
-      playerActivities: [{
-        playerId,
-        ignore: activity.ignore,
-        activity: activity.type,
-      }],
+      playerActivities: [
+        {
+          playerId,
+          ignore: activity.ignore,
+          activity: activity.type,
+        },
+      ],
       noSchedule,
     });
   };
