@@ -71,38 +71,38 @@ async function getRecentHeartbeat(db: DatabaseReader) {
   );
 }
 
-export const agentDone = internalMutation({
+export const agentDone = async (
+  ctx: MutationCtx,
   args: {
-    agentId: v.id('agents'),
-    otherAgentIds: v.optional(v.array(v.id('agents'))),
-    wakeTs: v.number(),
-    noSchedule: v.optional(v.boolean()),
+    agentId: Id<'agents'>,
+    otherAgentIds?: Id<'agents'>[],
+    wakeTs: number,
+    noSchedule?: boolean,
   },
-  handler: async (ctx, args) => {
-    const agentDoc = await ctx.db.get(args.agentId);
-    if (!agentDoc) throw new Error(`Agent ${args.agentId} not found`);
-    if (!agentDoc.thinking) {
-      throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
-    }
+) => {
+  const agentDoc = await ctx.db.get(args.agentId);
+  if (!agentDoc) throw new Error(`Agent ${args.agentId} not found`);
+  // if (!agentDoc.thinking) {
+  //   throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
+  // }
 
-    const nextWakeTs = Math.ceil(args.wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
-    await ctx.db.replace(args.agentId, {
-      playerId: agentDoc.playerId,
-      worldId: agentDoc.worldId,
-      thinking: false,
-      lastWakeTs: agentDoc.nextWakeTs,
+  const nextWakeTs = Math.ceil(args.wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
+  await ctx.db.replace(args.agentId, {
+    playerId: agentDoc.playerId,
+    worldId: agentDoc.worldId,
+    thinking: false,
+    lastWakeTs: agentDoc.nextWakeTs,
+    nextWakeTs,
+    alsoWake: args.otherAgentIds,
+    scheduled: await enqueueAgentWake(
+      ctx,
+      args.agentId,
+      agentDoc.worldId,
       nextWakeTs,
-      alsoWake: args.otherAgentIds,
-      scheduled: await enqueueAgentWake(
-        ctx,
-        args.agentId,
-        agentDoc.worldId,
-        nextWakeTs,
-        args.noSchedule,
-      ),
-    });
-  },
-});
+      args.noSchedule,
+    ),
+  });
+};
 
 export async function enqueueAgentWake(
   ctx: MutationCtx,

@@ -6,7 +6,7 @@ import { v } from 'convex/values';
 import { internal, api } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import { ActionCtx, action, internalAction } from './_generated/server';
+import { ActionCtx, action, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -18,6 +18,9 @@ import {
 } from './conversation';
 import { getNearbyPlayers } from './lib/physics';
 import { CONVERSATION_TIME_LIMIT, CONVERSATION_PAUSE } from './config';
+import { walkToTarget, getPlayerNextCollision, getRandomPosition } from './journal';
+import { agentDone } from './engine';
+import { getAllPlayers } from './players';
 
 const awaitTimeout = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -236,7 +239,8 @@ export async function handleAgentInteraction(
     lastSpeakerId = speaker.id;
     const audience = players.filter((p) => p.id !== speaker.id).map((p) => p.id);
     const shouldWalkAway =
-      !talkingToUser && (audience.length === 0 || (await walkAway(chatHistory, speaker)) || Date.now() > endAfterTs);
+      !talkingToUser &&
+      (audience.length === 0 || (await walkAway(chatHistory, speaker)) || Date.now() > endAfterTs);
 
     // Decide if we keep talking.
     if (shouldWalkAway) {
@@ -283,7 +287,7 @@ export async function handleAgentInteraction(
           conversationId,
         });
         // wait for user to type message.
-        await awaitTimeout(CONVERSATION_PAUSE);
+        await awaitTimeout(100);
       }
       messages.push(message);
     }
@@ -307,32 +311,89 @@ type DoneFn = (
     | { type: 'continue'; ignore: Id<'players'>[] },
 ) => Promise<void>;
 
+export const planCollisions = internalMutation({
+  args: {
+    worldId: v.id("worlds"),
+  },
+  handler: async (ctx, args) => {
+    const players = await getAllPlayers(ctx.db, args.worldId);
+    const playerActivities = [];
+    for (const player of players) {
+      playerActivities.push({
+        playerId: player._id,
+        activity: 'continue' as const,
+        ignore: [],
+      });
+    }
+    await ctx.scheduler.runAfter(0, internal.agent.agentsDone, {
+      worldId: args.worldId,
+      playerActivities,
+    });
+  }
+})
+
+export const agentsDone = internalMutation({
+  args: {
+    worldId: v.id("worlds"),
+    noSchedule: v.optional(v.boolean()),
+    playerActivities: v.array(v.object({
+      playerId: v.id("players"),
+      activity: v.union(v.literal('walk'), v.literal('continue')),
+      ignore: v.array(v.id("players")),
+    })),
+  },
+  handler: async (ctx, args) => {
+    for (const {playerId, activity, ignore} of args.playerActivities) {
+      const player = (await ctx.db.get(playerId))!;
+      if (!player.agentId) {
+        continue;
+      }
+      let walkResult;
+      switch (activity) {
+        case 'walk':
+          const world = (await ctx.db.get(args.worldId))!;
+          const map = (await ctx.db.get(world.mapId))!;
+          const targetPosition = getRandomPosition(map);
+          walkResult = await walkToTarget(ctx, playerId, args.worldId, ignore, targetPosition);
+          break;
+        case 'continue':
+          walkResult = await getPlayerNextCollision(ctx.db, args.worldId, playerId, ignore);
+          break;
+        default:
+          const _exhaustiveCheck: never = activity;
+          throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
+      }
+      await agentDone(ctx, {
+        agentId: player.agentId!,
+        otherAgentIds: walkResult.nextCollision?.agentIds,
+        wakeTs: walkResult.nextCollision?.ts ?? walkResult.targetEndTs,
+        noSchedule: args.noSchedule,
+      })
+    }
+  },
+});
+
+export const getAgent = internalQuery({
+  args: {agentId: v.id("agents")},
+  handler: async (ctx, {agentId}) => {
+    const agentDoc = (await ctx.db.get(agentId))!;
+    const { playerId, worldId } = agentDoc;
+    return {playerId, worldId};
+  }
+})
+
 function handleDone(ctx: ActionCtx, noSchedule?: boolean): DoneFn {
   const doIt: DoneFn = async (agentId, activity) => {
     // console.debug('handleDone: ', agentId, activity);
     if (!agentId) return;
-    let walkResult;
-    switch (activity.type) {
-      case 'walk':
-        walkResult = await ctx.runMutation(internal.journal.walk, {
-          agentId,
-          ignore: activity.ignore,
-        });
-        break;
-      case 'continue':
-        walkResult = await ctx.runQuery(internal.journal.nextCollision, {
-          agentId,
-          ignore: activity.ignore,
-        });
-        break;
-      default:
-        const _exhaustiveCheck: never = activity;
-        throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
-    }
-    await ctx.runMutation(internal.engine.agentDone, {
-      agentId,
-      otherAgentIds: walkResult.nextCollision?.agentIds,
-      wakeTs: walkResult.nextCollision?.ts ?? walkResult.targetEndTs,
+    const { playerId, worldId } = await ctx.runQuery(internal.agent.getAgent, {agentId});
+    await ctx.runMutation(internal.agent.agentsDone, {
+      worldId,
+      playerActivities: [{
+        playerId,
+        ignore: activity.ignore,
+        activity: activity.type,
+      }],
       noSchedule,
     });
   };
