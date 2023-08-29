@@ -1,5 +1,68 @@
 // That's right! No imports and no dependencies 🤯
 
+export class ChatCompletionContent {
+  private readonly body: ReadableStream<Uint8Array>;
+
+  constructor(body: ReadableStream<Uint8Array>) {
+    this.body = body;
+  }
+
+  async *read() {
+    for await (const data of this.splitStream(this.body)) {
+      if (data.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(data.substring('data: '.length)) as {
+            choices: { delta: { content?: string } }[];
+          };
+          if (json.choices[0].delta.content) {
+            yield json.choices[0].delta.content;
+          }
+        } catch (e) {
+          // e.g. the last chunk is [DONE] which is not valid JSON.
+        }
+      }
+    }
+  }
+
+  async readAll() {
+    let allContent = '';
+    for await (const chunk of this.read()) {
+      allContent += chunk;
+    }
+    return allContent;
+  }
+
+  async *splitStream(stream: ReadableStream<Uint8Array>) {
+    const reader = stream.getReader();
+    let lastFragment = '';
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          break;
+        }
+        const data = new TextDecoder().decode(value);
+        let startIdx = 0;
+        while (true) {
+          const endIdx = data.indexOf('\n\n', startIdx);
+          if (endIdx === -1) {
+            lastFragment += data.substring(startIdx);
+            break;
+          }
+          yield lastFragment + data.substring(startIdx, endIdx);
+          startIdx = endIdx + 2;
+          lastFragment = '';
+        }
+      }
+      if (lastFragment) {
+        yield lastFragment;
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+}
+
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
