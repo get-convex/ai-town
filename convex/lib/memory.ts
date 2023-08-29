@@ -86,7 +86,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
 
         if (memory.importance === undefined) {
           // TODO: make a better prompt based on the user's memories
-          const { content: importanceRaw } = await chatCompletion({
+          const { content: importanceRawStream } = await chatCompletion({
             messages: [
               { role: 'user', content: memory.description },
               {
@@ -97,6 +97,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
             ],
             max_tokens: 1,
           });
+          const importanceRaw = await importanceRawStream.readAll();
           let importance = NaN;
           for (let i = 0; i < importanceRaw.length; i++) {
             const number = parseInt(importanceRaw[i]);
@@ -151,7 +152,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
       await this.addMemories([
         {
           playerId,
-          description,
+          description: await description.readAll(),
           data: {
             type: 'conversation',
             conversationId,
@@ -196,7 +197,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
         });
 
         try {
-          const insights = JSON.parse(reflection) as { insight: string; statementIds: number[] }[];
+          const insights = JSON.parse(await reflection.readAll()) as { insight: string; statementIds: number[] }[];
           const memoriesToSave: MemoryOfType<'reflection'>[] = [];
           insights.forEach((item) => {
             const relatedMemoryIds = item.statementIds.map((idx: number) => memories[idx]._id);
@@ -293,6 +294,23 @@ export const embedMemory = internalAction({
   args: { memory: v.object(NewMemory) },
   handler: async (ctx, args) => {
     await MemoryDB(ctx).addMemories([args.memory]);
+  },
+});
+
+// Call this from the Convex dashboard function runner.
+export const setIdentity = internalAction({
+  args: {
+    playerId: v.id('players'),
+    identity: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.runAction(internal.lib.memory.embedMemory, {
+      memory: {
+        playerId: args.playerId,
+        data: { type: 'identity' },
+        description: args.identity,
+      },
+    });
   },
 });
 
@@ -394,7 +412,9 @@ export const getRecentMessages = internalQuery({
     // beginning of time (for this user's conversations).
     const firstMessage = (await ctx.db
       .query('journal')
-      .withIndex('by_conversation', (q) => q.eq('data.conversationId', conversationId as any as undefined))
+      .withIndex('by_conversation', (q) =>
+        q.eq('data.conversationId', conversationId as any as undefined),
+      )
       .first()) as EntryOfType<'talking'>;
 
     // Look for the last conversation memory for this conversation

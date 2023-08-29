@@ -39,23 +39,6 @@ export const getSnapshot = internalQuery({
   },
 });
 
-// Call this from the Convex dashboard function runner.
-export const setIdentity = internalAction({
-  args: {
-    playerId: v.id('players'),
-    identity: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.runAction(internal.lib.memory.embedMemory, {
-      memory: {
-        playerId: args.playerId,
-        data: { type: 'identity' },
-        description: args.identity,
-      },
-    });
-  },
-});
-
 export async function getPlayer(db: DatabaseReader, playerDoc: Doc<'players'>) {
   const agentDoc = playerDoc.agentId ? await db.get(playerDoc.agentId) : null;
   const latestConversation = await getLatestPlayerConversation(db, playerDoc._id);
@@ -222,6 +205,21 @@ export const talk = internalMutation({
       playerId,
       data: { type: 'talking', ...args },
     });
+    return await clientMessageMapper(ctx.db)((await ctx.db.get(entryId))! as MessageEntry);
+  },
+});
+
+export const talkMore = internalMutation({
+  args: {
+    entryId: v.id('journal'),
+    content: v.string(),
+  },
+  handler: async (ctx, { entryId, content }) => {
+    const data = (await ctx.db.get(entryId))!.data;
+    if (data.type === 'talking') {
+      data.content += content;
+    }
+    await ctx.db.patch(entryId, { data });
     return await clientMessageMapper(ctx.db)((await ctx.db.get(entryId))! as MessageEntry);
   },
 });
