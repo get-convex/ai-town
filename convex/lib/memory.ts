@@ -85,7 +85,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
 
         if (memory.importance === undefined) {
           // TODO: make a better prompt based on the user's memories
-          const { content: importanceRaw } = await chatCompletion({
+          const { content: importanceRawStream } = await chatCompletion({
             messages: [
               { role: 'user', content: memory.description },
               {
@@ -96,6 +96,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
             ],
             max_tokens: 1,
           });
+          const importanceRaw = await importanceRawStream.readAll();
           let importance = NaN;
           for (let i = 0; i < importanceRaw.length; i++) {
             const number = parseInt(importanceRaw[i]);
@@ -150,7 +151,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
       await this.addMemories([
         {
           playerId,
-          description,
+          description: await description.readAll(),
           data: {
             type: 'conversation',
             conversationId,
@@ -195,7 +196,7 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
         });
 
         try {
-          const insights = JSON.parse(reflection) as { insight: string; statementIds: number[] }[];
+          const insights = JSON.parse(await reflection.readAll()) as { insight: string; statementIds: number[] }[];
           const memoriesToSave: MemoryOfType<'reflection'>[] = [];
           insights.forEach((item) => {
             const relatedMemoryIds = item.statementIds.map((idx: number) => memories[idx]._id);
