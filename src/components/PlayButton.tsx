@@ -61,7 +61,7 @@ export default function PlayButton() {
           <span>
             <div className="inline-flex items-center gap-4">
               <img className="w-6 h-6" src="/ai-town/assets/volume.svg" />
-              {isPlaying ? 'Leave' : 'Join'}
+              {isPlaying ? 'WASD move / Q stop' : 'Join'}
             </div>
           </span>
         </div>
