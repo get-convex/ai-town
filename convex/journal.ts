@@ -226,16 +226,57 @@ export const talk = internalMutation({
   },
 });
 
+const currentConversation = async (db: DatabaseReader, playerId: Id<'players'>) => {
+  const conversationEvents = [];
+  for (const event of [
+    await latestEntryOfType(db, playerId, 'startConversation'),
+    await latestEntryOfType(db, playerId, 'talking'),
+    await latestEntryOfType(db, playerId, 'leaveConversation')]) {
+    if (event) {
+      conversationEvents.push({creationTime: event._creationTime, data: event.data });
+    }
+  }
+  conversationEvents.sort((a, b) => (a.creationTime - b.creationTime));
+  if (conversationEvents.length === 0) {
+    return null;
+  }
+  const lastEvent = conversationEvents[conversationEvents.length - 1];
+  if (lastEvent.data.type === 'leaveConversation') {
+    return null;
+  }
+  return lastEvent.data;
+};
+
+export const talkingToUser = async (db: DatabaseReader, playerId: Id<'players'>) => {
+  const lastConversation = await currentConversation(db, playerId);
+  if (!lastConversation) {
+    return null;
+  }
+  for (const audienceId of lastConversation.audience) {
+    const player = await db.get(audienceId);
+    if (player && player.agentId) {
+      continue; // Not a user.
+    }
+    const playerConversation = await currentConversation(db, audienceId);
+    if (playerConversation?.conversationId === lastConversation.conversationId) {
+      return true;
+    }
+  }
+  return false;
+};
+
 export const leaveConversation = internalMutation({
   args: {
     playerId: v.id('players'),
-    audience: v.array(v.id('players')),
-    conversationId: v.id('conversations'),
   },
-  handler: async (ctx, { playerId, audience, conversationId }) => {
+  handler: async (ctx, { playerId }) => {
+    const conversation = await currentConversation(ctx.db, playerId);
+    if (!conversation) {
+      return;
+    }
     await ctx.db.insert('journal', {
       playerId,
-      data: { type: 'leaveConversation', audience, conversationId },
+      data: { type: 'leaveConversation', audience: conversation.audience, conversationId: conversation.conversationId },
     });
   },
 });

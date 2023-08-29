@@ -1,6 +1,6 @@
 import { cronJobs } from 'convex/server';
-import { DatabaseReader, internalMutation } from './_generated/server';
-import { getLatestPlayerMotion, latestEntryOfType } from './journal';
+import { internalMutation } from './_generated/server';
+import { talkingToUser, getLatestPlayerMotion } from './journal';
 import {
   AGENT_THINKING_TOO_LONG,
   VACUUM_BATCH_SIZE,
@@ -9,46 +9,7 @@ import {
 } from './config';
 import { enqueueAgentWake } from './engine';
 import { internal } from './_generated/api';
-import { Id, TableNames } from './_generated/dataModel';
-
-const currentConversation = async (db: DatabaseReader, playerId: Id<'players'>) => {
-  const conversationEvents = [];
-  for (const event of [
-    await latestEntryOfType(db, playerId, 'startConversation'),
-    await latestEntryOfType(db, playerId, 'talking'),
-    await latestEntryOfType(db, playerId, 'leaveConversation')]) {
-    if (event) {
-      conversationEvents.push({creationTime: event._creationTime, data: event.data });
-    }
-  }
-  conversationEvents.sort((a, b) => (a.creationTime - b.creationTime));
-  if (conversationEvents.length === 0) {
-    return null;
-  }
-  const lastEvent = conversationEvents[conversationEvents.length - 1];
-  if (lastEvent.data.type === 'leaveConversation') {
-    return null;
-  }
-  return lastEvent.data;
-};
-
-const talkingToUser = async (db: DatabaseReader, playerId: Id<'players'>) => {
-  const lastConversation = await currentConversation(db, playerId);
-  if (!lastConversation) {
-    return null;
-  }
-  for (const audienceId of lastConversation.audience) {
-    const player = await db.get(audienceId);
-    if (player && player.agentId) {
-      continue; // Not a user.
-    }
-    const playerConversation = await currentConversation(db, audienceId);
-    if (playerConversation?.conversationId === lastConversation.conversationId) {
-      return true;
-    }
-  }
-  return false;
-};
+import { TableNames } from './_generated/dataModel';
 
 export const recoverThinkingAgents = internalMutation({
   args: {},

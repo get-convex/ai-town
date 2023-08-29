@@ -200,7 +200,7 @@ export async function handleAgentInteraction(
 
   const messages: Message[] = [];
 
-  const endAfterTs = Date.now() + CONVERSATION_TIME_LIMIT;
+  const endAfterTs = Date.now() + (talkingToUser ? 570_000 : CONVERSATION_TIME_LIMIT);
   // Choose who should speak next:
   let endConversation = false;
   let lastSpeakerId = leader.id;
@@ -219,16 +219,15 @@ export async function handleAgentInteraction(
     lastSpeakerId = speaker.id;
     const audience = players.filter((p) => p.id !== speaker.id).map((p) => p.id);
     const shouldWalkAway =
-      !talkingToUser &&
-      (audience.length === 0 || (await walkAway(chatHistory, speaker)) || Date.now() > endAfterTs);
+      audience.length === 0 ||
+      (!talkingToUser && (await walkAway(chatHistory, speaker))) ||
+      Date.now() > endAfterTs;
 
     // Decide if we keep talking.
     if (shouldWalkAway) {
       // It's to chatty here, let's go somewhere else.
       await ctx.runMutation(internal.journal.leaveConversation, {
         playerId: speaker.id,
-        audience,
-        conversationId,
       });
       // Update remaining players
       remainingPlayers = remainingPlayers.filter((p) => p.id !== speaker.id);
@@ -266,6 +265,9 @@ export async function handleAgentInteraction(
         message = await ctx.runQuery(internal.chat.lastMessage, {
           conversationId,
         });
+        if (message.from === speaker.id && message.type === 'left') {
+          break;
+        }
         // wait for user to type message.
         await awaitTimeout(100);
       }

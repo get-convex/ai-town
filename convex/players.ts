@@ -133,6 +133,9 @@ export const navigateActivePlayer = mutation({
         : currentPosition;
     console.log(`walking to x: ${position.x}, y: ${position.y}`);
     await walkToTarget(ctx, player.id, world!._id, [], position);
+    await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
+      playerId: player.id,
+    });
     await ctx.scheduler.runAfter(0, internal.agent.planCollisions, {worldId: world!._id});
   },
 });
