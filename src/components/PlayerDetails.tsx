@@ -57,11 +57,9 @@ function MessageInput({
   const userTalk = useMutation(api.journal.userTalk);
   const inputRef = useRef<HTMLParagraphElement>(null);
 
-  const keyPress = async (key: string) => {
-    if (key === 'Enter') {
-      await userTalk({content: inputRef.current!.innerText});
-      inputRef.current!.innerText = '';
-    }
+  const enterKeyPress = async () => {
+    await userTalk({content: inputRef.current!.innerText});
+    inputRef.current!.innerText = '';
   };
 
   if (activePlayer?.id !== currentPlayerId) {
@@ -80,7 +78,10 @@ function MessageInput({
         tabIndex={0}
         onKeyDown={(e) => {
           e.stopPropagation();
-          void keyPress(e.key);
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            void enterKeyPress();
+          }
         }}
       >
       </p>
