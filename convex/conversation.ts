@@ -41,8 +41,7 @@ export async function startConversation(
   ];
   const stop = stopWords(newFriendsNames);
   const { content } = await chatCompletion({ messages: prompt, max_tokens: 300, stop });
-  const contentStr = await content.readAll();
-  return { content: contentStr, memoryIds: memories.map((m) => m.memory._id) };
+  return { content, memoryIds: memories.map((m) => m.memory._id) };
 }
 
 function messageContent(m: Message): string {
@@ -171,7 +170,7 @@ export async function converse(
   const stop = stopWords(nearbyPlayers.map((p) => p.name));
   const { content } = await chatCompletion({ messages: prompt, max_tokens: 300, stop });
   // console.debug('converse result through chatgpt: ', content);
-  return { content: await content.readAll(), memoryIds: memories.map((m) => m.memory._id) };
+  return { content, memoryIds: memories.map((m) => m.memory._id) };
 }
 
 export async function walkAway(messages: LLMMessage[], player: Player): Promise<boolean> {
