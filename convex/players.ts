@@ -8,7 +8,7 @@ import { getPlayer, getRandomPosition, walkToTarget } from './journal';
 import { internal } from './_generated/api';
 import { getPoseFromMotion, roundPose } from './lib/physics';
 
-const activeWorld = async (db: DatabaseReader) => {
+export const activeWorld = async (db: DatabaseReader) => {
   // Future: based on auth, fetch the user's world
   const world = await db.query('worlds').order('desc').first();
   if (!world) {
@@ -133,12 +133,12 @@ export const navigateActivePlayer = mutation({
         : currentPosition;
     console.log(`walking to x: ${position.x}, y: ${position.y}`);
     await walkToTarget(ctx, player.id, world!._id, [], position);
-    await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
-      playerId: player.id,
-    });
     if (direction !== 'q') {
-      await ctx.scheduler.runAfter(0, internal.agent.planCollisions, { worldId: world!._id });
+      await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
+        playerId: player.id,
+      });
     }
+    await ctx.scheduler.runAfter(0, internal.agent.planCollisions, { worldId: world!._id });
   },
 });
 

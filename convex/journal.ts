@@ -226,7 +226,7 @@ export const talk = internalMutation({
   },
 });
 
-const currentConversation = async (db: DatabaseReader, playerId: Id<'players'>) => {
+export const currentConversation = async (db: DatabaseReader, playerId: Id<'players'>) => {
   const conversationEvents = [];
   for (const event of [
     await latestEntryOfType(db, playerId, 'startConversation'),

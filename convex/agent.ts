@@ -6,7 +6,13 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import { ActionCtx, internalAction, internalMutation, internalQuery } from './_generated/server';
+import {
+  ActionCtx,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -16,11 +22,17 @@ import {
   startConversation,
   walkAway,
 } from './conversation';
-import { getNearbyPlayers } from './lib/physics';
+import { getNearbyPlayers, getPoseFromMotion, roundPose } from './lib/physics';
 import { CONVERSATION_TIME_LIMIT, CONVERSATION_PAUSE } from './config';
-import { walkToTarget, getPlayerNextCollision, getRandomPosition } from './journal';
+import {
+  walkToTarget,
+  getPlayerNextCollision,
+  getRandomPosition,
+  currentConversation,
+  getLatestPlayerMotion,
+} from './journal';
 import { agentDone } from './engine';
-import { getAllPlayers } from './players';
+import { activePlayer, getAllPlayers, activeWorld } from './players';
 
 const awaitTimeout = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -91,6 +103,29 @@ export const runAgentBatch = internalAction({
   },
 });
 
+export const talkToMe = mutation({
+  args: { playerId: v.id('players') },
+  handler: async (ctx, args) => {
+    const me = await activePlayer(ctx.db);
+    if (!me) {
+      return;
+    }
+    if (me.id === args.playerId) {
+      return;
+    }
+    const world = await activeWorld(ctx.db);
+    if (await currentConversation(ctx.db, args.playerId)) {
+      // Already talking to someone else.
+      return;
+    }
+    const target = roundPose(
+      getPoseFromMotion(await getLatestPlayerMotion(ctx.db, me.id), Date.now()),
+    ).position;
+    await walkToTarget(ctx, args.playerId, world!._id, [], target);
+    await ctx.scheduler.runAfter(0, internal.agent.planCollisions, { worldId: world!._id });
+  },
+});
+
 function divideIntoGroups(players: Player[]) {
   const playerById = new Map(players.map((p) => [p.id, p]));
   const groups: Player[][] = [];
@@ -151,9 +186,9 @@ export async function handleAgentInteraction(
   memory: MemoryDB,
   done: DoneFn,
 ) {
-  console.log(`${players.length} players starting to interact`);
   // TODO: pick a better conversation starter
   const leader = pickLeader(players);
+  const nonLeaders = players.filter((p) => p.id !== leader.id);
   const talkingToUser = !leader.agentId;
   for (const player of players) {
     const imWalkingHere =
@@ -179,12 +214,12 @@ export async function handleAgentInteraction(
   }
   await ctx.runMutation(internal.journal.turnToFace, {
     playerId: leader.id,
-    targetId: players[1].id,
+    targetId: nonLeaders[0].id,
   });
 
   const conversationId = await ctx.runMutation(internal.journal.makeConversation, {
     playerId: leader.id,
-    audience: players.slice(1).map((p) => p.id),
+    audience: nonLeaders.map((p) => p.id),
   });
 
   const playerById = new Map(players.map((p) => [p.id, p]));
@@ -266,6 +301,7 @@ export async function handleAgentInteraction(
           conversationId,
         });
         if (message.from === speaker.id && message.type === 'left') {
+          endConversation = true;
           break;
         }
         // wait for user to type message.
