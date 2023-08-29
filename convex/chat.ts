@@ -72,7 +72,7 @@ export const paginateMessages = query({
   },
 });
 
-function conversationQuery(db: DatabaseReader, conversationId: Id<'conversations'>) {
+export function conversationQuery(db: DatabaseReader, conversationId: Id<'conversations'>) {
   return (
     db
       .query('journal')

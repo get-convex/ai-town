@@ -22,7 +22,7 @@ import {
   manhattanDistance,
   roundPose,
 } from './lib/physics';
-import { clientMessageMapper } from './chat';
+import { clientMessageMapper, conversationQuery } from './chat';
 import { internal } from './_generated/api';
 
 /**
@@ -227,24 +227,18 @@ export const talk = internalMutation({
 });
 
 export const currentConversation = async (db: DatabaseReader, playerId: Id<'players'>) => {
-  const conversationEvents = [];
-  for (const event of [
-    await latestEntryOfType(db, playerId, 'startConversation'),
-    await latestEntryOfType(db, playerId, 'talking'),
-    await latestEntryOfType(db, playerId, 'leaveConversation')]) {
-    if (event) {
-      conversationEvents.push({creationTime: event._creationTime, data: event.data });
-    }
-  }
-  conversationEvents.sort((a, b) => (a.creationTime - b.creationTime));
-  if (conversationEvents.length === 0) {
+  const conversation = await getLatestPlayerConversation(db, playerId);
+  if (!conversation) {
     return null;
   }
-  const lastEvent = conversationEvents[conversationEvents.length - 1];
-  if (lastEvent.data.type === 'leaveConversation') {
+  if (conversation.data.type === 'leaveConversation') {
     return null;
   }
-  return lastEvent.data;
+  const latestChat = await conversationQuery(db, conversation.data.conversationId).first();
+  if (latestChat!.data.type === 'leaveConversation') {
+    return null;
+  }
+  return conversation.data;
 };
 
 export const talkingToUser = async (db: DatabaseReader, playerId: Id<'players'>) => {
@@ -276,7 +270,11 @@ export const leaveConversation = internalMutation({
     }
     await ctx.db.insert('journal', {
       playerId,
-      data: { type: 'leaveConversation', audience: conversation.audience, conversationId: conversation.conversationId },
+      data: {
+        type: 'leaveConversation',
+        audience: conversation.audience,
+        conversationId: conversation.conversationId,
+      },
     });
   },
 });

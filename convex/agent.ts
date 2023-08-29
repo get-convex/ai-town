@@ -115,7 +115,7 @@ export const talkToMe = mutation({
     }
     const world = await activeWorld(ctx.db);
     if (await currentConversation(ctx.db, args.playerId)) {
-      // Already talking to someone else.
+      console.log('already talking to someone else');
       return;
     }
     const target = roundPose(
