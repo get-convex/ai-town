@@ -136,7 +136,9 @@ export const navigateActivePlayer = mutation({
     await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
       playerId: player.id,
     });
-    await ctx.scheduler.runAfter(0, internal.agent.planCollisions, {worldId: world!._id});
+    if (direction !== 'q') {
+      await ctx.scheduler.runAfter(0, internal.agent.planCollisions, { worldId: world!._id });
+    }
   },
 });
 
