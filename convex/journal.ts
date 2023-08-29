@@ -3,7 +3,6 @@ import { Doc, Id } from './_generated/dataModel';
 import {
   DatabaseReader,
   MutationCtx,
-  internalAction,
   internalMutation,
   internalQuery,
   mutation,
@@ -23,7 +22,6 @@ import {
   roundPose,
 } from './lib/physics';
 import { clientMessageMapper, conversationQuery } from './chat';
-import { internal } from './_generated/api';
 
 /**
  * Reading state about the world
