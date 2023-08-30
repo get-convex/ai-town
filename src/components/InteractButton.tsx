@@ -70,10 +70,10 @@ export default function InteractButton() {
         }}
         title="Join the town (press a/s/d/f to walk)"
       >
-        <div className="inline-block bg-clay-700">
+        <div className="inline-block h-full bg-clay-700 cursor-pointer">
           <span>
             <div className="inline-flex items-center gap-4">
-              <img className="w-6 h-6" src="/assets/volume.svg" />
+              <img className="w-[48px] h-[30px] max-w-[54px]" src="/assets/interact.svg" />
               {isPlaying ? 'Interacting' : 'Interact'}
             </div>
           </span>
