@@ -43,17 +43,18 @@ function Messages({
             )}
           </div>
         ))}
-        <MessageInput currentPlayerId={currentPlayerId} />
+        <MessageInput conversationId={conversationId} />
     </>
   );
 }
 
 function MessageInput({
-  currentPlayerId,
+  conversationId,
 }: {
-  currentPlayerId: Id<'players'>;
+  conversationId: Id<'conversations'>;
 }) {
   const activePlayer = useQuery(api.players.getActivePlayer);
+  const waitingToTalk = useQuery(api.players.waitingToTalk, {conversationId});
   const userTalk = useMutation(api.journal.userTalk);
   const inputRef = useRef<HTMLParagraphElement>(null);
 
@@ -62,7 +63,7 @@ function MessageInput({
     inputRef.current!.innerText = '';
   };
 
-  if (activePlayer?.id !== currentPlayerId) {
+  if (!activePlayer || !waitingToTalk) {
     return null;
   }
   return <div className="leading-tight mb-6">
@@ -76,6 +77,7 @@ function MessageInput({
         contentEditable
         style={{outline: 'none'}}
         tabIndex={0}
+        placeholder='Type here'
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === 'Enter') {

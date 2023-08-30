@@ -6,12 +6,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import {
-  ActionCtx,
-  internalAction,
-  internalMutation,
-  mutation,
-} from './_generated/server';
+import { ActionCtx, internalAction, internalMutation, mutation } from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -110,6 +105,11 @@ export const talkToMe = mutation({
       return;
     }
     if (me.id === args.playerId) {
+      return;
+    }
+    const myCurrentConversation = await currentConversation(ctx.db, me.id);
+    if (myCurrentConversation && myCurrentConversation.audience.includes(args.playerId)) {
+      console.log('already talking to me');
       return;
     }
     const world = await activeWorld(ctx.db);
@@ -317,6 +317,7 @@ export async function handleAgentInteraction(
           endConversation = true;
           break;
         }
+        await ctx.runMutation(internal.chat.thinkAboutConversation, { playerId: speaker.id, conversationId });
         // wait for user to type message.
         await awaitTimeout(100);
       }
@@ -349,7 +350,7 @@ export const agentsDone = internalMutation({
     activity: v.union(v.literal('walk'), v.literal('continue')),
     ignore: v.array(v.id('players')),
   },
-  handler: async (ctx, {noSchedule, agentId, activity, ignore}) => {
+  handler: async (ctx, { noSchedule, agentId, activity, ignore }) => {
     if (!agentId) {
       return;
     }
@@ -385,13 +386,7 @@ export const agentsDone = internalMutation({
       lastWakeTs: agentDoc.nextWakeTs,
       nextWakeTs,
       alsoWake: walkResult.nextCollision?.agentIds,
-      scheduled: await enqueueAgentWake(
-        ctx,
-        agentId,
-        agentDoc.worldId,
-        nextWakeTs,
-        noSchedule,
-      ),
+      scheduled: await enqueueAgentWake(ctx, agentId, agentDoc.worldId, nextWakeTs, noSchedule),
     });
   },
 });

@@ -107,6 +107,17 @@ export const getActivePlayer = query({
   },
 });
 
+export const waitingToTalk = query({
+  args: {conversationId: v.id('conversations')},
+  handler: async (ctx, {conversationId}) => {
+    const activePlayer = await activePlayerDoc(ctx.auth, ctx.db);
+    if (!activePlayer) {
+      return false;
+    }
+    return activePlayer.controllerThinking === conversationId;
+  }
+})
+
 export const navigateActivePlayer = mutation({
   args: {
     direction: v.union(

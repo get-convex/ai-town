@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
-import { DatabaseReader, internalQuery, query } from './_generated/server';
+import { DatabaseReader, internalMutation, internalQuery, query } from './_generated/server';
 import { EntryOfType, MessageEntry } from './schema';
 import { PaginationResult, paginationOptsValidator } from 'convex/server';
 import { Message } from './schema';
@@ -89,6 +89,12 @@ export const lastMessage = internalQuery({
   },
 });
 
+export const thinkAboutConversation = internalMutation({
+  args: { playerId: v.id("players"), conversationId: v.id("conversations") },
+  handler: async (ctx, {playerId, conversationId}) => {
+    await ctx.db.patch(playerId, {controllerThinking: conversationId});
+  },
+});
 
 export function clientMessageMapper(db: DatabaseReader) {
   const getName = async (id: Id<'players'>) => (await db.get(id))?.name || '<Anonymous>';

@@ -251,6 +251,7 @@ export default defineSchema(
       name: v.string(),
       worldId: v.id('worlds'),
       controller: v.optional(v.string()),
+      controllerThinking: v.optional(v.id('conversations')),
       // For NPCs, this is set to the agent's state.
       agentId: v.optional(v.id('agents')),
       characterId: v.id('characters'),

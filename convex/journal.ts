@@ -183,6 +183,9 @@ export const userTalk = mutation({
         relatedMemoryIds: [],
       },
     });
+    await ctx.db.patch(player.id, {
+      controllerThinking: undefined,
+    });
   },
 });
 
