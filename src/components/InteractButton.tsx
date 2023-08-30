@@ -1,23 +1,26 @@
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useCallback, useEffect } from 'react';
 import { data as f1SpritesheetData } from '../../convex/characterdata/spritesheets/f1';
+import { useUser } from '@clerk/clerk-react';
 
 export default function InteractButton() {
   const player = useQuery(api.players.getActivePlayer);
   const navigate = useMutation(api.players.navigateActivePlayer);
   const createCharacter = useMutation(api.players.createCharacter);
   const createPlayer = useMutation(api.players.createPlayer);
+  const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
   const isPlaying = !!player;
 
   const startPlaying = async () => {
-    if (isPlaying) {
+    if (!isAuthenticated || isPlaying || !user) {
       return;
     }
-    const characterId = await createCharacter({name: "me", spritesheetData: f1SpritesheetData});
+    const characterId = await createCharacter({name: "user", spritesheetData: f1SpritesheetData});
     await createPlayer({
       forUser: true,
-      name: "Me",
+      name: user.firstName ?? "Me",
       characterId,
       pose: {
         position: {x: 1, y: 1},
@@ -59,6 +62,10 @@ export default function InteractButton() {
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [handleKeyPress]);
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <>

@@ -250,7 +250,7 @@ export default defineSchema(
     players: defineTable({
       name: v.string(),
       worldId: v.id('worlds'),
-      controller: v.optional(v.string()),  // TODO(lee) v.id("users")
+      controller: v.optional(v.string()),
       // For NPCs, this is set to the agent's state.
       agentId: v.optional(v.id('agents')),
       characterId: v.id('characters'),

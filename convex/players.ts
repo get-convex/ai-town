@@ -73,15 +73,23 @@ export const playerState = query({
   },
 });
 
-export const activePlayerDoc = async (auth: Auth, db: DatabaseReader): Promise<Doc<'players'> | null> => {
+export const activePlayerDoc = async (
+  auth: Auth,
+  db: DatabaseReader,
+): Promise<Doc<'players'> | null> => {
   const world = await activeWorld(db);
   if (!world) {
     return null;
   }
-  const userId = 'LEE';
+  const userIdentity = await auth.getUserIdentity();
+  if (!userIdentity) {
+    return null;
+  }
   const playerDoc = await db
     .query('players')
-    .withIndex('by_user', (q) => q.eq('worldId', world._id).eq('controller', userId))
+    .withIndex('by_user', (q) =>
+      q.eq('worldId', world._id).eq('controller', userIdentity.tokenIdentifier),
+    )
     .first();
   return playerDoc;
 };
@@ -166,12 +174,24 @@ export const createPlayer = mutation({
   },
   handler: async (ctx, { name, characterId, pose, forUser }) => {
     const world = await activeWorld(ctx.db);
+    let controller = undefined;
+    if (forUser) {
+      const activePlayer = await activePlayerDoc(ctx.auth, ctx.db);
+      if (activePlayer) {
+        throw new Error('you already have a player');
+      }
+      const userIdentity = await ctx.auth.getUserIdentity();
+      if (!userIdentity) {
+        throw new Error('must be logged in to make an interacting player');
+      }
+      controller = userIdentity.tokenIdentifier;
+    }
     // Future: associate this with an authed user
     const playerId = await ctx.db.insert('players', {
       name,
       characterId,
       worldId: world!._id,
-      controller: forUser ? 'LEE' : undefined,
+      controller,
     });
     await ctx.db.insert('journal', {
       playerId,
