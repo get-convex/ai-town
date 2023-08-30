@@ -2,9 +2,8 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 import { DatabaseReader, MutationCtx, internalMutation } from './_generated/server';
-import { TICK_DEBOUNCE, WORLD_IDLE_THRESHOLD } from './config';
+import { WORLD_IDLE_THRESHOLD } from './config';
 import { asyncMap, pruneNull } from './lib/utils';
-import { activePlayer } from './players';
 import { currentConversation } from './journal';
 
 export const tick = internalMutation({
@@ -40,11 +39,20 @@ export const tick = internalMutation({
         worldId,
       });
     }
-    let userPlayer = await activePlayer(ctx.db);
-    if (userPlayer && !!await currentConversation(ctx.db, userPlayer.id)) {
-      userPlayer = null;
+    const userPlayers = await ctx.db
+      .query('players')
+      // undefined < null < v.id("users") so this works, and undefined isn't allowed.
+      .withIndex('by_user', (q) =>
+        q.eq('worldId', world._id).gt('controller', null as any as undefined),
+      )
+      .collect();
+    const idleUserPlayers = [];
+    for (const userPlayer of userPlayers) {
+      if (!(await currentConversation(ctx.db, userPlayer._id))) {
+        idleUserPlayers.push(userPlayer);
+      }
     }
-    if (!agentsEagerToWake.length && !userPlayer) {
+    if (!agentsEagerToWake.length && !idleUserPlayers.length) {
       console.debug("Didn't tick: spurious, no agents eager to wake up");
       return;
     }
@@ -55,8 +63,8 @@ export const tick = internalMutation({
       await ctx.db.patch(agentDoc._id, { thinking: true, lastWakeTs: ts });
     }
     const playerIds = agentsToWake.map((a) => a.playerId);
-    if (userPlayer) {
-      playerIds.push(userPlayer.id);
+    for (const userPlayer of idleUserPlayers) {
+      playerIds.push(userPlayer._id);
     }
     await ctx.scheduler.runAfter(0, internal.agent.runAgentBatch, { playerIds, noSchedule });
   },
@@ -74,39 +82,6 @@ async function getRecentHeartbeat(db: DatabaseReader) {
       .first()
   );
 }
-
-export const agentDone = async (
-  ctx: MutationCtx,
-  args: {
-    agentId: Id<'agents'>,
-    otherAgentIds?: Id<'agents'>[],
-    wakeTs: number,
-    noSchedule?: boolean,
-  },
-) => {
-  const agentDoc = await ctx.db.get(args.agentId);
-  if (!agentDoc) throw new Error(`Agent ${args.agentId} not found`);
-  // if (!agentDoc.thinking) {
-  //   throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
-  // }
-
-  const nextWakeTs = Math.ceil(args.wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
-  await ctx.db.replace(args.agentId, {
-    playerId: agentDoc.playerId,
-    worldId: agentDoc.worldId,
-    thinking: false,
-    lastWakeTs: agentDoc.nextWakeTs,
-    nextWakeTs,
-    alsoWake: args.otherAgentIds,
-    scheduled: await enqueueAgentWake(
-      ctx,
-      args.agentId,
-      agentDoc.worldId,
-      nextWakeTs,
-      args.noSchedule,
-    ),
-  });
-};
 
 export async function enqueueAgentWake(
   ctx: MutationCtx,

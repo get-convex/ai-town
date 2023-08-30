@@ -7,6 +7,7 @@ import { Characters, Player, Pose } from './schema';
 import { getPlayer, getRandomPosition, walkToTarget } from './journal';
 import { internal } from './_generated/api';
 import { getPoseFromMotion, roundPose } from './lib/physics';
+import { Auth } from 'convex/server';
 
 export const activeWorld = async (db: DatabaseReader) => {
   // Future: based on auth, fetch the user's world
@@ -72,7 +73,7 @@ export const playerState = query({
   },
 });
 
-export const activePlayerDoc = async (db: DatabaseReader): Promise<Doc<'players'> | null> => {
+export const activePlayerDoc = async (auth: Auth, db: DatabaseReader): Promise<Doc<'players'> | null> => {
   const world = await activeWorld(db);
   if (!world) {
     return null;
@@ -85,8 +86,8 @@ export const activePlayerDoc = async (db: DatabaseReader): Promise<Doc<'players'
   return playerDoc;
 };
 
-export const activePlayer = async (db: DatabaseReader): Promise<Player | null> => {
-  const playerDoc = await activePlayerDoc(db);
+export const activePlayer = async (auth: Auth, db: DatabaseReader): Promise<Player | null> => {
+  const playerDoc = await activePlayerDoc(auth, db);
   if (!playerDoc) return null;
   return getPlayer(db, playerDoc);
 };
@@ -94,7 +95,7 @@ export const activePlayer = async (db: DatabaseReader): Promise<Player | null> =
 export const getActivePlayer = query({
   args: {},
   handler: async (ctx, _args) => {
-    return activePlayer(ctx.db);
+    return activePlayer(ctx.auth, ctx.db);
   },
 });
 
@@ -111,7 +112,7 @@ export const navigateActivePlayer = mutation({
   },
   handler: async (ctx, { direction }) => {
     const world = await activeWorld(ctx.db);
-    const player = await activePlayer(ctx.db);
+    const player = await activePlayer(ctx.auth, ctx.db);
     if (!player) {
       return;
     }
@@ -138,7 +139,6 @@ export const navigateActivePlayer = mutation({
         playerId: player.id,
       });
     }
-    await ctx.scheduler.runAfter(0, internal.agent.planCollisions, { worldId: world!._id });
   },
 });
 

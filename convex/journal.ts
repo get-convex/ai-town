@@ -169,7 +169,7 @@ export const userTalk = mutation({
     content: v.string(),
   },
   handler: async (ctx, { content }) => {
-    const playerDoc = await activePlayerDoc(ctx.db);
+    const playerDoc = await activePlayerDoc(ctx.auth, ctx.db);
     if (!playerDoc) return;
     const player = await getPlayer(ctx.db, playerDoc);
     if (!player.lastChat) return;

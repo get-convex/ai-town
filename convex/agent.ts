@@ -23,7 +23,7 @@ import {
   walkAway,
 } from './conversation';
 import { getNearbyPlayers, getPoseFromMotion, roundPose } from './lib/physics';
-import { CONVERSATION_TIME_LIMIT, CONVERSATION_PAUSE } from './config';
+import { CONVERSATION_TIME_LIMIT, CONVERSATION_PAUSE, TICK_DEBOUNCE } from './config';
 import {
   walkToTarget,
   getPlayerNextCollision,
@@ -31,8 +31,8 @@ import {
   currentConversation,
   getLatestPlayerMotion,
 } from './journal';
-import { agentDone } from './engine';
-import { activePlayer, getAllPlayers, activeWorld } from './players';
+import { enqueueAgentWake } from './engine';
+import { activePlayer, activeWorld } from './players';
 
 const awaitTimeout = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -106,7 +106,7 @@ export const runAgentBatch = internalAction({
 export const talkToMe = mutation({
   args: { playerId: v.id('players') },
   handler: async (ctx, args) => {
-    const me = await activePlayer(ctx.db);
+    const me = await activePlayer(ctx.auth, ctx.db);
     if (!me) {
       return;
     }
@@ -122,7 +122,14 @@ export const talkToMe = mutation({
       getPoseFromMotion(await getLatestPlayerMotion(ctx.db, me.id), Date.now()),
     ).position;
     await walkToTarget(ctx, args.playerId, world!._id, [], target);
-    await ctx.scheduler.runAfter(0, internal.agent.planCollisions, { worldId: world!._id });
+    await ctx.scheduler.runAfter(0, internal.agent.agentsDone, {
+      worldId: world!._id,
+      playerActivity: {
+        playerId: args.playerId,
+        activity: 'continue' as const,
+        ignore: [],
+      },
+    });
   },
 });
 
@@ -338,68 +345,61 @@ type DoneFn = (
     | { type: 'continue'; ignore: Id<'players'>[] },
 ) => Promise<void>;
 
-export const planCollisions = internalMutation({
-  args: {
-    worldId: v.id('worlds'),
-  },
-  handler: async (ctx, args) => {
-    const players = await getAllPlayers(ctx.db, args.worldId);
-    const playerActivities = [];
-    for (const player of players) {
-      playerActivities.push({
-        playerId: player._id,
-        activity: 'continue' as const,
-        ignore: [],
-      });
-    }
-    console.log('planning new collisions');
-    await ctx.scheduler.runAfter(0, internal.agent.agentsDone, {
-      worldId: args.worldId,
-      playerActivities,
-    });
-  },
-});
-
 export const agentsDone = internalMutation({
   args: {
     worldId: v.id('worlds'),
     noSchedule: v.optional(v.boolean()),
-    playerActivities: v.array(
-      v.object({
-        playerId: v.id('players'),
-        activity: v.union(v.literal('walk'), v.literal('continue')),
-        ignore: v.array(v.id('players')),
-      }),
-    ),
+    playerActivity: v.object({
+      playerId: v.id('players'),
+      activity: v.union(v.literal('walk'), v.literal('continue')),
+      ignore: v.array(v.id('players')),
+    }),
   },
   handler: async (ctx, args) => {
-    for (const { playerId, activity, ignore } of args.playerActivities) {
-      const player = (await ctx.db.get(playerId))!;
-      if (!player.agentId) {
-        continue;
-      }
-      let walkResult;
-      switch (activity) {
-        case 'walk':
-          const world = (await ctx.db.get(args.worldId))!;
-          const map = (await ctx.db.get(world.mapId))!;
-          const targetPosition = getRandomPosition(map);
-          walkResult = await walkToTarget(ctx, playerId, args.worldId, ignore, targetPosition);
-          break;
-        case 'continue':
-          walkResult = await getPlayerNextCollision(ctx.db, args.worldId, playerId, ignore);
-          break;
-        default:
-          const _exhaustiveCheck: never = activity;
-          throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
-      }
-      await agentDone(ctx, {
-        agentId: player.agentId!,
-        otherAgentIds: walkResult.nextCollision?.agentIds,
-        wakeTs: walkResult.nextCollision?.ts ?? walkResult.targetEndTs,
-        noSchedule: args.noSchedule,
-      });
+    const { playerId, activity, ignore } = args.playerActivity;
+    const player = (await ctx.db.get(playerId))!;
+    if (!player.agentId) {
+      return;
     }
+    let walkResult;
+    switch (activity) {
+      case 'walk':
+        const world = (await ctx.db.get(args.worldId))!;
+        const map = (await ctx.db.get(world.mapId))!;
+        const targetPosition = getRandomPosition(map);
+        walkResult = await walkToTarget(ctx, playerId, args.worldId, ignore, targetPosition);
+        break;
+      case 'continue':
+        walkResult = await getPlayerNextCollision(ctx.db, args.worldId, playerId, ignore);
+        break;
+      default:
+        const _exhaustiveCheck: never = activity;
+        throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
+    }
+    const agentId = player.agentId!;
+    const agentDoc = await ctx.db.get(agentId);
+    if (!agentDoc) throw new Error(`Agent ${agentId} not found`);
+    // if (!agentDoc.thinking) {
+    //   throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
+    // }
+
+    const wakeTs = walkResult.nextCollision?.ts ?? walkResult.targetEndTs;
+    const nextWakeTs = Math.ceil(wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
+    await ctx.db.replace(agentId, {
+      playerId: agentDoc.playerId,
+      worldId: agentDoc.worldId,
+      thinking: false,
+      lastWakeTs: agentDoc.nextWakeTs,
+      nextWakeTs,
+      alsoWake: walkResult.nextCollision?.agentIds,
+      scheduled: await enqueueAgentWake(
+        ctx,
+        agentId,
+        agentDoc.worldId,
+        nextWakeTs,
+        args.noSchedule,
+      ),
+    });
   },
 });
 
@@ -419,13 +419,11 @@ function handleDone(ctx: ActionCtx, noSchedule?: boolean): DoneFn {
     const { playerId, worldId } = await ctx.runQuery(internal.agent.getAgent, { agentId });
     await ctx.runMutation(internal.agent.agentsDone, {
       worldId,
-      playerActivities: [
-        {
-          playerId,
-          ignore: activity.ignore,
-          activity: activity.type,
-        },
-      ],
+      playerActivity: {
+        playerId,
+        ignore: activity.ignore,
+        activity: activity.type,
+      },
       noSchedule,
     });
   };
