@@ -5,6 +5,7 @@ import { DatabaseReader, MutationCtx, internalMutation } from './_generated/serv
 import { TICK_DEBOUNCE, WORLD_IDLE_THRESHOLD } from './config';
 import { asyncMap, pruneNull } from './lib/utils';
 import { activePlayer } from './players';
+import { currentConversation } from './journal';
 
 export const tick = internalMutation({
   args: { worldId: v.id('worlds'), noSchedule: v.optional(v.boolean()) },
@@ -39,7 +40,10 @@ export const tick = internalMutation({
         worldId,
       });
     }
-    const userPlayer = await activePlayer(ctx.db);
+    let userPlayer = await activePlayer(ctx.db);
+    if (userPlayer && !!await currentConversation(ctx.db, userPlayer.id)) {
+      userPlayer = null;
+    }
     if (!agentsEagerToWake.length && !userPlayer) {
       console.debug("Didn't tick: spurious, no agents eager to wake up");
       return;
