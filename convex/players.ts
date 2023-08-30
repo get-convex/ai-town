@@ -201,6 +201,18 @@ export const createPlayer = mutation({
   },
 });
 
+export const deletePlayer = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const activePlayer = await activePlayerDoc(ctx.auth, ctx.db);
+    if (!activePlayer) {
+      throw new Error('no player to delete');
+    }
+    await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, { playerId: activePlayer._id });
+    await ctx.db.delete(activePlayer._id);
+  }
+})
+
 // Future: this could allow creating an agent
 export const createAgent = mutation({
   args: {

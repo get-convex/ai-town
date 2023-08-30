@@ -9,6 +9,7 @@ export default function InteractButton() {
   const navigate = useMutation(api.players.navigateActivePlayer);
   const createCharacter = useMutation(api.players.createCharacter);
   const createPlayer = useMutation(api.players.createPlayer);
+  const deletePlayer = useMutation(api.players.deletePlayer);
   const { isAuthenticated } = useConvexAuth();
   const { user } = useUser();
   const isPlaying = !!player;
@@ -28,6 +29,13 @@ export default function InteractButton() {
       },
     });
   };
+
+  const leave = async () => {
+    if (!isAuthenticated || !isPlaying) {
+      return;
+    }
+    await deletePlayer();
+  }
 
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
@@ -72,7 +80,11 @@ export default function InteractButton() {
       <a
         className="button text-white shadow-solid text-2xl pointer-events-auto"
         onClick={() => {
-          void startPlaying();
+          if (isPlaying) {
+            void leave();
+          } else {
+            void startPlaying();
+          }
         }}
         title="Join the town (press w/a/s/d to walk)"
       >
@@ -80,7 +92,7 @@ export default function InteractButton() {
           <span>
             <div className="inline-flex items-center gap-4">
               <img className="w-[48px] h-[30px] max-w-[54px]" src="/assets/interact.svg" />
-              {isPlaying ? 'Interacting' : 'Interact'}
+              {isPlaying ? 'Leave' : 'Interact'}
             </div>
           </span>
         </div>
