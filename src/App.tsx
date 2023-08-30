@@ -1,6 +1,6 @@
 import GameWrapper from './components/GameWrapper.tsx'
 import MusicButton from './components/MusicButton.tsx'
-import PlayButton from './components/PlayButton.tsx'
+import InteractButton from './components/InteractButton.tsx'
 
 export default function Home() {
   return (
@@ -32,7 +32,7 @@ export default function Home() {
                 </span>
               </div>
             </a>
-        <PlayButton />
+        <InteractButton />
         </div>
         <a href="https://a16z.com">
             <img className="w-8 h-8 pointer-events-auto" src="/a16z.png" alt="a16z" />

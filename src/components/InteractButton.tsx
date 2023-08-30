@@ -4,7 +4,7 @@ import { api } from '../../convex/_generated/api';
 import { useCallback, useEffect } from 'react';
 import { data as f1SpritesheetData } from '../../convex/characterdata/spritesheets/f1';
 
-export default function PlayButton() {
+export default function InteractButton() {
   const player = useQuery(api.players.getActivePlayer);
   const navigate = useMutation(api.players.navigateActivePlayer);
   const createCharacter = useMutation(api.players.createCharacter);
@@ -12,7 +12,7 @@ export default function PlayButton() {
   const isPlaying = !!player;
 
   const startPlaying = async () => {
-    if (player) {
+    if (isPlaying) {
       return;
     }
     const characterId = await createCharacter({name: "me", spritesheetData: f1SpritesheetData});
@@ -28,12 +28,25 @@ export default function PlayButton() {
   };
 
   const handleKeyPress = useCallback(
-    (event: { key: string }) => {
+    (event: KeyboardEvent) => {
       if (isPlaying) {
+        let key = event.key;
+        if (key === 'ArrowLeft') {
+          key = 'a';
+        } else if (key === 'ArrowRight') {
+          key = 'd';
+        } else if (key === 'ArrowUp') {
+          key = 'w';
+        } else if (key === 'ArrowDown') {
+          key = 's';
+        } else if (key === 'Enter') {
+          key = 'q';
+        }
         if (
-          event.key === 'w' || event.key === 'a' || event.key === 's'
-          || event.key === 'd' || event.key === 'r' || event.key == 'q') {
-          void navigate({direction: event.key});
+          key === 'w' || key === 'a' || key === 's'
+          || key === 'd' || key === 'r' || key == 'q') {
+          event.preventDefault();
+          void navigate({direction: key});
         }
       }
     },
@@ -60,8 +73,8 @@ export default function PlayButton() {
         <div className="inline-block bg-clay-700">
           <span>
             <div className="inline-flex items-center gap-4">
-              <img className="w-6 h-6" src="/ai-town/assets/volume.svg" />
-              {isPlaying ? 'WASD move / Q stop' : 'Join'}
+              <img className="w-6 h-6" src="/assets/volume.svg" />
+              {isPlaying ? 'Interacting' : 'Interact'}
             </div>
           </span>
         </div>
