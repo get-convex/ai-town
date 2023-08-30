@@ -1,4 +1,3 @@
-'use client';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useCallback, useEffect } from 'react';
@@ -68,7 +67,7 @@ export default function InteractButton() {
         onClick={() => {
           void startPlaying();
         }}
-        title="Join the town (press a/s/d/f to walk)"
+        title="Join the town (press w/a/s/d to walk)"
       >
         <div className="inline-block h-full bg-clay-700 cursor-pointer">
           <span>
