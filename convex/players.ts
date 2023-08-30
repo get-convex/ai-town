@@ -67,7 +67,7 @@ export const playerState = query({
   args: { playerId: v.id('players') },
   handler: async (ctx, args) => {
     const playerDoc = await ctx.db.get(args.playerId);
-    if (!playerDoc) throw new Error('No player found for ' + args.playerId);
+    if (!playerDoc) return null;
     const player = await getPlayer(ctx.db, playerDoc);
     return player;
   },

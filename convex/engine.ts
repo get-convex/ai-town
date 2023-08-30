@@ -39,13 +39,7 @@ export const tick = internalMutation({
         worldId,
       });
     }
-    const userPlayers = await ctx.db
-      .query('players')
-      // undefined < null < v.id("users") so this works, and undefined isn't allowed.
-      .withIndex('by_user', (q) =>
-        q.eq('worldId', world._id).gt('controller', null as any as undefined),
-      )
-      .collect();
+    const userPlayers = await allControlledPlayers(ctx.db, world._id);
     const idleUserPlayers = [];
     for (const userPlayer of userPlayers) {
       if (!(await currentConversation(ctx.db, userPlayer._id))) {
@@ -69,6 +63,16 @@ export const tick = internalMutation({
     await ctx.scheduler.runAfter(0, internal.agent.runAgentBatch, { playerIds, noSchedule });
   },
 });
+
+export const allControlledPlayers = async (db: DatabaseReader, worldId: Id<"worlds">) => {
+  return await db
+    .query('players')
+    // undefined < null < v.id("users") so this works, and undefined isn't allowed.
+    .withIndex('by_user', (q) =>
+      q.eq('worldId', worldId).gt('controller', null as any as undefined),
+    )
+    .collect();
+}
 
 async function getRecentHeartbeat(db: DatabaseReader) {
   return (

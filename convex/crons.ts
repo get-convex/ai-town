@@ -1,13 +1,14 @@
 import { cronJobs } from 'convex/server';
 import { internalMutation } from './_generated/server';
-import { talkingToUser, getLatestPlayerMotion } from './journal';
+import { talkingToUser, getLatestPlayerMotion, latestEntryOfType } from './journal';
 import {
+  ABANDONED_INTERACTION,
   AGENT_THINKING_TOO_LONG,
   VACUUM_BATCH_SIZE,
   VACUUM_JOURNAL_AGE,
   VACUUM_MEMORIES_AGE,
 } from './config';
-import { enqueueAgentWake } from './engine';
+import { allControlledPlayers, enqueueAgentWake } from './engine';
 import { internal } from './_generated/api';
 import { TableNames } from './_generated/dataModel';
 
@@ -70,6 +71,40 @@ export const recoverStoppedAgents = internalMutation({
         await enqueueAgentWake(ctx, agentDoc._id, world._id, Date.now());
         return;
       }
+    }
+  },
+});
+
+export const vacuumAbandonedInteractions = internalMutation({
+  handler: async (ctx) => {
+    const world = await ctx.db.query('worlds').order('desc').first();
+    if (!world) throw new Error('No world found');
+    if (world.frozen) {
+      console.debug("Didn't cleanup: world frozen");
+      return;
+    }
+
+    const controlledPlayers = await allControlledPlayers(ctx.db, world._id);
+    // We consider controlled players to be abandoned if they haven't moved or
+    // talked for 30 minutes.
+    const cutoff = Date.now() - ABANDONED_INTERACTION;
+    for (const player of controlledPlayers) {
+      if (player.agentId) {
+        continue;
+      }
+      if (player._creationTime > cutoff) {
+        continue;
+      }
+      const lastMotion = await latestEntryOfType(ctx.db, player._id, 'walking');
+      if (lastMotion && lastMotion._creationTime > cutoff) {
+        continue;
+      }
+      const lastTalk = await latestEntryOfType(ctx.db, player._id, 'talking');
+      if (lastTalk && lastTalk._creationTime > cutoff) {
+        continue;
+      }
+      await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, { playerId: player._id });
+      await ctx.db.delete(player._id);
     }
   },
 });
@@ -173,4 +208,9 @@ crons.interval('vacuum old memory entries', { hours: 6 }, internal.crons.vacuumO
   cursor: null,
   soFar: 0,
 });
+crons.interval(
+  'vacuum abandoned interactions',
+  { minutes: 15 },
+  internal.crons.vacuumAbandonedInteractions,
+);
 export default crons;
