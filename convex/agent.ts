@@ -10,7 +10,6 @@ import {
   ActionCtx,
   internalAction,
   internalMutation,
-  internalQuery,
   mutation,
 } from './_generated/server';
 import { MemoryDB } from './lib/memory';
@@ -122,13 +121,11 @@ export const talkToMe = mutation({
       getPoseFromMotion(await getLatestPlayerMotion(ctx.db, me.id), Date.now()),
     ).position;
     await walkToTarget(ctx, args.playerId, world!._id, [], target);
+    const player = (await ctx.db.get(args.playerId))!;
     await ctx.scheduler.runAfter(0, internal.agent.agentsDone, {
-      worldId: world!._id,
-      playerActivity: {
-        playerId: args.playerId,
-        activity: 'continue' as const,
-        ignore: [],
-      },
+      agentId: player.agentId!,
+      activity: 'continue' as const,
+      ignore: [],
     });
   },
 });
@@ -347,37 +344,33 @@ type DoneFn = (
 
 export const agentsDone = internalMutation({
   args: {
-    worldId: v.id('worlds'),
     noSchedule: v.optional(v.boolean()),
-    playerActivity: v.object({
-      playerId: v.id('players'),
-      activity: v.union(v.literal('walk'), v.literal('continue')),
-      ignore: v.array(v.id('players')),
-    }),
+    agentId: v.id('agents'),
+    activity: v.union(v.literal('walk'), v.literal('continue')),
+    ignore: v.array(v.id('players')),
   },
-  handler: async (ctx, args) => {
-    const { playerId, activity, ignore } = args.playerActivity;
-    const player = (await ctx.db.get(playerId))!;
-    if (!player.agentId) {
+  handler: async (ctx, {noSchedule, agentId, activity, ignore}) => {
+    if (!agentId) {
       return;
     }
+    const agentDoc = (await ctx.db.get(agentId))!;
+    const playerId = agentDoc.playerId;
+    const worldId = agentDoc.worldId;
     let walkResult;
     switch (activity) {
       case 'walk':
-        const world = (await ctx.db.get(args.worldId))!;
+        const world = (await ctx.db.get(worldId))!;
         const map = (await ctx.db.get(world.mapId))!;
         const targetPosition = getRandomPosition(map);
-        walkResult = await walkToTarget(ctx, playerId, args.worldId, ignore, targetPosition);
+        walkResult = await walkToTarget(ctx, playerId, worldId, ignore, targetPosition);
         break;
       case 'continue':
-        walkResult = await getPlayerNextCollision(ctx.db, args.worldId, playerId, ignore);
+        walkResult = await getPlayerNextCollision(ctx.db, worldId, playerId, ignore);
         break;
       default:
         const _exhaustiveCheck: never = activity;
         throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
     }
-    const agentId = player.agentId!;
-    const agentDoc = await ctx.db.get(agentId);
     if (!agentDoc) throw new Error(`Agent ${agentId} not found`);
     // if (!agentDoc.thinking) {
     //   throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
@@ -397,18 +390,9 @@ export const agentsDone = internalMutation({
         agentId,
         agentDoc.worldId,
         nextWakeTs,
-        args.noSchedule,
+        noSchedule,
       ),
     });
-  },
-});
-
-export const getAgent = internalQuery({
-  args: { agentId: v.id('agents') },
-  handler: async (ctx, { agentId }) => {
-    const agentDoc = (await ctx.db.get(agentId))!;
-    const { playerId, worldId } = agentDoc;
-    return { playerId, worldId };
   },
 });
 
@@ -416,14 +400,10 @@ function handleDone(ctx: ActionCtx, noSchedule?: boolean): DoneFn {
   const doIt: DoneFn = async (agentId, activity) => {
     // console.debug('handleDone: ', agentId, activity);
     if (!agentId) return;
-    const { playerId, worldId } = await ctx.runQuery(internal.agent.getAgent, { agentId });
     await ctx.runMutation(internal.agent.agentsDone, {
-      worldId,
-      playerActivity: {
-        playerId,
-        ignore: activity.ignore,
-        activity: activity.type,
-      },
+      agentId,
+      ignore: activity.ignore,
+      activity: activity.type,
       noSchedule,
     });
   };
