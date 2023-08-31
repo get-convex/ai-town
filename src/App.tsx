@@ -42,6 +42,7 @@ export default function Home() {
         onRequestClose={() => setHelpModalOpen(false)}
         style={modalStyles}
         contentLabel="Help modal"
+        ariaHideApp={false}
       >
         <div className="font-body">
           <h1 className="text-center text-6xl font-bold font-display game-title">Help</h1>
