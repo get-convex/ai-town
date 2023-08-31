@@ -17,7 +17,12 @@ import {
   walkAway,
 } from './conversation';
 import { getNearbyPlayers, getPoseFromMotion, roundPose } from './lib/physics';
-import { CONVERSATION_TIME_LIMIT, CONVERSATION_PAUSE, TICK_DEBOUNCE } from './config';
+import {
+  CONVERSATION_TIME_LIMIT,
+  CONVERSATION_PAUSE,
+  TICK_DEBOUNCE,
+  USER_CONVERSATION_TIME_LIMIT,
+} from './config';
 import {
   walkToTarget,
   getPlayerNextCollision,
@@ -239,14 +244,17 @@ export async function handleAgentInteraction(
 
   const messages: Message[] = [];
 
-  const endAfterTs = Date.now() + (talkingToUser ? 570_000 : CONVERSATION_TIME_LIMIT);
+  const endAfterTs =
+    Date.now() + (talkingToUser ? USER_CONVERSATION_TIME_LIMIT : CONVERSATION_TIME_LIMIT);
+  // Slow down conversations between AIs, but not if a user is involved.
+  const conversationPause = talkingToUser ? 0 : CONVERSATION_PAUSE;
   // Choose who should speak next:
   let endConversation = false;
   let lastSpeakerId = leader.id;
   let remainingPlayers = players;
 
   while (!endConversation) {
-    const waitToSpeak = awaitTimeout(messages.length ? CONVERSATION_PAUSE : 0);
+    const waitToSpeak = awaitTimeout(messages.length ? conversationPause : 0);
     // leader speaks first
     const chatHistory = chatHistoryFromMessages(messages);
     const speaker =

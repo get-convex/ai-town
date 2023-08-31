@@ -297,6 +297,11 @@ export default defineSchema(
 
     replicate_webhooks: ReplicateWebhooks.table
       .index('by_replicate_external_id', ['externalId']),
+
+    user_input: defineTable({
+      content: v.string(),
+      moderationResult: v.optional(v.boolean()),
+    }),
   },
   // When schemaValidation is enabled, it prevents pushing code that has a
   // schema incompatible with the current database.

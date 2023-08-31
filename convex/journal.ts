@@ -3,6 +3,7 @@ import { Doc, Id } from './_generated/dataModel';
 import {
   DatabaseReader,
   MutationCtx,
+  action,
   internalMutation,
   internalQuery,
   mutation,
@@ -22,6 +23,8 @@ import {
   roundPose,
 } from './lib/physics';
 import { clientMessageMapper, conversationQuery } from './chat';
+import { internal } from './_generated/api';
+import { fetchModeration } from './lib/openai';
 
 /**
  * Reading state about the world
@@ -164,22 +167,50 @@ export const makeConversation = internalMutation({
   },
 });
 
-export const userTalk = mutation({
+export const userTalkModerated = action({
   args: {
     content: v.string(),
   },
-  handler: async (ctx, { content }) => {
+  handler: async (ctx, { content }): Promise<{contentId: Id<"user_input">; flagged: boolean}> => {
+    const contentId = await ctx.runMutation(internal.journal.proposeUserInput, { content });
+
+    const { flagged } = (await fetchModeration(content)).results[0];
+
+    await ctx.runMutation(internal.journal.moderatedUserInput, { contentId, result: !flagged });
+    return { contentId, flagged };
+  },
+});
+
+export const proposeUserInput = internalMutation(async (ctx, { content }: { content: string }) => {
+  return await ctx.db.insert('user_input', { content });
+});
+
+export const moderatedUserInput = internalMutation(
+  async (ctx, { contentId, result }: { contentId: Id<'user_input'>; result: boolean }) => {
+    await ctx.db.patch(contentId, { moderationResult: result });
+  },
+);
+
+export const userTalk = mutation({
+  args: {
+    contentId: v.id('user_input'),
+  },
+  handler: async (ctx, { contentId }) => {
     const playerDoc = await activePlayerDoc(ctx.auth, ctx.db);
     if (!playerDoc) return;
     const player = await getPlayer(ctx.db, playerDoc);
     if (!player.lastChat) return;
+    const userInput = (await ctx.db.get(contentId))!;
+    if (!userInput.moderationResult) {
+      throw new Error(`moderation rejected user input ${contentId}`);
+    }
     await ctx.db.insert('journal', {
       playerId: player.id,
       data: {
         type: 'talking',
         audience: [],
         conversationId: player.lastChat.conversationId,
-        content,
+        content: userInput.content,
         relatedMemoryIds: [],
       },
     });

@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import clsx from 'clsx';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 function Messages({
   conversationId,
@@ -55,11 +55,19 @@ function MessageInput({
 }) {
   const activePlayer = useQuery(api.players.getActivePlayer);
   const waitingToTalk = useQuery(api.players.waitingToTalk, {conversationId});
+  const userTalkModerated = useAction(api.journal.userTalkModerated);
   const userTalk = useMutation(api.journal.userTalk);
   const inputRef = useRef<HTMLParagraphElement>(null);
+  const [inputFlagged, setInputFlagged] = useState(false);
 
   const enterKeyPress = async () => {
-    await userTalk({content: inputRef.current!.innerText});
+    const {contentId, flagged} = await userTalkModerated({content: inputRef.current!.innerText});
+    if (flagged) {
+      setInputFlagged(true);
+      setTimeout(() => setInputFlagged(false), 3000);
+    } else {
+      await userTalk({contentId});
+    }
     inputRef.current!.innerText = '';
   };
 
@@ -69,6 +77,7 @@ function MessageInput({
   return <div className="leading-tight mb-6">
     <div className="flex gap-4">
       <span className="uppercase flex-grow">{activePlayer.name}</span>
+      <span>{inputFlagged ? "be nice" : null}</span>
     </div>
     <div className={clsx('bubble', 'bubble-mine')}>
       <p
