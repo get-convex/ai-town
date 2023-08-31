@@ -6,7 +6,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import { ActionCtx, internalAction, mutation } from './_generated/server';
+import { ActionCtx, internalAction, mutation, query } from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -26,6 +26,7 @@ import {
   walkToTarget,
   currentConversation,
   getLatestPlayerMotion,
+  getPlayer,
 } from './journal';
 import { activePlayer, activeWorld } from './players';
 
@@ -98,6 +99,88 @@ export const runAgentBatch = internalAction({
   },
 });
 
+export const myCurrentConversation = query({
+  args: { preferredPlayerId: v.optional(v.id("players")) },
+  handler: async (ctx, args) => {
+    const me = await activePlayer(ctx.auth, ctx.db);
+    if (!me) {
+      return null;
+    }
+    const myCurrentConversation = await currentConversation(ctx.db, me.id);
+    if (!myCurrentConversation) {
+      return null;
+    }
+    const notMe = myCurrentConversation.audience.filter(p => p !== me.id);
+    if (notMe.length === 0) {
+      return null;
+    }
+    if (args.preferredPlayerId && notMe.includes(args.preferredPlayerId)) {
+      return args.preferredPlayerId;
+    }
+    return notMe[0];
+  }
+})
+
+export const leaveMyCurrentConversation = mutation({
+  handler: async (ctx) => {
+    const me = await activePlayer(ctx.auth, ctx.db);
+    if (!me) {
+      return;
+    }
+    const playerId = me.id;
+    const conversation = await currentConversation(ctx.db, playerId);
+    if (!conversation) {
+      return;
+    }
+    await ctx.db.insert('journal', {
+      playerId,
+      data: {
+        type: 'leaveConversation',
+        audience: conversation.audience,
+        conversationId: conversation.conversationId,
+      },
+    });
+    try {
+      await ctx.db.patch(playerId, { controllerThinking: undefined });
+    } catch (e) {
+      // It's okay if the player has been deleted.
+    }
+  }
+})
+
+export const playerDetails = query({
+  args: { playerId: v.id("players") },
+  handler: async (ctx, args) => {
+    const me = await activePlayer(ctx.auth, ctx.db);
+    if (!me) {
+      return { isMe: false, canTalk: false };
+    }
+    const isMe = me.id === args.playerId;
+    // Can't talk to myself.
+    if (isMe) {
+      return { isMe, canTalk: false };
+    }
+    const playerDoc = await ctx.db.get(args.playerId);
+    if (!playerDoc) return { isMe, canTalk: false };
+    const player = await getPlayer(ctx.db, playerDoc);
+    if (!player) return { isMe, canTalk: false };
+    // Not a human.
+    if (player.agentId === undefined) {
+      return { isMe, canTalk: false };
+    }
+    // Already talking to me.
+    const myCurrentConversation = await currentConversation(ctx.db, me.id);
+    if (myCurrentConversation && myCurrentConversation.audience.includes(args.playerId)) {
+      return { isMe, canTalk: false };
+    }
+    // Already talking to someone else.
+    if (await currentConversation(ctx.db, args.playerId)) {
+      return { isMe, canTalk: false };
+    }
+    return { isMe, canTalk: true };
+  }
+})
+
 export const talkToMe = mutation({
   args: { playerId: v.id('players') },
   handler: async (ctx, args) => {
@@ -108,12 +191,19 @@ export const talkToMe = mutation({
     if (me.id === args.playerId) {
       return;
     }
+    const playerDoc = await ctx.db.get(args.playerId);
+    if (!playerDoc) return null;
+    const player = await getPlayer(ctx.db, playerDoc);
+    if (!player) return null;
+    if (player.agentId === undefined) {
+      console.log("can't talk to another human");
+      return;
+    }
     const myCurrentConversation = await currentConversation(ctx.db, me.id);
     if (myCurrentConversation && myCurrentConversation.audience.includes(args.playerId)) {
       console.log('already talking to me');
       return;
     }
-    const world = await activeWorld(ctx.db);
     if (await currentConversation(ctx.db, args.playerId)) {
       console.log('already talking to someone else');
       return;
@@ -121,10 +211,10 @@ export const talkToMe = mutation({
     const target = roundPose(
       getPoseFromMotion(await getLatestPlayerMotion(ctx.db, me.id), Date.now()),
     ).position;
+    const world = await activeWorld(ctx.db);
     await walkToTarget(ctx, args.playerId, world!._id, [], target);
-    const player = (await ctx.db.get(args.playerId))!;
     await ctx.scheduler.runAfter(0, internal.engine.agentDone, {
-      agentId: player.agentId!,
+      agentId: player.agentId,
       activity: 'continue' as const,
       ignore: [],
     });

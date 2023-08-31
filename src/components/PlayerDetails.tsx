@@ -4,6 +4,9 @@ import { Id } from '../../convex/_generated/dataModel';
 import clsx from 'clsx';
 import { useRef, useState } from 'react';
 import { Message } from '../../convex/schema';
+import closeImg from "../../assets/close.svg";
+import { SelectPlayer } from './Player';
+import { SignedIn } from '@clerk/clerk-react';
 
 function Messages({
   conversationId,
@@ -111,23 +114,72 @@ function MessageInput({
   </div>;
 }
 
-export default function PlayerDetails({ playerId }: { playerId: Id<'players'> }) {
-  const playerState = useQuery(api.players.playerState, { playerId });
+// TODO: Add feedback when the agent is on their way
+// TODO: Don't rerender `PlayerDetails` when in a conversation and clicking on someone else.
+export default function PlayerDetails({ playerId, setSelectedPlayer }: { playerId?: Id<'players'>, setSelectedPlayer: SelectPlayer }) {
+  const currentConversation = useQuery(api.agent.myCurrentConversation, { preferredPlayerId: playerId });
+  const inConversation = currentConversation !== undefined && currentConversation !== null;
+  if (inConversation) {
+    playerId = currentConversation;
+  }
+  const playerState = useQuery(api.players.playerState, playerId ? { playerId } : "skip");
+  const playerDetails = useQuery(api.agent.playerDetails, playerId ? { playerId } : "skip");
+  const talkToMe = useMutation(api.agent.talkToMe);
+  const leaveCurrentConversation = useMutation(api.agent.leaveMyCurrentConversation);
+  if (!playerId) {
+    return (
+      <div className="h-full text-xl flex text-center items-center p-4">
+        Click on an agent on the map to see chat history.
+      </div>
+    )
+  } else {
 
+  }
   return (
-    playerState && (
+    playerId && playerState && playerDetails !== undefined && (
       <>
-        <div className="box">
-          <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
-            {playerState.name}
-          </h2>
+        <div className="flex gap-4">
+          <div className="box flex-grow">
+            <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
+              {playerState.name}
+            </h2>
+          </div>
+          <a className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
+            onClick={() => {
+              if (inConversation) {
+                void leaveCurrentConversation();
+              }
+              setSelectedPlayer(undefined)
+            }}
+          >
+            <h2 className="h-full bg-clay-700">
+              <img className="w-5 h-5" src={closeImg} />
+            </h2>
+          </a>
         </div>
+
+        {playerDetails.canTalk && (
+          <SignedIn>
+          <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto"
+            title="Start a conversation"
+            onClick={() => { void talkToMe({ playerId: playerId! })}}
+          >
+            <div className="h-full bg-clay-700 text-center">
+              <span>Start conversation</span>
+            </div>
+          </a>
+        </SignedIn>
+        )}
 
         <div className="desc my-6">
-          <p className="leading-tight -m-4 bg-brown-700 text-lg">{playerState.identity}</p>
+          <p className="leading-tight -m-4 bg-brown-700 text-lg">
+            {!playerDetails.isMe && playerState.identity}
+            {playerDetails.isMe && (<i>This is you!</i>)}
+            {inConversation && (<><br/><br/>(<i>Conversing with you!</i>)</>)}
+          </p>
         </div>
 
-        {playerState.lastChat?.conversationId && (
+        {!playerDetails.isMe && playerState.lastChat?.conversationId && (
           <div className="chats">
             <div className="bg-brown-200 text-black p-2">
               <Messages
