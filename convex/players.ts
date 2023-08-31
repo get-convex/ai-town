@@ -136,7 +136,7 @@ export const navigateActivePlayer = mutation({
     const rawPosition = pose.position;
     const currentPosition = roundPose(pose).position;
     const position = { ...currentPosition };
-    // If you're less than 25% of the way to the rounded position already, don't move.
+    // If you're less than 75% of the way to the rounded position already, don't move.
     const LEADING_BUFFER = 0.25;
     switch (direction) {
       case 'a':

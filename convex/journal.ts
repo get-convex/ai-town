@@ -392,13 +392,19 @@ export const walkToTarget = async (
   const ts = Date.now();
   const world = (await ctx.db.get(worldId))!;
   const map = (await ctx.db.get(world.mapId))!;
-  const otherPlayers = await asyncMap(
-    (await getAllPlayers(ctx.db, worldId)).filter((p) => p._id !== playerId),
-    async (p) => ({
-      ...p,
-      motion: await getLatestPlayerMotion(ctx.db, p._id),
-    }),
-  );
+  const npc = await isNPC(ctx.db, playerId);
+  // Allow controlled players to walk over other characters.
+  // This reduces OCCs because user-triggered mutations don't need to read
+  // all player locations, and it prevents users from getting stuck.
+  const otherPlayers = npc
+    ? await asyncMap(
+        (await getAllPlayers(ctx.db, worldId)).filter((p) => p._id !== playerId),
+        async (p) => ({
+          ...p,
+          motion: await getLatestPlayerMotion(ctx.db, p._id),
+        }),
+      )
+    : [];
   const ourMotion = await getLatestPlayerMotion(ctx.db, playerId);
   const { route, distance } = findRoute(
     map,
@@ -427,7 +433,7 @@ export const walkToTarget = async (
     };
   }
   const exclude = new Set([...ignore, playerId]);
-  const speed = (await isNPC(ctx.db, playerId)) ? 1 : 2;
+  const speed = npc ? 1 : 2;
   const targetEndTs = ts + (distance * TIME_PER_STEP) / speed;
   let endOrientation: number | undefined;
   if (manhattanDistance(targetPosition, route[route.length - 1]) > 0) {
