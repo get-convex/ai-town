@@ -369,13 +369,13 @@ export const walk = internalMutation({
     target: v.optional(v.id('players')),
   },
   handler: async (ctx, { agentId, ignore, target }) => {
+    const ts = Date.now();
     const agentDoc = (await ctx.db.get(agentId))!;
     const { playerId, worldId } = agentDoc;
     const world = (await ctx.db.get(worldId))!;
     const map = (await ctx.db.get(world.mapId))!;
     const targetPosition = target
-      ? roundPose(getPoseFromMotion(await getLatestPlayerMotion(ctx.db, target), Date.now()))
-          .position
+      ? roundPose(getPoseFromMotion(await getLatestPlayerMotion(ctx.db, target), ts)).position
       : getRandomPosition(map);
     return await walkToTarget(ctx, playerId, worldId, ignore, targetPosition);
   },
@@ -462,7 +462,7 @@ export const walkToTarget = async (
   };
 };
 
-export const getPlayerNextCollision = async (
+export const nextCollision = async (
   db: DatabaseReader,
   worldId: Id<'worlds'>,
   playerId: Id<'players'>,

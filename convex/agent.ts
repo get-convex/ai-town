@@ -6,7 +6,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 
-import { ActionCtx, internalAction, internalMutation, mutation } from './_generated/server';
+import { ActionCtx, internalAction, mutation } from './_generated/server';
 import { MemoryDB } from './lib/memory';
 import { Message, Player } from './schema';
 import {
@@ -20,17 +20,13 @@ import { getNearbyPlayers, getPoseFromMotion, roundPose } from './lib/physics';
 import {
   CONVERSATION_TIME_LIMIT,
   CONVERSATION_PAUSE,
-  TICK_DEBOUNCE,
   USER_CONVERSATION_TIME_LIMIT,
 } from './config';
 import {
   walkToTarget,
-  getPlayerNextCollision,
-  getRandomPosition,
   currentConversation,
   getLatestPlayerMotion,
 } from './journal';
-import { enqueueAgentWake } from './engine';
 import { activePlayer, activeWorld } from './players';
 
 const awaitTimeout = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
@@ -127,7 +123,7 @@ export const talkToMe = mutation({
     ).position;
     await walkToTarget(ctx, args.playerId, world!._id, [], target);
     const player = (await ctx.db.get(args.playerId))!;
-    await ctx.scheduler.runAfter(0, internal.agent.agentsDone, {
+    await ctx.scheduler.runAfter(0, internal.engine.agentDone, {
       agentId: player.agentId!,
       activity: 'continue' as const,
       ignore: [],
@@ -370,62 +366,14 @@ type DoneFn = (
     | { type: 'continue'; ignore: Id<'players'>[] },
 ) => Promise<void>;
 
-export const agentsDone = internalMutation({
-  args: {
-    noSchedule: v.optional(v.boolean()),
-    agentId: v.id('agents'),
-    activity: v.union(v.literal('walk'), v.literal('continue')),
-    ignore: v.array(v.id('players')),
-  },
-  handler: async (ctx, { noSchedule, agentId, activity, ignore }) => {
-    if (!agentId) {
-      return;
-    }
-    const agentDoc = (await ctx.db.get(agentId))!;
-    const playerId = agentDoc.playerId;
-    const worldId = agentDoc.worldId;
-    let walkResult;
-    switch (activity) {
-      case 'walk':
-        const world = (await ctx.db.get(worldId))!;
-        const map = (await ctx.db.get(world.mapId))!;
-        const targetPosition = getRandomPosition(map);
-        walkResult = await walkToTarget(ctx, playerId, worldId, ignore, targetPosition);
-        break;
-      case 'continue':
-        walkResult = await getPlayerNextCollision(ctx.db, worldId, playerId, ignore);
-        break;
-      default:
-        const _exhaustiveCheck: never = activity;
-        throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
-    }
-    if (!agentDoc) throw new Error(`Agent ${agentId} not found`);
-    // if (!agentDoc.thinking) {
-    //   throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
-    // }
-
-    const wakeTs = walkResult.nextCollision?.ts ?? walkResult.targetEndTs;
-    const nextWakeTs = Math.ceil(wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
-    await ctx.db.replace(agentId, {
-      playerId: agentDoc.playerId,
-      worldId: agentDoc.worldId,
-      thinking: false,
-      lastWakeTs: agentDoc.nextWakeTs,
-      nextWakeTs,
-      alsoWake: walkResult.nextCollision?.agentIds,
-      scheduled: await enqueueAgentWake(ctx, agentId, agentDoc.worldId, nextWakeTs, noSchedule),
-    });
-  },
-});
-
 function handleDone(ctx: ActionCtx, noSchedule?: boolean): DoneFn {
   const doIt: DoneFn = async (agentId, activity) => {
     // console.debug('handleDone: ', agentId, activity);
     if (!agentId) return;
-    await ctx.runMutation(internal.agent.agentsDone, {
+    await ctx.runMutation(internal.engine.agentDone, {
       agentId,
-      ignore: activity.ignore,
       activity: activity.type,
+      ignore: activity.ignore,
       noSchedule,
     });
   };

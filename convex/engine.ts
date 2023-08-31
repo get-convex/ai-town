@@ -2,9 +2,9 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 import { DatabaseReader, MutationCtx, internalMutation } from './_generated/server';
-import { WORLD_IDLE_THRESHOLD } from './config';
+import { TICK_DEBOUNCE, WORLD_IDLE_THRESHOLD } from './config';
 import { asyncMap, pruneNull } from './lib/utils';
-import { currentConversation } from './journal';
+import { getRandomPosition, nextCollision, walkToTarget, currentConversation } from './journal';
 
 export const tick = internalMutation({
   args: { worldId: v.id('worlds'), noSchedule: v.optional(v.boolean()) },
@@ -64,7 +64,7 @@ export const tick = internalMutation({
   },
 });
 
-export const allControlledPlayers = async (db: DatabaseReader, worldId: Id<"worlds">) => {
+export const allControlledPlayers = async (db: DatabaseReader, worldId: Id<'worlds'>) => {
   return await db
     .query('players')
     // undefined < null < v.id("users") so this works, and undefined isn't allowed.
@@ -72,7 +72,7 @@ export const allControlledPlayers = async (db: DatabaseReader, worldId: Id<"worl
       q.eq('worldId', worldId).gt('controller', null as any as undefined),
     )
     .collect();
-}
+};
 
 async function getRecentHeartbeat(db: DatabaseReader) {
   return (
@@ -86,6 +86,54 @@ async function getRecentHeartbeat(db: DatabaseReader) {
       .first()
   );
 }
+
+export const agentDone = internalMutation({
+  args: {
+    agentId: v.id('agents'),
+    activity: v.union(v.literal('walk'), v.literal('continue')),
+    ignore: v.array(v.id('players')),
+    noSchedule: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { noSchedule, agentId, activity, ignore }) => {
+    if (!agentId) {
+      return;
+    }
+    const agentDoc = (await ctx.db.get(agentId))!;
+    const playerId = agentDoc.playerId;
+    const worldId = agentDoc.worldId;
+    let walkResult;
+    switch (activity) {
+      case 'walk':
+        const world = (await ctx.db.get(worldId))!;
+        const map = (await ctx.db.get(world.mapId))!;
+        const targetPosition = getRandomPosition(map);
+        walkResult = await walkToTarget(ctx, playerId, worldId, ignore, targetPosition);
+        break;
+      case 'continue':
+        walkResult = await nextCollision(ctx.db, worldId, playerId, ignore);
+        break;
+      default:
+        const _exhaustiveCheck: never = activity;
+        throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
+    }
+    if (!agentDoc) throw new Error(`Agent ${agentId} not found`);
+    // if (!agentDoc.thinking) {
+    //  throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
+    // }
+
+    const wakeTs = walkResult.nextCollision?.ts ?? walkResult.targetEndTs;
+    const nextWakeTs = Math.ceil(wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
+    await ctx.db.replace(agentId, {
+      playerId: agentDoc.playerId,
+      worldId: agentDoc.worldId,
+      thinking: false,
+      lastWakeTs: agentDoc.nextWakeTs,
+      nextWakeTs,
+      alsoWake: walkResult.nextCollision?.agentIds,
+      scheduled: await enqueueAgentWake(ctx, agentId, agentDoc.worldId, nextWakeTs, noSchedule),
+    });
+  },
+});
 
 export async function enqueueAgentWake(
   ctx: MutationCtx,
