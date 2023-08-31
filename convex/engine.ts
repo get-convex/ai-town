@@ -117,9 +117,9 @@ export const agentDone = internalMutation({
         throw new Error(`Unhandled activity: ${JSON.stringify(activity)}`);
     }
     if (!agentDoc) throw new Error(`Agent ${agentId} not found`);
-    // if (!agentDoc.thinking) {
-    //  throw new Error('Agent was not thinking: did you call agentDone twice for the same agent?');
-    // }
+    if (!agentDoc.thinking) {
+      console.error('Agent was not thinking: did you call agentDone twice for the same agent?');
+    }
 
     const wakeTs = walkResult.nextCollision?.ts ?? walkResult.targetEndTs;
     const nextWakeTs = Math.ceil(wakeTs / TICK_DEBOUNCE) * TICK_DEBOUNCE;
