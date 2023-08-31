@@ -221,17 +221,23 @@ function divideIntoGroups(players: Player[]) {
     const player = playerById.values().next().value as Player;
     playerById.delete(player.id);
     const nearbyPlayers = getNearbyPlayers(player.motion, [...playerById.values()]);
-    if (nearbyPlayers.length > 0) {
+    // Humans always go in separate groups.
+    let group = [player, ...nearbyPlayers];
+    const firstHuman = group.find((p) => !p.agentId);
+    if (firstHuman) {
+      group = group.filter((p) => !p.agentId || p.id === firstHuman.id);
+    }
+    if (group.length > 1) {
       // If you only want to do 1:1 conversations, use this:
       // groups.push([player, nearbyPlayers[0]]);
       // playerById.delete(nearbyPlayers[0].id);
       // otherwise, do more than 1:1 conversations by adding them all:
-      groups.push([player, ...nearbyPlayers]);
-      for (const nearbyPlayer of nearbyPlayers) {
-        playerById.delete(nearbyPlayer.id);
-      }
-    } else {
-      solos.push(player);
+      groups.push(group);
+    } else if (group.length > 0) {
+      solos.push(group[0]);
+    }
+    for (const groupMember of group) {
+      playerById.delete(groupMember.id);
     }
   }
   return { groups, solos };
