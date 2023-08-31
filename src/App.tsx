@@ -1,8 +1,13 @@
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react'
+
 import GameWrapper from './components/GameWrapper.tsx'
 import MusicButton from './components/MusicButton.tsx'
 import InteractButton from './components/InteractButton.tsx'
 import LoginButton from './components/LoginButton.tsx';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react'
+
+import a16zImg from "../assets/a16z.png";
+import convexImg from "../assets/convex.svg";
+import starImg from "../assets/star.svg";
 
 export default function Home() {
   return (
@@ -33,12 +38,12 @@ export default function Home() {
         <MusicButton />
         <a
               className="button text-white shadow-solid text-2xl pointer-events-auto"
-              href="https://github.com/a16z-infra/ai-town"
+              href="https://github.com/convex-dev/ai-town"
             >
               <div className="inline-block bg-clay-700">
                 <span>
                   <div className="inline-flex h-full items-center gap-4">
-                    <img className="w-[30px] h-[30px]" src="/assets/star.svg" />
+                    <img className="w-[30px] h-[30px]" src={starImg} />
                     Star
                   </div>
                 </span>
@@ -47,10 +52,10 @@ export default function Home() {
             <InteractButton />
           </div>
           <a href="https://a16z.com">
-            <img className="w-8 h-8 pointer-events-auto" src="/a16z.png" alt="a16z" />
+            <img className="w-8 h-8 pointer-events-auto" src={a16zImg} alt="a16z" />
           </a>
           <a href="https://convex.dev">
-            <img className="w-20 h-8 pointer-events-auto" src="/convex.svg" alt="Convex" />
+            <img className="w-20 h-8 pointer-events-auto" src={convexImg} alt="Convex" />
           </a>
         </footer>
       </div>
