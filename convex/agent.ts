@@ -298,12 +298,22 @@ export async function handleAgentInteraction(
       await waitToSpeak;
 
       let message = undefined;
-      for await (const content of playerCompletion.content.read()) {
+      let content = '';
+      let mutationPromise = null;
+      for await (const chunk of playerCompletion.content.read()) {
+        content += chunk;
         if (message) {
-          message = await ctx.runMutation(internal.journal.talkMore, {
-            entryId: message.entryId,
-            content,
-          });
+          // Debounce.
+          if (!mutationPromise) {
+            mutationPromise = ctx
+              .runMutation(internal.journal.talkMore, {
+                entryId: message.entryId,
+                content,
+              })
+              .finally(() => {
+                mutationPromise = null;
+              });
+          }
         } else {
           message = await ctx.runMutation(internal.journal.talk, {
             playerId: speaker.id,
@@ -314,8 +324,14 @@ export async function handleAgentInteraction(
           });
         }
       }
-
+      if (mutationPromise) {
+        await mutationPromise;
+      }
       if (message) {
+        message = await ctx.runMutation(internal.journal.talkMore, {
+          entryId: message.entryId,
+          content,
+        });
         messages.push(message);
       }
     } else {
