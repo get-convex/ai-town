@@ -3,6 +3,7 @@ import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import clsx from 'clsx';
 import { useRef, useState } from 'react';
+import { Message } from '../../convex/schema';
 
 function Messages({
   conversationId,
@@ -15,6 +16,21 @@ function Messages({
     useQuery(api.chat.listMessages, {
       conversationId,
     }) || [];
+  let conversationStarted = false;
+  const controlMessage = (message: Message) => {
+    if (message.type === 'started') {
+      if (conversationStarted) {
+        // Conversation already started.
+        return null;
+      }
+      conversationStarted = true;
+    }
+    return <p className="text-brown-700 text-center">
+      {message.fromName} {message.type === 'left' ? 'left' : 'started'}
+      {' the conversation.'}
+    </p>;
+  };
+
   return (
     <>
       {[...messages]
@@ -36,22 +52,21 @@ function Messages({
                 </div>
               </>
             ) : (
-              <p className="text-brown-700 text-center">
-                {message.fromName} {message.type === 'left' ? 'left' : 'started'}
-                {' the conversation.'}
-              </p>
+              controlMessage(message)
             )}
           </div>
         ))}
-        <MessageInput conversationId={conversationId} />
+        <MessageInput currentPlayerId={currentPlayerId} conversationId={conversationId} />
     </>
   );
 }
 
 function MessageInput({
   conversationId,
+  currentPlayerId,
 }: {
   conversationId: Id<'conversations'>;
+  currentPlayerId: Id<'players'>;
 }) {
   const activePlayer = useQuery(api.players.getActivePlayer);
   const waitingToTalk = useQuery(api.players.waitingToTalk, {conversationId});
@@ -79,7 +94,7 @@ function MessageInput({
       <span className="uppercase flex-grow">{activePlayer.name}</span>
       <span>{inputFlagged ? "be nice" : null}</span>
     </div>
-    <div className={clsx('bubble', 'bubble-mine')}>
+    <div className={clsx('bubble', currentPlayerId === activePlayer.id && 'bubble-mine')}>
       <p
         className="bg-white -mx-3 -my-1"
         ref={inputRef}

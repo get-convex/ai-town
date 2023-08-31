@@ -152,17 +152,21 @@ export async function latestMemoryOfType<T extends MemoryType>(
 export const makeConversation = internalMutation({
   args: { playerId: v.id('players'), audience: v.array(v.id('players')) },
   handler: async (ctx, { playerId, audience }) => {
+    const allPlayers = [playerId, ...audience];
     const playerDoc = (await ctx.db.get(playerId))!;
     const { worldId } = playerDoc;
     const conversationId = await ctx.db.insert('conversations', { worldId });
-    await ctx.db.insert('journal', {
-      playerId,
-      data: {
-        type: 'startConversation',
-        audience,
-        conversationId,
-      },
-    });
+    for (const player of allPlayers) {
+      const subjectiveAudience = allPlayers.filter((p) => p !== player);
+      await ctx.db.insert('journal', {
+        playerId: player,
+        data: {
+          type: 'startConversation',
+          audience: subjectiveAudience,
+          conversationId,
+        },
+      });
+    }
     return conversationId;
   },
 });
