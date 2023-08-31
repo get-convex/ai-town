@@ -15,6 +15,7 @@ import { useState } from 'react';
 const modalStyles = {
   overlay: {
     backgroundColor: "rgb(0, 0, 0, 75%)",
+    zIndex: 12,
   },
   content: {
     top: '50%',
