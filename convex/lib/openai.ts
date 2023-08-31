@@ -320,6 +320,9 @@ export interface CreateChatCompletionRequest {
   function_call?: 'none' | 'auto' | { name: string };
 }
 
+// Checks whether a suffix of s1 is a prefix of s2. For example,
+// ('Hello', 'Kira:') -> false
+// ('Hello Kira', 'Kira:') -> true
 const suffixOverlapsPrefix = (s1: string, s2: string) => {
   for (let i = 1; i <= Math.min(s1.length, s2.length); i++) {
     const suffix = s1.substring(s1.length - i);
