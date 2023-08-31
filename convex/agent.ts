@@ -225,7 +225,7 @@ function divideIntoGroups(players: Player[]) {
     let group = [player, ...nearbyPlayers];
     const firstHuman = group.find((p) => !p.agentId);
     if (firstHuman) {
-      group = group.filter((p) => !p.agentId || p.id === firstHuman.id);
+      group = group.filter((p) => !!p.agentId || p.id === firstHuman.id);
     }
     if (group.length > 1) {
       // If you only want to do 1:1 conversations, use this:
