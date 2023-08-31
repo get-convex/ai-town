@@ -135,12 +135,8 @@ export const leaveMyCurrentConversation = mutation({
         audience: conversation.audience,
         conversationId: conversation.conversationId,
       },
-    });
-    try {
-      await ctx.db.patch(playerId, { controllerThinking: undefined });
-    } catch (e) {
-      // It's okay if the player has been deleted.
-    }
+    })
+    await ctx.db.patch(playerId, { controllerThinking: undefined });;
   }
 })
 
