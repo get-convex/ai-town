@@ -247,7 +247,7 @@ export const talkingToUser = async (db: DatabaseReader, playerId: Id<'players'>)
   }
   for (const audienceId of lastConversation.audience) {
     const player = await db.get(audienceId);
-    if (player && player.agentId) {
+    if (!player || player.agentId) {
       continue; // Not a user.
     }
     const playerConversation = await currentConversation(db, audienceId);
@@ -275,6 +275,11 @@ export const leaveConversation = internalMutation({
         conversationId: conversation.conversationId,
       },
     });
+    try {
+      await ctx.db.patch(playerId, { controllerThinking: undefined });
+    } catch (e) {
+      // It's okay if the player has been deleted.
+    }
   },
 });
 

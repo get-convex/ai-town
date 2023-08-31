@@ -246,6 +246,7 @@ export async function handleAgentInteraction(
   let remainingPlayers = players;
 
   while (!endConversation) {
+    const waitToSpeak = awaitTimeout(messages.length ? CONVERSATION_PAUSE : 0);
     // leader speaks first
     const chatHistory = chatHistoryFromMessages(messages);
     const speaker =
@@ -285,6 +286,8 @@ export async function handleAgentInteraction(
       } else {
         playerCompletion = await converse(ctx, chatHistory, speaker, playerRelations, memory);
       }
+      // slow down conversations
+      await waitToSpeak;
 
       let message = undefined;
       for await (const content of playerCompletion.content.read()) {
@@ -308,6 +311,10 @@ export async function handleAgentInteraction(
         messages.push(message);
       }
     } else {
+      await ctx.runMutation(internal.chat.thinkAboutConversation, {
+        playerId: speaker.id,
+        conversationId,
+      });
       let message: Message | null = null;
       while (!message || message.from !== speaker.id || message.type !== 'responded') {
         message = await ctx.runQuery(internal.chat.lastMessage, {
@@ -317,15 +324,11 @@ export async function handleAgentInteraction(
           endConversation = true;
           break;
         }
-        await ctx.runMutation(internal.chat.thinkAboutConversation, { playerId: speaker.id, conversationId });
         // wait for user to type message.
         await awaitTimeout(100);
       }
       messages.push(message);
     }
-
-    // slow down conversations
-    await awaitTimeout(CONVERSATION_PAUSE);
   }
 
   if (messages.length > 0) {

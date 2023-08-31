@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useCallback, useEffect } from 'react';
-import { data as f1SpritesheetData } from '../../convex/characterdata/spritesheets/f1';
 import { useUser } from '@clerk/clerk-react';
+import { characters } from '../../convex/characterdata/data';
 
 export default function InteractButton() {
   const player = useQuery(api.players.getActivePlayer);
@@ -18,7 +18,10 @@ export default function InteractButton() {
     if (!isAuthenticated || isPlaying || !user) {
       return;
     }
-    const characterId = await createCharacter({name: "user", spritesheetData: f1SpritesheetData});
+    const characterId = await createCharacter({
+      name: "user",
+      spritesheetData: randomSpritesheet(),
+    });
     await createPlayer({
       forUser: true,
       name: user.firstName ?? "Me",
@@ -99,4 +102,9 @@ export default function InteractButton() {
       </a>
     </>
   );
+}
+
+const randomSpritesheet = () => {
+  const character = characters[Math.floor(Math.random() * characters.length)];
+  return character.spritesheetData;
 }
