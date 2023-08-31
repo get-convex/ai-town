@@ -15,13 +15,13 @@ export const Worlds = Table('worlds', {
 export const ReplicateWebhooks = Table('replicate_webhooks', {
   externalId: v.string(), // Replicate call ID
   input: v.any(),
-  handler: v.string()
+  handler: v.string(),
 });
 
 export const Music = Table('music', {
   storageId: v.string(), //TODO change to v.id('storage'). See replicate.ts for issue
   type: v.union(v.literal('background'), v.literal('player')),
-})
+});
 
 export const Maps = Table('maps', {
   tileSetUrl: v.string(),
@@ -255,8 +255,9 @@ export default defineSchema(
       // For NPCs, this is set to the agent's state.
       agentId: v.optional(v.id('agents')),
       characterId: v.id('characters'),
-    }).index('by_worldId', ['worldId'])
-    .index("by_user", ["worldId", "controller"]),
+    })
+      .index('by_worldId', ['worldId'])
+      .index('by_user', ['worldId', 'controller']),
     // For tracking the engine's processing of agents
     agents: defineTable({
       worldId: v.id('worlds'),
@@ -278,7 +279,6 @@ export default defineSchema(
 
     music: Music.table,
 
-
     embeddings: defineTable({
       playerId: v.optional(v.id('players')),
       text: v.string(),
@@ -295,10 +295,10 @@ export default defineSchema(
 
     heartbeats: defineTable({}),
 
-    replicate_webhooks: ReplicateWebhooks.table
-      .index('by_replicate_external_id', ['externalId']),
+    replicate_webhooks: ReplicateWebhooks.table.index('by_replicate_external_id', ['externalId']),
 
     user_input: defineTable({
+      user: v.string(),
       content: v.string(),
       moderationResult: v.optional(v.boolean()),
     }),

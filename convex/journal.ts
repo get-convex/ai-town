@@ -171,7 +171,7 @@ export const userTalkModerated = action({
   args: {
     content: v.string(),
   },
-  handler: async (ctx, { content }): Promise<{contentId: Id<"user_input">; flagged: boolean}> => {
+  handler: async (ctx, { content }): Promise<{ contentId: Id<'user_input'>; flagged: boolean }> => {
     const contentId = await ctx.runMutation(internal.journal.proposeUserInput, { content });
 
     const { flagged } = (await fetchModeration(content)).results[0];
@@ -182,7 +182,11 @@ export const userTalkModerated = action({
 });
 
 export const proposeUserInput = internalMutation(async (ctx, { content }: { content: string }) => {
-  return await ctx.db.insert('user_input', { content });
+  const userIdentity = await ctx.auth.getUserIdentity();
+  if (!userIdentity) {
+    throw new Error('must be logged in to propose user input');
+  }
+  return await ctx.db.insert('user_input', { content, user: userIdentity.tokenIdentifier });
 });
 
 export const moderatedUserInput = internalMutation(
