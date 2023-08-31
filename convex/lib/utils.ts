@@ -92,3 +92,11 @@ export function Table<T extends Record<string, Validator<any, any, any>>, TableN
     doc: v.object(docFields),
   };
 }
+
+export function assertNever(v: never): never {
+  throw new Error("Unexpected failed assertion");
+}
+
+export function clamp(x: number, min: number, max: number) {
+  return Math.min(Math.max(x, min), max);
+}

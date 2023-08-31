@@ -9,7 +9,7 @@ import {
   VACUUM_MEMORIES_AGE,
 } from './config';
 import { allControlledPlayers, enqueueAgentWake } from './engine';
-import { internal } from './_generated/api';
+import { api, internal } from './_generated/api';
 import { TableNames } from './_generated/dataModel';
 
 export const recoverThinkingAgents = internalMutation({
@@ -218,4 +218,7 @@ crons.interval(
   { minutes: 5 },
   internal.players.kickPlayers,
 )
+
+// crons.interval("run step", {seconds: 1 }, api.wenkel.step, {worldId: "4dzetdtjgcmnw4h4jw5krcaw9j7st98" as any})
+
 export default crons;

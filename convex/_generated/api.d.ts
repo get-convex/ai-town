@@ -50,6 +50,7 @@ import type * as music from "../music";
 import type * as players from "../players";
 import type * as testing from "../testing";
 import type * as waitlist_constants from "../waitlist_constants";
+import type * as wankel from "../wankel";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   players: typeof players;
   testing: typeof testing;
   waitlist_constants: typeof waitlist_constants;
+  wankel: typeof wankel;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

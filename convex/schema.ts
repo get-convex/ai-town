@@ -242,6 +242,47 @@ export type SpritesheetData = Infer<(typeof Characters.fields)['spritesheetData'
 // export const zone = v.array(v.string());
 // export type Zone = Infer<typeof zone>;
 
+export const inputPayload = v.union(
+  v.object({
+    kind: v.literal("startConversation"),
+    with: v.array(v.id("players")),
+  }),
+  v.object({
+    kind: v.literal("speak"),
+    conversationId: v.id("conversation"),
+    content: v.string(),
+  }),
+  v.object({
+    kind: v.literal("endConversation"),
+    conversationId: v.id("conversation"),
+  }),
+  v.object({
+    kind: v.literal("move"),
+    vector: v.object({ dx: v.number(), dy: v.number(), dt: v.number() }),
+  })
+);
+
+const inputQueue = defineTable({
+  // Index on (worldId, playerId, clientTimestamp)
+  // Client timestamp must exceed latest step's client timestamp
+  worldId: v.id("worlds"),
+  playerId: v.id("players"),
+  clientTimestamp: v.number(),
+  serverTimestamp: v.number(),
+  payload: inputPayload,
+}).index("clientTimestamp", ["worldId", "playerId", "clientTimestamp"])
+
+const steps = defineTable({
+  worldId: v.id("worlds"),
+  clientTimestamps: v.any(), // v.record(v.id("playerId"), v.number())
+
+  // Monotonically increasing, value of `Date.now()` during `step()`.
+  serverTimestamp: v.number(),
+
+  // Eventually, this will have all the ingredients for deterministically reproducing step()!
+  // rngSeed: v.int64(),
+}).index("serverTimestamp", ["serverTimestamp"]);
+
 export default defineSchema(
   {
     worlds: Worlds.table,
@@ -311,6 +352,25 @@ export default defineSchema(
     })
       .index('ticket', ['worldId', 'ticket'])
       .index('subject', ['worldId', 'tokenIdentifier']),
+
+    inputQueue,
+    steps,
+
+    playerInput: defineTable({
+      worldId: v.id("worlds"),
+      playerId: v.id("players"),
+      clientTimestamp: v.number(),
+      vector: v.object({dx: v.number(), dy: v.number(), dt: v.number()}),
+    }).index("playerId", ["worldId", "playerId"]),
+    playerPosition: defineTable({
+      worldId: v.id("worlds"),
+      playerId: v.id("players"),
+
+      x: v.number(),
+      y: v.number(),
+      dx: v.number(),
+      dy: v.number(),
+    }).index("worldId", ["worldId"]),
   },
   // When schemaValidation is enabled, it prevents pushing code that has a
   // schema incompatible with the current database.

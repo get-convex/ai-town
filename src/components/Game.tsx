@@ -60,36 +60,6 @@ export default Game;
  *
  * @returns The average offset between the server and the client
  */
-const useServerTimeOffset = (worldId: Id<'worlds'> | undefined) => {
-  const serverNow = useMutation(api.players.now);
-  const [offset, setOffset] = useState(0);
-  const prev = useRef<number[]>([]);
-  useEffect(() => {
-    const updateOffset = async () => {
-      if (!worldId) return;
-      let serverTime;
-      try {
-        serverTime = await serverNow({ worldId });
-      } catch (e) {
-        // If we failed to get it, just skip this one
-        return;
-      }
-      const newOffset = serverTime - Date.now();
-      prev.current.push(newOffset);
-      if (prev.current.length > 5) prev.current.shift();
-      const rollingOffset =
-        prev.current.length < 3
-          ? prev.current
-          : // Take off the max & min as outliers
-            [...prev.current].sort().slice(1, -1);
-      const avgOffset = rollingOffset.reduce((a, b) => a + b, 0) / rollingOffset.length;
-      setOffset(avgOffset);
-    };
-    void updateOffset();
-    const interval = setInterval(() => {
-      void updateOffset();
-    }, HEARTBEAT_PERIOD);
-    return () => clearInterval(interval);
-  }, [worldId]);
-  return offset;
+const useServerTimeOffset = (_worldId: Id<'worlds'> | undefined) => {
+  return 0;
 };
