@@ -4,7 +4,7 @@ import { DatabaseReader, mutation, query } from './_generated/server';
 import { enqueueAgentWake } from './engine';
 import { HEARTBEAT_PERIOD, WORLD_IDLE_THRESHOLD } from './config';
 import { Characters, Player, Pose } from './schema';
-import { getPlayer, getRandomPosition, walkToTarget } from './journal';
+import { getPlayer, walkToTarget } from './journal';
 import { internal } from './_generated/api';
 import { getPoseFromMotion, roundPose } from './lib/physics';
 import { Auth } from 'convex/server';
@@ -108,26 +108,19 @@ export const getActivePlayer = query({
 });
 
 export const waitingToTalk = query({
-  args: {conversationId: v.id('conversations')},
-  handler: async (ctx, {conversationId}) => {
+  args: { conversationId: v.id('conversations') },
+  handler: async (ctx, { conversationId }) => {
     const activePlayer = await activePlayerDoc(ctx.auth, ctx.db);
     if (!activePlayer) {
       return false;
     }
     return activePlayer.controllerThinking === conversationId;
-  }
-})
+  },
+});
 
 export const navigateActivePlayer = mutation({
   args: {
-    direction: v.union(
-      v.literal('r'),
-      v.literal('w'),
-      v.literal('a'),
-      v.literal('s'),
-      v.literal('d'),
-      v.literal('q'),
-    ),
+    direction: v.union(v.literal('w'), v.literal('a'), v.literal('s'), v.literal('d')),
   },
   handler: async (ctx, { direction }) => {
     const world = await activeWorld(ctx.db);
@@ -135,29 +128,49 @@ export const navigateActivePlayer = mutation({
     if (!player) {
       return;
     }
-    const map = await ctx.db.get(world!.mapId);
+    const map = (await ctx.db.get(world!.mapId))!;
+    // WARNING: height corresponds to X, width corresponds to Y.
     const maxX = world!.height! - 1;
     const maxY = world!.width! - 1;
-    const currentPosition = roundPose(getPoseFromMotion(player.motion, Date.now())).position;
-    const position =
-      direction === 'r'
-        ? getRandomPosition(map!)
-        : direction === 'a'
-        ? { x: 0, y: currentPosition.y }
-        : direction === 's'
-        ? { x: currentPosition.x, y: maxY }
-        : direction === 'w'
-        ? { x: currentPosition.x, y: 0 }
-        : direction === 'd'
-        ? { x: maxX, y: currentPosition.y }
-        : currentPosition;
+    const pose = getPoseFromMotion(player.motion, Date.now());
+    const rawPosition = pose.position;
+    const currentPosition = roundPose(pose).position;
+    const position = { ...currentPosition };
+    // If you're less than 25% of the way to the rounded position already, don't move.
+    const LEADING_BUFFER = 0.25;
+    switch (direction) {
+      case 'a':
+        if (position.x <= 0) return;
+        if (position.x + LEADING_BUFFER < rawPosition.x) return;
+        position.x -= 1;
+        break;
+      case 's':
+        if (position.y >= maxY) return;
+        if (position.y - LEADING_BUFFER > rawPosition.y) return;
+        position.y += 1;
+        break;
+      case 'w':
+        if (position.y <= 0) return;
+        if (position.y + LEADING_BUFFER < rawPosition.y) return;
+        position.y -= 1;
+        break;
+      case 'd':
+        if (position.x >= maxX) return;
+        if (position.x - LEADING_BUFFER > rawPosition.x) return;
+        position.x += 1;
+        break;
+      default:
+        break;
+    }
+    if (map.objectTiles[position.y][position.x] !== -1) {
+      console.log('bumped into object');
+      return;
+    }
     console.log(`walking to x: ${position.x}, y: ${position.y}`);
     await walkToTarget(ctx, player.id, world!._id, [], position);
-    if (direction !== 'q') {
-      await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
-        playerId: player.id,
-      });
-    }
+    await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
+      playerId: player.id,
+    });
   },
 });
 
@@ -219,10 +232,12 @@ export const deletePlayer = mutation({
     if (!activePlayer) {
       throw new Error('no player to delete');
     }
-    await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, { playerId: activePlayer._id });
+    await ctx.scheduler.runAfter(0, internal.journal.leaveConversation, {
+      playerId: activePlayer._id,
+    });
     await ctx.db.delete(activePlayer._id);
-  }
-})
+  },
+});
 
 // Future: this could allow creating an agent
 export const createAgent = mutation({

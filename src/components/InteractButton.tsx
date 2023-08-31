@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { characters } from '../../convex/characterdata/data';
 
@@ -40,6 +40,7 @@ export default function InteractButton() {
     await deletePlayer();
   }
 
+  const pendingNavigations = useRef(0);
   const handleKeyPress = useCallback(
     (event: KeyboardEvent) => {
       if (isPlaying) {
@@ -52,14 +53,17 @@ export default function InteractButton() {
           key = 'w';
         } else if (key === 'ArrowDown') {
           key = 's';
-        } else if (key === 'Enter') {
-          key = 'q';
         }
-        if (
-          key === 'w' || key === 'a' || key === 's'
-          || key === 'd' || key === 'r' || key == 'q') {
+        if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
           event.preventDefault();
-          void navigate({direction: key});
+          // Single-flighting.
+          if (pendingNavigations.current > 0) {
+            return;
+          }
+          pendingNavigations.current += 1;
+          void navigate({direction: key}).finally(() => {
+            pendingNavigations.current -= 1;
+          });
         }
       }
     },
