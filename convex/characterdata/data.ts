@@ -114,11 +114,6 @@ export const Descriptions = [
           speaks in oblique riddles. She comes across as confused and forgetful.`,
       },
       {
-        type: 'relationship' as const,
-        description: 'You like kurt',
-        playerName: 'Kurt',
-      },
-      {
         type: 'plan' as const,
         description: 'You want to figure out how the world works.',
       },
