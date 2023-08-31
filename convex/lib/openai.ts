@@ -109,7 +109,6 @@ export async function fetchModeration(content: string) {
     }
     return (await result.json()) as { results: { flagged: boolean }[] };
   });
-  console.error(flagged);
   return flagged;
 }
 
