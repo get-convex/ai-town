@@ -100,8 +100,7 @@ export const runAgentBatch = internalAction({
 });
 
 export const myCurrentConversation = query({
-  args: { preferredPlayerId: v.optional(v.id("players")) },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     const me = await activePlayer(ctx.auth, ctx.db);
     if (!me) {
       return null;
@@ -114,10 +113,7 @@ export const myCurrentConversation = query({
     if (notMe.length === 0) {
       return null;
     }
-    if (args.preferredPlayerId && notMe.includes(args.preferredPlayerId)) {
-      return args.preferredPlayerId;
-    }
-    return notMe[0];
+    return notMe;
   }
 })
 

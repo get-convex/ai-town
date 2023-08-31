@@ -115,12 +115,13 @@ function MessageInput({
 }
 
 // TODO: Add feedback when the agent is on their way
-// TODO: Don't rerender `PlayerDetails` when in a conversation and clicking on someone else.
 export default function PlayerDetails({ playerId, setSelectedPlayer }: { playerId?: Id<'players'>, setSelectedPlayer: SelectPlayer }) {
-  const currentConversation = useQuery(api.agent.myCurrentConversation, { preferredPlayerId: playerId });
-  const inConversation = currentConversation !== undefined && currentConversation !== null;
+  const currentConversationPlayers = useQuery(api.agent.myCurrentConversation, {});
+  const inConversation = currentConversationPlayers !== undefined && currentConversationPlayers !== null;
   if (inConversation) {
-    playerId = currentConversation;
+    if (!playerId || !currentConversationPlayers.includes(playerId)) {
+      playerId = currentConversationPlayers[0];
+    }
   }
   const playerState = useQuery(api.players.playerState, playerId ? { playerId } : "skip");
   const playerDetails = useQuery(api.agent.playerDetails, playerId ? { playerId } : "skip");
@@ -132,8 +133,6 @@ export default function PlayerDetails({ playerId, setSelectedPlayer }: { playerI
         Click on an agent on the map to see chat history.
       </div>
     )
-  } else {
-
   }
   return (
     playerId && playerState && playerDetails !== undefined && (

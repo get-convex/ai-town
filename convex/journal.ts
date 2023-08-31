@@ -59,6 +59,7 @@ export async function getPlayer(db: DatabaseReader, playerDoc: Doc<'players'>) {
     lastChat: latestConversation && {
       message: await clientMessageMapper(db)(latestConversation),
       conversationId: latestConversation.data.conversationId,
+      audience: latestConversation.data.audience,
     },
   };
 }
@@ -216,7 +217,7 @@ export const userTalk = mutation({
       playerId: player.id,
       data: {
         type: 'talking',
-        audience: [],
+        audience: player.lastChat.audience,
         conversationId: player.lastChat.conversationId,
         content: userInput.content,
         relatedMemoryIds: [],
