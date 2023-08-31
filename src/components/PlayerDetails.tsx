@@ -16,14 +16,10 @@ function Messages({
     useQuery(api.chat.listMessages, {
       conversationId,
     }) || [];
-  let conversationStarted = false;
-  const controlMessage = (message: Message) => {
-    if (message.type === 'started') {
-      if (conversationStarted) {
-        // Conversation already started.
-        return null;
-      }
-      conversationStarted = true;
+  const controlMessage = (message: Message, idx: number) => {
+    if (message.type === 'started' && idx > 0) {
+      // Conversation already started.
+      return null;
     }
     return <p className="text-brown-700 text-center">
       {message.fromName} {message.type === 'left' ? 'left' : 'started'}
@@ -37,7 +33,7 @@ function Messages({
         .reverse()
         // We can filter out the "started" and "left" conversations with this:
         // .filter((m) => m.data.type === 'responded')
-        .map((message) => (
+        .map((message, idx) => (
           <div className="leading-tight mb-6" key={message.ts}>
             {message.type === 'responded' ? (
               <>
@@ -52,7 +48,7 @@ function Messages({
                 </div>
               </>
             ) : (
-              controlMessage(message)
+              controlMessage(message, idx)
             )}
           </div>
         ))}
