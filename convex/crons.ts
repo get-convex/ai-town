@@ -210,7 +210,7 @@ crons.interval('vacuum old memory entries', { hours: 6 }, internal.crons.vacuumO
 });
 crons.interval(
   'vacuum abandoned interactions',
-  { minutes: 15 },
+  { minutes: 5 },
   internal.crons.vacuumAbandonedInteractions,
 );
 export default crons;

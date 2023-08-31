@@ -30,4 +30,4 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 export const VACUUM_JOURNAL_AGE = 7 * DAY;
 export const VACUUM_MEMORIES_AGE = 14 * DAY;
-export const ABANDONED_INTERACTION = 30 * MINUTE;
+export const ABANDONED_INTERACTION = 5 * MINUTE;

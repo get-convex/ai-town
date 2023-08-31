@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Message } from '../../convex/schema';
 import closeImg from "../../assets/close.svg";
 import { SelectPlayer } from './Player';
-import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react';
+import { SignedIn } from '@clerk/clerk-react';
 
 function Messages({
   conversationId,
