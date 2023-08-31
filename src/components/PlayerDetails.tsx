@@ -2,11 +2,11 @@ import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import clsx from 'clsx';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Message } from '../../convex/schema';
 import closeImg from "../../assets/close.svg";
 import { SelectPlayer } from './Player';
-import { SignedIn } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react';
 
 function Messages({
   conversationId,
@@ -114,7 +114,6 @@ function MessageInput({
   </div>;
 }
 
-// TODO: Add feedback when the agent is on their way
 export default function PlayerDetails({ playerId, setSelectedPlayer }: { playerId?: Id<'players'>, setSelectedPlayer: SelectPlayer }) {
   const currentConversationPlayers = useQuery(api.agent.myCurrentConversation, {});
   const inConversation = currentConversationPlayers !== undefined && currentConversationPlayers !== null;
@@ -127,6 +126,24 @@ export default function PlayerDetails({ playerId, setSelectedPlayer }: { playerI
   const playerDetails = useQuery(api.agent.playerDetails, playerId ? { playerId } : "skip");
   const talkToMe = useMutation(api.agent.talkToMe);
   const leaveCurrentConversation = useMutation(api.agent.leaveMyCurrentConversation);
+
+  const [playerApproaching, setPlayerApproaching] = useState<Id<"players"> | undefined>();
+  useEffect(() => {
+    if (playerApproaching && playerApproaching !== playerId) {
+      setPlayerApproaching(undefined);
+    }
+  }, [playerApproaching, playerId, setPlayerApproaching]);
+
+  const startConversation = () => {
+    void talkToMe({ playerId: playerId! });
+    setPlayerApproaching(playerId);
+  }
+  const approaching = playerApproaching == playerId;
+  const startConversationMsg = approaching ? "Walking over..." : "Start conversation";
+  let startConversationCls = "mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto";
+  if (approaching) {
+    startConversationCls += " opacity-50"
+  }
   if (!playerId) {
     return (
       <div className="h-full text-xl flex text-center items-center p-4">
@@ -159,12 +176,12 @@ export default function PlayerDetails({ playerId, setSelectedPlayer }: { playerI
 
         {playerDetails.canTalk && (
           <SignedIn>
-          <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto"
+          <a className={startConversationCls}
             title="Start a conversation"
-            onClick={() => { void talkToMe({ playerId: playerId! })}}
+            onClick={startConversation}
           >
             <div className="h-full bg-clay-700 text-center">
-              <span>Start conversation</span>
+              <span>{startConversationMsg}</span>
             </div>
           </a>
         </SignedIn>
