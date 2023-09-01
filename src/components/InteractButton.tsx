@@ -28,7 +28,7 @@ export default function InteractButton() {
       name: user.firstName ?? "Me",
       characterId,
       pose: {
-        position: {x: 1, y: 1},
+        position: {x: 10, y: 10},
         orientation: 1,
       },
     });

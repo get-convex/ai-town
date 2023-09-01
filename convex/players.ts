@@ -162,7 +162,7 @@ export const navigateActivePlayer = mutation({
       default:
         break;
     }
-    if (map.objectTiles[position.y][position.x] !== -1) {
+    if (map.objectTiles[0][position.x][position.y] !== -1) {
       console.log('bumped into object');
       return;
     }
