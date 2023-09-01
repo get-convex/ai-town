@@ -24,8 +24,8 @@ export const PixiStaticMap = PixiComponent('StaticMap', {
         );
       }
     }
-    const screenytiles = map.bgTiles[0].length;
-    const screenxtiles = map.bgTiles[0][0].length;
+    const screenytiles = map.bgTiles[0][0].length;
+    const screenxtiles = map.bgTiles[0].length;
 
     const container = new PIXI.Container();
 
