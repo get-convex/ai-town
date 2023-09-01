@@ -29,7 +29,7 @@ export const Descriptions = [
         description: 'You want to find love.',
       },
     ],
-    position: { x: 10, y: 10 },
+    position: { x: 7, y: 42 },
   },
   {
     name: 'Lucky',
@@ -67,7 +67,7 @@ export const Descriptions = [
         description: 'You want to avoid people as much as possible.',
       },
     ],
-    position: { x: 6, y: 4 },
+    position: { x: 6, y: 14 },
   },
   {
     name: 'Stella',
@@ -84,7 +84,7 @@ export const Descriptions = [
         description: 'you want to take advantage of others as much as possible.',
       },
     ],
-    position: { x: 6, y: 6 },
+    position: { x: 15, y: 12 },
   },
   {
     name: 'Kurt',
@@ -118,7 +118,7 @@ export const Descriptions = [
         description: 'You want to figure out how the world works.',
       },
     ],
-    position: { x: 4, y: 4 },
+    position: { x: 11, y: 36 },
   },
   {
     name: 'Pete',
@@ -135,7 +135,7 @@ export const Descriptions = [
         description: 'You want to convert everyone to your religion.',
       },
     ],
-    position: { x: 2, y: 10 },
+    position: { x: 34, y: 42 },
   },
   {
     name: 'Kira',
@@ -153,7 +153,7 @@ export const Descriptions = [
         description: 'You want find a way to be happy.',
       },
     ],
-    position: { x: 4, y: 10 },
+    position: { x: 32, y: 43 },
   },
 ];
 
