@@ -28,7 +28,8 @@ export default function InteractButton() {
       name: user.firstName ?? "Me",
       characterId,
       pose: {
-        position: {x: 1, y: 1},
+        // TODO: store the "spawn position" in the map.
+        position: {x: 10, y: 10},
         orientation: 1,
       },
     });

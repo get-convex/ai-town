@@ -21,14 +21,14 @@ export function findRoute(
   if (
     end.x < 0 ||
     end.y < 0 ||
-    end.x >= map.bgTiles[0][0].length ||
-    end.y >= map.bgTiles[0].length ||
+    end.x >= map.bgTiles[0].length ||
+    end.y >= map.bgTiles[0][0].length ||
     map.objectTiles[0][end.x][end.y] !== -1
   ) {
     throw new Error('Invalid end position: ' + JSON.stringify(end));
   }
-  const width = map.bgTiles[0][0].length;
-  const height = map.bgTiles[0].length;
+  const width = map.bgTiles[0].length;
+  const height = map.bgTiles[0][0].length;
 
   // Make Position[] for each player, starting at ts
   const otherPlayerLocations = otherPlayerMotion

@@ -28,8 +28,6 @@ export const Game = ({
         <PixiViewport
           screenWidth={width}
           screenHeight={height}
-          worldWidth={worldState.map.tileSetDim}
-          worldHeight={worldState.map.tileSetDim}
         >
           <PixiStaticMap map={worldState.map}></PixiStaticMap>
           {/* Re-propagate context because contexts are not shared between renderers.

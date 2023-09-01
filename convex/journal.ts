@@ -496,8 +496,8 @@ export function getRandomPosition(map: Doc<'maps'>): Position {
   let pos;
   do
     pos = {
-      x: Math.floor(Math.random() * map.bgTiles[0][0].length),
-      y: Math.floor(Math.random() * map.bgTiles[0].length),
+      x: Math.floor(Math.random() * map.bgTiles[0].length),
+      y: Math.floor(Math.random() * map.bgTiles[0][0].length),
     };
   while (map.objectTiles[0][pos.x][pos.y] !== -1);
   return pos;
