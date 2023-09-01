@@ -200,7 +200,6 @@ class LayerContext {
             let gridsize = g_context.tileDim;
             this.grid_graphics.lineStyle(1, 0xffffff, 1);
 
-            let index = 0;
             for (let i = 0; i < CONFIG.levelwidth; i += gridsize) {
                 this.grid_graphics.moveTo(i, 0);
                 this.grid_graphics.lineTo(i, CONFIG.levelheight);
@@ -553,7 +552,7 @@ function onTilesetDragStart(e)
 }
 
 // Stop dragging feedback once the handle is released.
-function onTilesetDragEnd(e)
+function onTilesetDragEnd(_e)
 {
     if (debug_flag) {
         console.log("onDragEndTileset()");
@@ -619,7 +618,6 @@ function drawGrid() {
         let gridsize = g_context.tileDim;
         drawGrid.graphics.lineStyle(1, 0xffffff, 1);
 
-        let index = 0;
         for (let i = 0; i < CONFIG.levelwidth; i += gridsize) {
             drawGrid.graphics.moveTo(i, 0);
             drawGrid.graphics.lineTo(i, CONFIG.levelheight);
@@ -725,7 +723,7 @@ function onLevelMouseover(e) {
 }
 
 
-function onLevelMouseOut(e) {
+function onLevelMouseOut(_e) {
     if (debug_flag) {
         console.log("onLevelMouseOut ",this.num);
     }
@@ -786,7 +784,7 @@ function levelPlaceNoVariable(layer, e) {
         let ti = layer.addTileLevelPx(e.data.global.x, e.data.global.y, g_context.tile_index);
         UNDO.undo_add_single_index_as_task(layer, ti);
     } else {
-        let undolist = [];
+        let _undolist = [];
         UNDO.undo_mark_task_start(layer);
         for (let index of g_context.selected_tiles) {
             let ti = layer.addTileLevelPx(xorig + index[0] * g_context.tileDim, yorig + index[1] * g_context.tileDim, index[2]);
@@ -887,7 +885,7 @@ function onLevelDragEnd(layer, e)
         UNDO.undo_mark_task_start(layer);
         for (let i = starttilex; i <= endtilex; i++) {
             for (let j = starttiley; j <= endtiley; j++) {
-                let squareindex = (j * CONFIG.screenxtiles) + i;
+                let _squareindex = (j * CONFIG.screenxtiles) + i;
                 let ti = layer.addTileLevelPx(i * g_context.tileDim, j * g_context.tileDim, g_context.tile_index);
                 UNDO.undo_add_index_to_task(ti);
             }
@@ -917,7 +915,7 @@ function onLevelDragEnd(layer, e)
         let ti=0;
         for (let i = starttilex; i <= endtilex; i++) {
             for (let j = starttiley; j <= endtiley; j++) {
-                let squareindex = (j * CONFIG.screenxtiles) + i;
+                let _squareindex = (j * CONFIG.screenxtiles) + i;
                 if (j === starttiley) { // first row 
                     if (i === starttilex) { // top left corner
                         ti = layer.addTileLevelPx(i * g_context.tileDim, j * g_context.tileDim, selected_grid[0][0][2]);

@@ -1,4 +1,3 @@
-import * as PIXI from 'pixi.js'
 
 var ContextCreate = (function(){
 
