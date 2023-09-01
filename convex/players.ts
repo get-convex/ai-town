@@ -301,7 +301,7 @@ export const createPlayer = mutation({
           .withIndex("ticket", q => q.eq("worldId", world._id))
           .order("asc")
           .first();
-        if (first) {
+        if (first && humanAgents < MAX_HUMANS) {
           first.deadline = Date.now() + WAITLIST_DEADLINE;
           await ctx.db.replace(first._id, first);
         }
