@@ -93,7 +93,7 @@ export function Table<T extends Record<string, Validator<any, any, any>>, TableN
   };
 }
 
-export function assertNever(v: never): never {
+export function assertNever(_v: never): never {
   throw new Error("Unexpected failed assertion");
 }
 
