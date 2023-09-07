@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { DatabaseReader, DatabaseWriter, mutation } from "./_generated/server";
 import { bgtiles } from "./maps/firstmap";
 import { v } from 'convex/values';
@@ -141,7 +143,7 @@ export const step = mutation({
         // Simulate each tick between our previous step and `now`.
         // For each tick, first apply all inputs and then advance the game state.
         let inputIndex = 0;
-        let startTs = lastStep ? lastStep.serverTimestamp + tickResolution : now;
+        const startTs = lastStep ? lastStep.serverTimestamp + tickResolution : now;
         const maxTimestamps: Record<Id<"players">, number> = lastStep?.clientTimestamps ?? {};
         for (let ts = startTs; ts <= now; ts += tickResolution) {
             while (inputIndex < stepInputs.length) {
@@ -238,6 +240,7 @@ class GameState {
                 )
                 break;
             default:
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 assertNever(input.payload);
         }
     }
