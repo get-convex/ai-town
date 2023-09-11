@@ -3,12 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "npm-run-all dev:init --parallel dev:frontend dev:backend",
+    "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "build": "tsc && vite build",
     "lint": "eslint .",
     "dev:backend": "convex dev",
-    "dev:frontend": "vite",
-    "dev:init": "convex dev --run init --until-success"
+    "dev:frontend": "vite"
   },
   "dependencies": {
     "@clerk/clerk-react": "^4.21.9-snapshot.56dc3e3",

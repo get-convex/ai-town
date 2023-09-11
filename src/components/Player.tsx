@@ -1,11 +1,9 @@
+import { Doc, Id } from '../../convex/_generated/dataModel';
+import { Character } from './Character.tsx';
+import { characters, map } from '../../convex/schema.ts';
 import { useTick } from '@pixi/react';
 import { useRef, useState } from 'react';
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
-import { getPoseFromMotion } from '../../convex/lib/physics.ts';
-import { Doc, Id } from '../../convex/_generated/dataModel';
-import type { Pose } from '../../convex/schema.ts';
-import { Character } from './Character.tsx';
+import { orientationDegrees, pathPosition } from '../../convex/geometry.ts';
 
 const SpeechDurationMs = 2000;
 const SpokeRecentlyMs = 5_000;
@@ -14,53 +12,72 @@ export type SelectPlayer = (playerId?: Id<'players'>) => void;
 
 export const Player = ({
   player,
-  offset,
-  tileDim,
+  serverTimestamp,
   onClick,
 }: {
-  player: Doc<'players'>;
-  offset: number;
-  tileDim: number;
+  player: Doc<"players">;
+  serverTimestamp: number | null,
   onClick: SelectPlayer;
 }) => {
-  const playerState = useQuery(api.players.playerState, {
-    playerId: player._id,
+  const tileDim = map.tileDim;
+  const character = characters[player.character];
+
+  const now = Date.now();
+  serverTimestamp = serverTimestamp ?? now;
+  const lastStateUpdate = useRef({
+    serverTimestamp,
+    clientTimestamp: now,
+    player,
   });
-  const character = useQuery(api.players.characterData, {
-    characterId: player.characterId,
-  });
-  const [pose, setPose] = useState<Pose>();
-  const time = useRef(0);
+  if (lastStateUpdate.current.serverTimestamp !== serverTimestamp) {
+    const serverDelta = serverTimestamp - lastStateUpdate.current.serverTimestamp;
+    const clientDelta = now - lastStateUpdate.current.clientTimestamp;
+    let clientTimestamp = now;
+    if (clientDelta > serverDelta) {
+      clientTimestamp = now - (clientDelta - serverDelta);
+    }
+    lastStateUpdate.current = {
+      serverTimestamp,
+      clientTimestamp,
+      player,
+    };
+  }
+
+  const [x, setX] = useState(player.position.x);
+  const [y, setY] = useState(player.position.y);
+  const [orientation, setOrientation] = useState(player.orientation);
+
   useTick(() => {
-    time.current = Date.now() + offset;
-    if (!playerState) return;
-    if (!time.current) return;
-    const pose = getPoseFromMotion(playerState.motion, time.current);
-    setPose(pose);
-  });
-  if (!playerState || !character) return null;
-  if (!pose) return null;
+    const now = Date.now();
+    if (player.path) {
+      const dt = now - lastStateUpdate.current.clientTimestamp;
+      const serverTimestamp = lastStateUpdate.current.serverTimestamp + dt;
+      const serverPosition = pathPosition(player.path, serverTimestamp);
+      if (serverPosition !== null) {
+        const { position: { x, y }, vector } = serverPosition;
+        setX(x);
+        setY(y);
+        setOrientation(orientationDegrees(vector));
+      }
+    } else {
+      setX(player.position.x)
+      setY(player.position.y);
+      setOrientation(player.orientation);
+    }
+  })
   return (
     <Character
-      x={pose.position.x * tileDim + tileDim / 2}
-      y={pose.position.y * tileDim + tileDim / 2}
-      orientation={pose.orientation}
-      isMoving={
-        playerState.motion.type === 'walking' && playerState.motion.targetEndTs >= time.current
-      }
-      isThinking={
-        playerState.thinking &&
-        (playerState.lastChat?.message.ts ?? 0) < time.current - SpokeRecentlyMs
-      }
-      isSpeaking={
-        playerState.lastChat?.message.type === 'responded' &&
-        (playerState.lastChat.message.ts ?? 0) > time.current - SpeechDurationMs
-      }
+      x={x * tileDim + tileDim / 2}
+      y={y * tileDim + tileDim / 2}
+      orientation={orientation}
+      isMoving={!!player.path}
+      isThinking={false}
+      isSpeaking={false}
       textureUrl={character.textureUrl}
       spritesheetData={character.spritesheetData}
       speed={character.speed}
       onClick={() => {
-        onClick(playerState.id);
+        onClick(player._id);
       }}
     />
   );

@@ -1,12 +1,10 @@
 import { Stage } from '@pixi/react';
-import { useEffect, useRef, useState } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
-import { ConvexProvider, useConvex, useMutation, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { ConvexProvider, useConvex, useQuery } from 'convex/react';
 import { Player, SelectPlayer } from './Player.tsx';
-import { HEARTBEAT_PERIOD } from '../../convex/config.ts';
-import { Id } from '../../convex/_generated/dataModel';
 import PixiViewport from "./PixiViewport.tsx";
+import { map } from '../../convex/schema.ts';
+import { api } from '../../convex/_generated/api';
 
 export const Game = ({
   setSelectedPlayer,
@@ -18,29 +16,28 @@ export const Game = ({
   height: number;
 }) => {
   const convex = useConvex();
-  const worldState = useQuery(api.players.getWorld, {});
-  const offset = useServerTimeOffset(worldState?.world._id);
-  if (!worldState) return null;
-  const { players } = worldState;
+  const gameState = useQuery(api.gameState.default);
+  if (!gameState) {
+    return null;
+  }
   return (
     <div className="container">
       <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
         <PixiViewport
           screenWidth={width}
           screenHeight={height}
-          worldWidth={worldState.map.tileSetDim}
-          worldHeight={worldState.map.tileSetDim}
+          worldWidth={map.tileSetDim}
+          worldHeight={map.tileSetDim}
         >
-          <PixiStaticMap map={worldState.map}></PixiStaticMap>
+          <PixiStaticMap />
           {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
           <ConvexProvider client={convex}>
-            {players.map((player) => (
+            {gameState.players.map((player) => (
               <Player
                 key={player._id}
                 player={player}
-                offset={offset}
-                tileDim={worldState.map.tileDim}
+                serverTimestamp={gameState.serverTimestamp}
                 onClick={setSelectedPlayer}
               />
             ))}
@@ -51,15 +48,3 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
   );
 };
 export default Game;
-
-/**
- * Calculates the time delta between the server's clock and ours, from
- * the point of view of the receiver. When the network is relatively stable,
- * this means updates come down roughly when they happen in game-time.
- * We use a rolling average, discarding the max & min values as outliers.
- *
- * @returns The average offset between the server and the client
- */
-const useServerTimeOffset = (_worldId: Id<'worlds'> | undefined) => {
-  return 0;
-};

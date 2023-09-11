@@ -14,7 +14,6 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as agent from "../agent";
 import type * as characterdata_data from "../characterdata/data";
 import type * as characterdata_spritesheets_f1 from "../characterdata/spritesheets/f1";
 import type * as characterdata_spritesheets_f2 from "../characterdata/spritesheets/f2";
@@ -28,29 +27,14 @@ import type * as characterdata_spritesheets_p1 from "../characterdata/spriteshee
 import type * as characterdata_spritesheets_p2 from "../characterdata/spritesheets/p2";
 import type * as characterdata_spritesheets_p3 from "../characterdata/spritesheets/p3";
 import type * as characterdata_spritesheets_player from "../characterdata/spritesheets/player";
-import type * as chat from "../chat";
-import type * as config from "../config";
-import type * as conversation from "../conversation";
+import type * as characterdata_spritesheets_types from "../characterdata/spritesheets/types";
 import type * as crons from "../crons";
 import type * as engine from "../engine";
-import type * as http from "../http";
-import type * as init from "../init";
-import type * as journal from "../journal";
-import type * as lib_cached_llm from "../lib/cached_llm";
-import type * as lib_memory from "../lib/memory";
-import type * as lib_migrations from "../lib/migrations";
-import type * as lib_openai from "../lib/openai";
-import type * as lib_physics from "../lib/physics";
-import type * as lib_pinecone from "../lib/pinecone";
-import type * as lib_replicate from "../lib/replicate";
-import type * as lib_routing from "../lib/routing";
-import type * as lib_utils from "../lib/utils";
-import type * as maps_firstmap from "../maps/firstmap";
-import type * as music from "../music";
+import type * as gameState from "../gameState";
+import type * as geometry from "../geometry";
+import type * as map from "../map";
+import type * as minheap from "../minheap";
 import type * as players from "../players";
-import type * as testing from "../testing";
-import type * as waitlist_constants from "../waitlist_constants";
-import type * as wankel from "../wankel";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -61,7 +45,6 @@ import type * as wankel from "../wankel";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  agent: typeof agent;
   "characterdata/data": typeof characterdata_data;
   "characterdata/spritesheets/f1": typeof characterdata_spritesheets_f1;
   "characterdata/spritesheets/f2": typeof characterdata_spritesheets_f2;
@@ -75,29 +58,14 @@ declare const fullApi: ApiFromModules<{
   "characterdata/spritesheets/p2": typeof characterdata_spritesheets_p2;
   "characterdata/spritesheets/p3": typeof characterdata_spritesheets_p3;
   "characterdata/spritesheets/player": typeof characterdata_spritesheets_player;
-  chat: typeof chat;
-  config: typeof config;
-  conversation: typeof conversation;
+  "characterdata/spritesheets/types": typeof characterdata_spritesheets_types;
   crons: typeof crons;
   engine: typeof engine;
-  http: typeof http;
-  init: typeof init;
-  journal: typeof journal;
-  "lib/cached_llm": typeof lib_cached_llm;
-  "lib/memory": typeof lib_memory;
-  "lib/migrations": typeof lib_migrations;
-  "lib/openai": typeof lib_openai;
-  "lib/physics": typeof lib_physics;
-  "lib/pinecone": typeof lib_pinecone;
-  "lib/replicate": typeof lib_replicate;
-  "lib/routing": typeof lib_routing;
-  "lib/utils": typeof lib_utils;
-  "maps/firstmap": typeof maps_firstmap;
-  music: typeof music;
+  gameState: typeof gameState;
+  geometry: typeof geometry;
+  map: typeof map;
+  minheap: typeof minheap;
   players: typeof players;
-  testing: typeof testing;
-  waitlist_constants: typeof waitlist_constants;
-  wankel: typeof wankel;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

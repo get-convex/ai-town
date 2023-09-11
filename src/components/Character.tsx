@@ -49,7 +49,7 @@ export const Character = ({
 
   // The first "left" is "right" but reflected.
   const roundedOrientation = Math.round(orientation / 90);
-  const direction = ['left', 'up', 'left', 'down'][roundedOrientation];
+  const direction = ['left', 'down', 'left', 'up'][roundedOrientation];
 
   // Prevents the animation from stopping when the texture changes
   // (see https://github.com/pixijs/pixi-react/issues/359)
