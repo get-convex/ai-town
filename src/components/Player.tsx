@@ -24,7 +24,7 @@ export const Player = (props: {
       x={props.x * tileDim + tileDim / 2}
       y={props.y * tileDim + tileDim / 2}
       orientation={props.orientation}
-      isMoving={props.player.path !== undefined}
+      isMoving={props.player.pathfinding !== undefined}
       isThinking={false}
       isSpeaking={false}
       textureUrl={character.textureUrl}

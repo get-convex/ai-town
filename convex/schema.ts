@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { bgtiles, objmap, tiledim, tilefiledim, tilesetpath } from "./map";
+import { packedPositionBuffer } from "./positionBuffer";
 
 export const point = v.object({
     x: v.number(),
@@ -17,6 +18,25 @@ export type Vector = typeof vector.type;
 export const path = v.array(v.object({position: point, vector: vector, t: v.number()}));
 export type Path = typeof path.type;
 
+const pathfinding = v.object({
+    destination: point,
+    started: v.number(),
+    state: v.union(
+        v.object({
+            kind: v.literal("needsPath"),
+        }),
+        v.object({
+            kind: v.literal("waiting"),
+            until: v.number(),
+        }),
+        v.object({
+            kind: v.literal("moving"),
+            path,
+        })
+    )
+});
+export type Pathfinding = typeof pathfinding.type;
+
 export default defineSchema({
     // Abstract game engine state.
     inputQueue: defineTable({
@@ -26,9 +46,10 @@ export default defineSchema({
     })
         .index("clientTimestamp", ["playerId", "serverTimestamp"]),
     steps: defineTable({
-        serverTimestamp: v.number(),
+        startTs: v.number(),
+        endTs: v.number(),
     })
-        .index("serverTimestamp", ["serverTimestamp"]),
+        .index("endTs", ["endTs"]),
 
     // Game-specific state.
     players: defineTable({
@@ -39,12 +60,9 @@ export default defineSchema({
         // Degrees counterclockwise from East / Right.
         orientation: v.number(),
 
-        destination: v.optional(v.object({
-            point,
-            started: v.number(),
-            waitingUntil: v.optional(v.number()),
-        })),
-        path: v.optional(path),
+        pathfinding: v.optional(pathfinding),
+
+        previousPositions: v.optional(packedPositionBuffer),
     })
 });
 

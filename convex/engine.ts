@@ -11,6 +11,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { distance, manhattanDistance, orientationDegrees, pathPosition, pointsEqual } from "./geometry";
 import { MinHeap } from "./minheap";
 import { movementSpeed } from "./characterdata/data";
+import { PositionBuffer } from "./positionBuffer";
 
 export const addPlayerInput = mutation({
     args: {
@@ -45,19 +46,19 @@ export const step = mutation({
         const now = Date.now();
 
         const lastStep = await ctx.db.query("steps")
-            .withIndex("serverTimestamp")
+            .withIndex("endTs")
             .order("desc")
             .first();
-        if (lastStep && lastStep.serverTimestamp >= now) {
+        if (lastStep && lastStep.endTs >= now) {
             throw new Error(`Time moving backwards!`);
         }
-        const lastServerTs = lastStep ? lastStep.serverTimestamp : -1;
-        const startTs = lastStep ? lastStep.serverTimestamp : now;
-        const endTs = now;
+        const lastServerTs = lastStep ? lastStep.endTs : -1;
+        const startTs = lastStep ? lastStep.endTs : now;
+        const endTs = Math.min(now, startTs + MAX_STEP);
         console.log(`Simulating ${startTs} -> ${endTs}: (${Math.round(endTs - startTs)}ms)`);
 
         // Load the game state.
-        const gameState = await GameState.load(ctx.db);
+        const gameState = await GameState.load(startTs, ctx.db);
 
         // Collect player inputs since the last step, sorted by (serverTimestamp, playerId, _id)
         const stepInputs = [];
@@ -81,7 +82,8 @@ export const step = mutation({
         })
 
         let inputIndex = 0;
-        for (let currentTs = startTs; currentTs <= endTs; currentTs += 16) {
+        let currentTs;
+        for (currentTs = startTs; currentTs <= endTs; currentTs += TICK) {
             while (inputIndex < stepInputs.length) {
                 const input = stepInputs[inputIndex];
                 if (input.serverTimestamp > currentTs) {
@@ -93,26 +95,27 @@ export const step = mutation({
             gameState.tick(currentTs);
         }
         // "Commit" the update by writing back the game state and a new steps checkpoint.
-        await gameState.save(ctx.db);
-        await ctx.db.insert("steps", { serverTimestamp: endTs });
+        await gameState.save(ctx.db, currentTs);
+        await ctx.db.insert("steps", { startTs, endTs: currentTs });
     }
 })
 
 export class GameState {
     modified: Set<Id<"players">> = new Set();
-    logCount: number = 0;
+    moved: Map<Id<"players">, PositionBuffer> = new Map();
 
     constructor(
+        public startTs: number,
         public players: Record<Id<"players">, Doc<"players">>,
     ) {
     }
 
-    static async load(db: DatabaseReader) {
+    static async load(startTs: number, db: DatabaseReader) {
         const players: Record<Id<"players">, Doc<"players">> = {};
         for await (const player of db.query("players")) {
             players[player._id] = player;
         }
-        return new GameState(players);
+        return new GameState(startTs, players);
     }
 
     handleInput(input: Doc<"inputQueue">) {
@@ -123,8 +126,7 @@ export class GameState {
         }
         const { destination: point } = input;
         if (point === null) {
-            delete player.destination;
-            delete player.path;
+            delete player.pathfinding;
             this.modified.add(player._id);
             return;
         }
@@ -136,41 +138,66 @@ export class GameState {
         if (pointsEqual(player.position, point)) {
             return;
         }
-        player.destination = { point, started: Date.now() };
-        delete player.path;
+        player.pathfinding = {
+            destination: point,
+            started: Date.now(),
+            state: {
+                kind: "needsPath",
+            }
+        };
         this.modified.add(player._id);
     }
 
     tick(now: number) {
         for (const player of Object.values(this.players)) {
-            // Perform pathfinding if we have a player that has a destination but no path.
-            if (player.destination && !player.path) {
-                if (now - player.destination.started > PATHFINDING_TIMEOUT) {
-                    console.warn(`Timing out pathfinding for ${player._id}`);
-                    delete player.destination;
-                    delete player.path;
-                    this.modified.add(player._id);
-                } else if (!player.destination.waitingUntil || now >= player.destination.waitingUntil) {
-                    delete player.destination.waitingUntil;
-                    const path = this.findRoute(now, player, player.destination.point);
-                    if (typeof path === "string") {
-                        console.log(`Failed to route: ${path}`);
-                        delete player.destination;
-                    } else {
-                        player.path = path;
-                    }
-                    this.modified.add(player._id);
-                }
+            const { pathfinding } = player;
+            if (!pathfinding) {
+                continue;
             }
-            // Clear the current path if we've reached our destination.
-            if (player.destination && pointsEqual(player.position, player.destination.point)) {
-                delete player.destination;
-                delete player.path;
+
+            // Stop pathfinding if we've reached our destination.
+            if (pathfinding.state.kind === "moving" && pointsEqual(pathfinding.destination, player.position)) {
+                delete player.pathfinding;
                 this.modified.add(player._id);
             }
+
+            // Stop pathfinding if we've timed out.
+            if (pathfinding.started + PATHFINDING_TIMEOUT < now) {
+                console.warn(`Timing out pathfinding for ${player._id}`);
+                delete player.pathfinding;
+                this.modified.add(player._id);
+            }
+
+            // Transition from "waiting" to "needsPath" if we're past the deadline.
+            if (pathfinding.state.kind === "waiting" && pathfinding.state.until < now) {
+                pathfinding.state = { kind: "needsPath" };
+                this.modified.add(player._id);
+            }
+
+            // Perform pathfinding if needed.
+            if (pathfinding.state.kind === "needsPath") {
+                const path = this.findRoute(now, player, pathfinding.destination);
+                if (typeof path === "string") {
+                    console.log(`Failed to route: ${path}`);
+                    delete player.pathfinding;
+                } else {
+                    pathfinding.state = { kind: "moving", path };
+                }
+                this.modified.add(player._id);
+            }
+
             // Try to move the player along their path, clearing the path if they'd collide into something.
-            if (player.path) {
-                this.tickPosition(now, player, player.path);
+            if (player.pathfinding && player.pathfinding.state.kind === "moving") {
+                const collisionReason = this.tickPosition(now, player, player.pathfinding.state.path);
+                if (collisionReason !== null) {
+                    const backoff = Math.random() * PATHFINDING_BACKOFF;
+                    console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);
+                    player.pathfinding.state = {
+                        kind: "waiting",
+                        until: now + backoff,
+                    };
+                    this.modified.add(player._id);
+                }
             }
         }
     }
@@ -262,7 +289,6 @@ export class GameState {
         }
         densePath.reverse();
 
-
         const pathStr = densePath.map(p => JSON.stringify(p.position)).join(", ");
         console.log(`Routing between ${JSON.stringify(player.position)} and ${JSON.stringify(destination)}: ${pathStr}`);
         return densePath;
@@ -289,24 +315,56 @@ export class GameState {
         return null;
     }
 
-    tickPosition(now: number, player: Doc<"players">, path: Path) {
+    tickPosition(now: number, player: Doc<"players">, path: Path): null | string {
         const candidate = pathPosition(path, now);
         const collisionReason = this.blocked(candidate.position, player);
         if (collisionReason !== null) {
-            const backoff = Math.random() * PATHFINDING_BACKOFF;
-            console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);
-            delete player.path;
-            if (player.destination) {
-                player.destination.waitingUntil = now + backoff;
-            }
-        } else {
-            player.position = candidate.position;
-            player.orientation = orientationDegrees(candidate.vector);
+            return collisionReason;
         }
+        const orientation = orientationDegrees(candidate.vector);
+        this.movePlayer(now, player._id, candidate.position, orientation);
         this.modified.add(player._id);
+        return null;
     }
 
-    async save(db: DatabaseWriter) {
+    movePlayer(now: number, id: Id<"players">, position: Point, orientation: number) {
+        const player = this.players[id];
+        let buffer = this.moved.get(id);
+        if (!buffer) {
+            buffer = new PositionBuffer();
+            buffer.push(this.startTs, player.position.x, player.position.y, player.orientation);
+            if (now > this.startTs) {
+                buffer.push(now - TICK, player.position.x, player.position.y, player.orientation);
+            }
+            this.moved.set(id, buffer);
+        }
+        player.position = position;
+        player.orientation = orientation;
+        buffer.push(now, position.x, position.y, orientation);
+        this.modified.add(id);
+    }
+
+    async save(db: DatabaseWriter, endTs: number) {
+        for (const player of Object.values(this.players)) {
+            if (player.previousPositions) {
+                delete player.previousPositions;
+                this.modified.add(player._id);
+            }
+        }
+        let numMoved = 0;
+        let bufferSize = 0;
+        for (const [id, buffer] of this.moved.entries()) {
+            const player = this.players[id];
+            if (buffer.maxTs()! < endTs) {
+                buffer.push(endTs, player.position.x, player.position.y, player.orientation);
+            }
+            const packed = buffer.pack();
+            player.previousPositions = packed;
+            this.modified.add(id);
+            numMoved += 1;
+            bufferSize += packed.x.byteLength + packed.y.byteLength + packed.t.byteLength;
+        }
+        console.log(`Packed ${numMoved} moved players in ${(bufferSize / 1024).toFixed(2)}KiB`);
         for (const id of this.modified) {
             await db.replace(id, this.players[id]!);
         }
@@ -324,3 +382,5 @@ type PathCandidate = {
 
 const PATHFINDING_TIMEOUT = 60 * 1000;
 const PATHFINDING_BACKOFF = 1000;
+const MAX_STEP = 60 * 60 * 1000;
+const TICK = 16;

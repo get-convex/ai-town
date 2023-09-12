@@ -84,7 +84,7 @@ export const randomPositions = mutation({
         max: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        const gameState = await GameState.load(ctx.db);
+        const gameState = await GameState.load(Date.now(), ctx.db);
         let inserted = 0;
         for (const player of Object.values(gameState.players)) {
             if (args.max && inserted >= args.max) {

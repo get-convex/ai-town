@@ -35,6 +35,7 @@ import type * as geometry from "../geometry";
 import type * as map from "../map";
 import type * as minheap from "../minheap";
 import type * as players from "../players";
+import type * as positionBuffer from "../positionBuffer";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   map: typeof map;
   minheap: typeof minheap;
   players: typeof players;
+  positionBuffer: typeof positionBuffer;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

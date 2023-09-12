@@ -14,6 +14,13 @@ export function manhattanDistance(p0: Point, p1: Point) {
     return Math.abs(p0.x - p1.x) + Math.abs(p0.y - p1.y);
 }
 
+export function pathOverlaps(path: Path, time: number): boolean {
+    if (path.length < 2) {
+        throw new Error(`Invalid path: ${JSON.stringify(path)}`);
+    }
+    return path.at(0)!.t <= time && time <= path.at(-1)!.t;
+}
+
 export function pathPosition(path: Path, time: number): { position: Point, vector: Vector } {
     if (path.length < 2) {
         throw new Error(`Invalid path: ${JSON.stringify(path)}`);
