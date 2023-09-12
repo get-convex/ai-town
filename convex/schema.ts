@@ -42,6 +42,7 @@ export default defineSchema({
         destination: v.optional(v.object({
             point,
             started: v.number(),
+            waitingUntil: v.optional(v.number()),
         })),
         path: v.optional(path),
     })
@@ -59,5 +60,5 @@ export const world = {
     width: bgtiles[0][0].length,
     height: bgtiles[0].length,
 }
-
+export const COLLISION_THRESHOLD = 0.75;
 export { characters } from "./characterdata/data";

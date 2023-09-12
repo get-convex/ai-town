@@ -80,9 +80,16 @@ export const addManyPlayers = mutation({
 })
 
 export const randomPositions = mutation({
-    handler: async (ctx) => {
+    args: {
+        max: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
         const gameState = await GameState.load(ctx.db);
+        let inserted = 0;
         for (const player of Object.values(gameState.players)) {
+            if (args.max && inserted >= args.max) {
+                break;
+            }
             let position;
             for (let i = 0; i < 10; i++) {
                 const candidate = {
@@ -102,6 +109,7 @@ export const randomPositions = mutation({
                 continue;
             }
             await insertInput(ctx.db, player._id, position);
+            inserted += 1;
         }
     }
 })

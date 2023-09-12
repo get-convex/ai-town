@@ -6,7 +6,7 @@
 
 import { v } from "convex/values";
 import { DatabaseReader, DatabaseWriter, mutation } from "./_generated/server";
-import { Path, Point, Vector, map, point, world } from "./schema";
+import { COLLISION_THRESHOLD, Path, Point, Vector, map, point, world } from "./schema";
 import { Doc, Id } from "./_generated/dataModel";
 import { distance, manhattanDistance, orientationDegrees, pathPosition, pointsEqual } from "./geometry";
 import { MinHeap } from "./minheap";
@@ -149,7 +149,9 @@ export class GameState {
                     console.warn(`Timing out pathfinding for ${player._id}`);
                     delete player.destination;
                     delete player.path;
-                } else {
+                    this.modified.add(player._id);
+                } else if (!player.destination.waitingUntil || now >= player.destination.waitingUntil) {
+                    delete player.destination.waitingUntil;
                     const path = this.findRoute(now, player, player.destination.point);
                     if (typeof path === "string") {
                         console.log(`Failed to route: ${path}`);
@@ -157,8 +159,8 @@ export class GameState {
                     } else {
                         player.path = path;
                     }
+                    this.modified.add(player._id);
                 }
-                this.modified.add(player._id);
             }
             // Clear the current path if we've reached our destination.
             if (player.destination && pointsEqual(player.position, player.destination.point)) {
@@ -280,7 +282,7 @@ export class GameState {
             if (otherPlayer._id === player._id) {
                 continue;
             }
-            if (distance(otherPlayer.position, pos) < 0.75) {
+            if (distance(otherPlayer.position, pos) < COLLISION_THRESHOLD) {
                 return "player collision";
             }
         }
@@ -291,8 +293,12 @@ export class GameState {
         const candidate = pathPosition(path, now);
         const collisionReason = this.blocked(candidate.position, player);
         if (collisionReason !== null) {
-            console.warn(`Stopping path for ${player._id}: ${collisionReason}`);
+            const backoff = Math.random() * PATHFINDING_BACKOFF;
+            console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);
             delete player.path;
+            if (player.destination) {
+                player.destination.waitingUntil = now + backoff;
+            }
         } else {
             player.position = candidate.position;
             player.orientation = orientationDegrees(candidate.vector);
@@ -317,3 +323,4 @@ type PathCandidate = {
 };
 
 const PATHFINDING_TIMEOUT = 60 * 1000;
+const PATHFINDING_BACKOFF = 1000;
