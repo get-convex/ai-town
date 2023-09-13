@@ -63,7 +63,14 @@ export default defineSchema({
         pathfinding: v.optional(pathfinding),
 
         previousPositions: v.optional(packedPositionBuffer),
-    })
+    }),
+
+    // Human interactions.
+    humans: defineTable({
+        tokenIdentifier: v.string(),
+        joined: v.number(),
+        playerId: v.optional(v.id("players")),
+    }).index("tokenIdentifier", ["tokenIdentifier"]),
 });
 
 export const map = {

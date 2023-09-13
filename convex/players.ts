@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { characters, world } from "./schema";
 import { objmap } from "./map";
 import { distance } from "./geometry";
@@ -110,6 +110,21 @@ export const randomPositions = mutation({
             }
             await insertInput(ctx.db, player._id, position);
             inserted += 1;
+        }
+    }
+})
+
+export const playerMetadata = query({
+    args: {
+        playerId: v.id("players"),
+    },
+    handler: async (ctx, args) => {
+        const player = await ctx.db.get(args.playerId);
+        if (!player) {
+            throw new Error(`Invalid player ID: ${args.playerId}`);
+        }
+        return {
+            name: player.name,
         }
     }
 })

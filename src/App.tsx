@@ -8,6 +8,9 @@ import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import LoginButton from './components/LoginButton.tsx';
 import { useState } from 'react';
 import ReactModal from 'react-modal';
+import MusicButton from './components/MusicButton.tsx';
+import Button from './components/Button.tsx';
+import InteractButton from './components/InteractButton.tsx';
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -78,32 +81,14 @@ export default function Home() {
 
         <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
           <div className="flex gap-4 flex-grow pointer-events-none">
-            <a
-              className="button text-white shadow-solid text-2xl pointer-events-auto"
-              href="https://github.com/get-convex/ai-town"
-            >
-              <div className="inline-block bg-clay-700">
-                <span>
-                  <div className="inline-flex h-full items-center gap-4">
-                    <img className="w-[30px] h-[30px]" src={starImg} />
-                    Star
-                  </div>
-                </span>
-              </div>
-            </a>
-            <a
-              className="button text-white shadow-solid text-2xl pointer-events-auto"
-              onClick={() => setHelpModalOpen(true)}
-            >
-              <div className="inline-block bg-clay-700">
-                <span>
-                  <div className="inline-flex h-full items-center gap-4">
-                    <img className="w-[30px] h-[30px]" src={helpImg} />
-                    Help
-                  </div>
-                </span>
-              </div>
-            </a>
+            <MusicButton />
+            <Button href="https://github.com/get-convex/ai-town" imgUrl={starImg}>
+              Star
+            </Button>
+            <InteractButton />
+            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
+              Help
+            </Button>
           </div>
           <a href="https://a16z.com">
             <img className="w-8 h-8 pointer-events-auto" src={a16zImg} alt="a16z" />

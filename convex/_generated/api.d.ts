@@ -32,6 +32,7 @@ import type * as crons from "../crons";
 import type * as engine from "../engine";
 import type * as gameState from "../gameState";
 import type * as geometry from "../geometry";
+import type * as humans from "../humans";
 import type * as map from "../map";
 import type * as minheap from "../minheap";
 import type * as players from "../players";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   engine: typeof engine;
   gameState: typeof gameState;
   geometry: typeof geometry;
+  humans: typeof humans;
   map: typeof map;
   minheap: typeof minheap;
   players: typeof players;
