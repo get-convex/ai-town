@@ -6,7 +6,7 @@ import { PositionBuffer } from '../convex/positionBuffer.ts';
 
 const LOGGING_INTERVAL: number = 17360;
 
-type GameState = {
+export type GameState = {
   players: Record<Id<"players">, InterpolatedPlayer>;
 };
 
@@ -26,6 +26,7 @@ type ServerSnapshot = {
 
 export class ServerState {
   snapshots: Array<ServerSnapshot> = [];
+  totalDuration: number = 0;
 
   lastClientTs?: number;
   lastServerTs?: number;
@@ -59,6 +60,7 @@ export class ServerState {
     };
     this.numAdvances += 1;
     this.snapshots.push(newSnapshot);
+    this.totalDuration += newSnapshot.serverEndTs - newSnapshot.serverStartTs;
   }
 
   currentState(now: number): GameState | null {
@@ -70,6 +72,7 @@ export class ServerState {
     const lastServerTs = this.lastServerTs ?? this.snapshots[0].serverStartTs;
 
     let serverTs = (now - lastClientTs) + lastServerTs;
+
     let chosen = null;
     for (let i = 0; i < this.snapshots.length; i++) {
       const snapshot = this.snapshots[i];
@@ -121,6 +124,9 @@ export class ServerState {
     const toTrim = Math.max(chosen - 1, 0);
     if (toTrim > 0) {
       this.numTrims += 1;
+      for (const snapshot of this.snapshots.slice(0, toTrim)) {
+        this.totalDuration -= snapshot.serverEndTs - snapshot.serverStartTs;
+      }
       this.snapshots = this.snapshots.slice(toTrim);
     }
     this.lastClientTs = now;

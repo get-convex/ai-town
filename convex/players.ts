@@ -86,9 +86,13 @@ export const randomPositions = mutation({
     handler: async (ctx, args) => {
         const gameState = await GameState.load(Date.now(), ctx.db);
         let inserted = 0;
+        const humans = await ctx.db.query("humans").collect();
         for (const player of Object.values(gameState.players)) {
             if (args.max && inserted >= args.max) {
                 break;
+            }
+            if (humans.find(p => p.playerId === player._id)) {
+                continue;
             }
             let position;
             for (let i = 0; i < 10; i++) {

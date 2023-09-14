@@ -4,7 +4,7 @@ import { Player, SelectPlayer } from './Player.tsx';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { useRef, useState } from 'react';
-import { ServerState, InterpolatedPlayer } from '../serverState.ts';
+import { ServerState, InterpolatedPlayer, GameState } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/schema.ts';
@@ -12,7 +12,7 @@ import { Viewport } from 'pixi-viewport';
 
 export const Game = (props: { width: number, height: number, setSelectedPlayer: SelectPlayer }) => {
   // Convex setup.
-  const gameState = useQuery(api.gameState.default);
+  const latestState = useQuery(api.gameState.default);
   const humanStatus = useQuery(api.humans.humanStatus);
   const addPlayerInput = useMutation(api.engine.addPlayerInput);
 
@@ -21,22 +21,23 @@ export const Game = (props: { width: number, height: number, setSelectedPlayer: 
   const viewportRef = useRef<Viewport | undefined>();
 
   // Server state management and updates.
-  const [players, setPlayers] = useState<Record<Id<"players">, InterpolatedPlayer>>({});
+  const [state, setState] = useState<GameState | undefined>();
   const serverState = useRef(new ServerState());
-  if (gameState) {
-    serverState.current.receive(gameState);
+  if (latestState) {
+    serverState.current.receive(latestState);
   }
   useTick(() => {
     const currentState = serverState.current.currentState(Date.now());
     if (!currentState) {
       return;
     }
-    setPlayers(currentState.players);
+    setState(currentState);
   })
 
   // Interaction for clicking on the world to navigate.
   const dragStart = useRef<{ screenX: number, screenY: number } | null>(null);
   const onMapPointerDown = (e: any) => {
+    // https://pixijs.download/dev/docs/PIXI.FederatedPointerEvent.html
     dragStart.current = { screenX: e.screenX, screenY: e.screenY };
   }
   const onMapPointerUp = (e: any) => {
@@ -66,9 +67,17 @@ export const Game = (props: { width: number, height: number, setSelectedPlayer: 
     addPlayerInput({ playerId: humanStatus, destination: gameSpaceTiles });
   }
 
-  if (!gameState) {
+  if (!latestState || !state) {
     return null;
   }
+  // Skip over players that aren't in the latest server state.
+  const latestPlayers = new Set();
+  for (const player of latestState.players)   {
+    latestPlayers.add(player._id);
+  }
+  const players = Object.values(state.players).filter(p => latestPlayers.has(p.player._id));
+  // Order the players by their y coordinates.
+  players.sort((a, b) => a.position.y - b.position.y);
   return (
     <PixiViewport
       app={pixiApp}
@@ -79,17 +88,18 @@ export const Game = (props: { width: number, height: number, setSelectedPlayer: 
       viewportRef={viewportRef}
     >
       <PixiStaticMap onpointerup={onMapPointerUp} onpointerdown={onMapPointerDown} />
-      {Object.entries(players).map(([id, { position, orientation, isMoving, player }]) => (
-        <Player
-          key={id}
-          player={player}
-          x={position.x}
-          y={position.y}
-          orientation={orientation}
-          isMoving={isMoving}
-          onClick={props.setSelectedPlayer}
-        />
-      ))}
+      {players.map(({ position, orientation, isMoving, player }) => (
+          <Player
+            key={player._id}
+            player={player}
+            x={position.x}
+            y={position.y}
+            orientation={orientation}
+            isMoving={isMoving}
+            onClick={props.setSelectedPlayer}
+          />
+        )
+      )}
     </PixiViewport>
   );
   return null;

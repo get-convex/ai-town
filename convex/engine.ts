@@ -12,6 +12,7 @@ import { distance, manhattanDistance, orientationDegrees, pathPosition, pointsEq
 import { MinHeap } from "./minheap";
 import { movementSpeed } from "./characterdata/data";
 import { PositionBuffer } from "./positionBuffer";
+import { api } from "./_generated/api";
 
 export const addPlayerInput = mutation({
     args: {
@@ -40,6 +41,23 @@ export async function insertInput(db: DatabaseWriter, playerId: Id<"players">, d
         destination,
     });
 }
+
+export const step2 = mutation({
+    args: {
+        count: v.number(),
+        delta: v.number(),
+    },
+    handler: async(ctx, args) => {
+        await step(ctx, {});
+        if (args.count > 0) {
+            await ctx.scheduler.runAfter(
+                args.delta,
+                api.engine.step2,
+                { count: args.count - 1, delta: args.delta },
+            );
+        }
+    }
+})
 
 export const step = mutation({
     handler: async (ctx) => {

@@ -17,6 +17,7 @@ export type ViewportProps = {
   children?: ReactNode,
 }
 
+// https://davidfig.github.io/pixi-viewport/jsdoc/Viewport.html
 export default PixiComponent('Viewport', {
   create(props: ViewportProps) {
     const { app, children, viewportRef, ...viewportProps } = props;
