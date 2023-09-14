@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
-import { DatabaseReader, DatabaseWriter, mutation } from './_generated/server';
+import { DatabaseReader, DatabaseWriter, mutation, query } from './_generated/server';
 import { COLLISION_THRESHOLD, map, world } from './schema';
 import { Path, Point, Vector, point } from './schema/types';
-import { Doc, Id, TableNames } from './_generated/dataModel';
+import { Doc, Id } from './_generated/dataModel';
 import {
   distance,
   manhattanDistance,
@@ -109,20 +109,6 @@ export const step = mutation({
     await ctx.db.insert('steps', { startTs, endTs: currentTs });
   },
 });
-
-class MappedTable<T extends TableNames> {
-  data: Map<Id<T>, Doc<T>> = new Map();
-  modified: Set<Id<T>> = new Set();
-
-  constructor(
-    private writer: DatabaseWriter,
-    rows: Doc<T>[],
-  ) {
-    for (const row of rows) {
-      this.data.set(row._id, row);
-    }
-  }
-}
 
 export class GameState {
   playersModified: Set<Id<'players'>> = new Set();

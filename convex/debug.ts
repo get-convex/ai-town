@@ -5,6 +5,7 @@ import { objmap } from './data/map';
 import { distance } from './util/geometry';
 import { GameState, insertInput } from './engine';
 import { TableNames } from './_generated/dataModel';
+import { point } from './schema/types';
 
 export const addManyPlayers = mutation({
   handler: async (ctx) => {
@@ -76,7 +77,10 @@ export const randomPositions = mutation({
         console.error(`Failed to find a free position for ${player.name}!`);
         continue;
       }
-      await insertInput(ctx.db, player._id, position);
+      await insertInput(ctx.db, player._id, {
+        kind: 'moveTo',
+        destination: position,
+      });
       inserted += 1;
     }
   },

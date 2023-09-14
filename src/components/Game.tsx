@@ -12,7 +12,7 @@ import { Viewport } from 'pixi-viewport';
 
 export const Game = (props: { width: number; height: number; setSelectedPlayer: SelectPlayer }) => {
   // Convex setup.
-  const latestState = useQuery(api.gameState.default);
+  const latestState = useQuery(api.queryGameState.default);
   const humanStatus = useQuery(api.humans.humanStatus);
   const addPlayerInput = useMutation(api.engine.addPlayerInput);
 
