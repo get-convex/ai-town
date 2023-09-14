@@ -1,9 +1,10 @@
 import { v } from 'convex/values';
-import { mutation } from './_generated/server';
+import { DatabaseWriter, mutation } from './_generated/server';
 import { characters, world } from './schema';
 import { objmap } from './data/map';
 import { distance } from './util/geometry';
 import { GameState, insertInput } from './engine';
+import { TableNames } from './_generated/dataModel';
 
 export const addManyPlayers = mutation({
   handler: async (ctx) => {
@@ -80,3 +81,55 @@ export const randomPositions = mutation({
     }
   },
 });
+
+export const clear = mutation({
+  handler: async (ctx, args) => {
+    const tables: Array<TableNames> = [
+      'conversationMembers',
+      'conversations',
+      'humans',
+      'inputQueue',
+      'messages',
+      'messageText',
+      'players',
+      'steps',
+    ];
+    const maxRows = 1024;
+    let deleted = 0;
+    try {
+      for (const table of tables) {
+        deleted += await deleteBatch(ctx.db, table, maxRows - deleted);
+      }
+    } catch (e: unknown) {
+      if (e instanceof HasMoreError) {
+        return 'hasMore';
+      }
+      throw e;
+    }
+    return 'ok!';
+  },
+});
+
+async function deleteBatch<TableName extends TableNames>(
+  db: DatabaseWriter,
+  table: TableName,
+  max: number,
+): Promise<number> {
+  let deleted = 0;
+  while (true) {
+    if (deleted >= max) {
+      throw new HasMoreError();
+    }
+    const batch = await db.query(table).take(max - deleted);
+    for (const row of batch) {
+      await db.delete(row._id);
+      deleted += 1;
+    }
+    if (!batch.length) {
+      break;
+    }
+  }
+  return deleted;
+}
+
+class HasMoreError extends Error {}

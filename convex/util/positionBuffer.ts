@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { Infer, v } from 'convex/values';
 import { Point } from '../schema/types';
 
 export class PositionBuffer {
@@ -88,7 +88,7 @@ export const packedPositionBuffer = v.object({
   y: v.bytes(),
   orientation: v.bytes(),
 });
-export type PackedPositionBuffer = typeof packedPositionBuffer.type;
+export type PackedPositionBuffer = Infer<typeof packedPositionBuffer>;
 
 // TODO:
 // [ ] Switch to fixed point

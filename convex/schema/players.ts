@@ -1,5 +1,5 @@
 import { defineTable } from 'convex/server';
-import { v } from 'convex/values';
+import { Infer, v } from 'convex/values';
 import { packedPositionBuffer } from '../util/positionBuffer';
 import { path, point } from './types';
 
@@ -20,7 +20,7 @@ const pathfinding = v.object({
     }),
   ),
 });
-export type Pathfinding = typeof pathfinding.type;
+export type Pathfinding = Infer<typeof pathfinding>;
 
 // The players table has game-specific public state, like
 // the player's name and position, some internal state,

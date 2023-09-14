@@ -2,7 +2,7 @@ import { Point } from '../convex/schema/types.ts';
 import { api } from '../convex/_generated/api';
 import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';
-import { PositionBuffer } from '../convex/positionBuffer.ts';
+import { PositionBuffer } from '../convex/util/positionBuffer.ts';
 
 const LOGGING_INTERVAL: number = 17360;
 

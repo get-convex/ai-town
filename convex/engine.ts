@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { DatabaseReader, DatabaseWriter, mutation } from './_generated/server';
 import { COLLISION_THRESHOLD, map, world } from './schema';
 import { Path, Point, Vector, point } from './schema/types';
-import { Doc, Id } from './_generated/dataModel';
+import { Doc, Id, TableNames } from './_generated/dataModel';
 import {
   distance,
   manhattanDistance,
@@ -15,21 +15,23 @@ import { movementSpeed } from './data/characters';
 import { api } from './_generated/api';
 import { PositionBuffer } from './util/positionBuffer';
 import { MAX_STEP, TICK, PATHFINDING_TIMEOUT, PATHFINDING_BACKOFF } from './constants';
+import { PlayerInput, playerInput } from './schema/input';
+import { assertNever } from './util/assertNever';
 
 export const addPlayerInput = mutation({
   args: {
     playerId: v.id('players'),
-    destination: v.union(point, v.null()),
+    input: playerInput,
   },
   handler: async (ctx, args) => {
-    await insertInput(ctx.db, args.playerId, args.destination);
+    await insertInput(ctx.db, args.playerId, args.input);
   },
 });
 
 export async function insertInput(
   db: DatabaseWriter,
   playerId: Id<'players'>,
-  destination: Point | null,
+  payload: PlayerInput,
 ) {
   const serverTimestamp = Date.now();
   const lastInput = await db
@@ -45,25 +47,9 @@ export async function insertInput(
   await db.insert('inputQueue', {
     playerId,
     serverTimestamp,
-    destination,
+    payload,
   });
 }
-
-export const step2 = mutation({
-  args: {
-    count: v.number(),
-    delta: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await step(ctx, {});
-    if (args.count > 0) {
-      await ctx.scheduler.runAfter(args.delta, api.engine.step2, {
-        count: args.count - 1,
-        delta: args.delta,
-      });
-    }
-  },
-});
 
 export const step = mutation({
   handler: async (ctx) => {
@@ -124,9 +110,23 @@ export const step = mutation({
   },
 });
 
+class MappedTable<T extends TableNames> {
+  data: Map<Id<T>, Doc<T>> = new Map();
+  modified: Set<Id<T>> = new Set();
+
+  constructor(
+    private writer: DatabaseWriter,
+    rows: Doc<T>[],
+  ) {
+    for (const row of rows) {
+      this.data.set(row._id, row);
+    }
+  }
+}
+
 export class GameState {
-  modified: Set<Id<'players'>> = new Set();
-  moved: Map<Id<'players'>, PositionBuffer> = new Map();
+  playersModified: Set<Id<'players'>> = new Set();
+  playersMoved: Map<Id<'players'>, PositionBuffer> = new Map();
 
   constructor(
     public startTs: number,
@@ -141,34 +141,60 @@ export class GameState {
     return new GameState(startTs, players);
   }
 
-  handleInput(input: Doc<'inputQueue'>) {
-    const player = this.players[input.playerId];
+  handleInput({ playerId, payload }: Doc<'inputQueue'>) {
+    const player = this.players[playerId];
     if (!player) {
-      console.warn(`Invalid player ID: ${input.playerId}`);
+      console.warn(`Invalid player ID: ${playerId}`);
       return;
     }
-    const { destination: point } = input;
-    if (point === null) {
+    switch (payload.kind) {
+      case 'moveTo':
+        this.handleMoveTo(player, payload.destination);
+        break;
+      case 'startConversation':
+        break;
+      case 'acceptInvite':
+        break;
+      case 'rejectInvite':
+        break;
+      case 'startTyping':
+        break;
+      case 'writeMessage':
+        break;
+      case 'leaveConversation':
+        break;
+      default:
+        assertNever(payload);
+    }
+  }
+
+  handleStartConversation(player: Doc<'players'>, invite: Id<'players'>) {}
+
+  handleMoveTo(player: Doc<'players'>, destination: Point | null) {
+    if (destination === null) {
       delete player.pathfinding;
-      this.modified.add(player._id);
+      this.playersModified.add(player._id);
       return;
     }
-    if (Math.floor(point.x) !== point.x || Math.floor(point.y) !== point.y) {
-      console.warn(`Non-integral destination: ${JSON.stringify(point)}`);
+    if (
+      Math.floor(destination.x) !== destination.x ||
+      Math.floor(destination.y) !== destination.y
+    ) {
+      console.warn(`Non-integral destination: ${JSON.stringify(destination)}`);
       return;
     }
     // Close enough to current position or destination => no-op.
-    if (pointsEqual(player.position, point)) {
+    if (pointsEqual(player.position, destination)) {
       return;
     }
     player.pathfinding = {
-      destination: point,
+      destination: destination,
       started: Date.now(),
       state: {
         kind: 'needsPath',
       },
     };
-    this.modified.add(player._id);
+    this.playersModified.add(player._id);
   }
 
   tick(now: number) {
@@ -184,20 +210,20 @@ export class GameState {
         pointsEqual(pathfinding.destination, player.position)
       ) {
         delete player.pathfinding;
-        this.modified.add(player._id);
+        this.playersModified.add(player._id);
       }
 
       // Stop pathfinding if we've timed out.
       if (pathfinding.started + PATHFINDING_TIMEOUT < now) {
         console.warn(`Timing out pathfinding for ${player._id}`);
         delete player.pathfinding;
-        this.modified.add(player._id);
+        this.playersModified.add(player._id);
       }
 
       // Transition from "waiting" to "needsPath" if we're past the deadline.
       if (pathfinding.state.kind === 'waiting' && pathfinding.state.until < now) {
         pathfinding.state = { kind: 'needsPath' };
-        this.modified.add(player._id);
+        this.playersModified.add(player._id);
       }
 
       // Perform pathfinding if needed.
@@ -209,7 +235,7 @@ export class GameState {
         } else {
           pathfinding.state = { kind: 'moving', path };
         }
-        this.modified.add(player._id);
+        this.playersModified.add(player._id);
       }
 
       // Try to move the player along their path, clearing the path if they'd collide into something.
@@ -224,7 +250,7 @@ export class GameState {
             kind: 'waiting',
             until: now + backoff,
           };
-          this.modified.add(player._id);
+          this.playersModified.add(player._id);
         }
       }
     }
@@ -360,49 +386,49 @@ export class GameState {
     }
     const orientation = orientationDegrees(candidate.vector);
     this.movePlayer(now, player._id, candidate.position, orientation);
-    this.modified.add(player._id);
+    this.playersModified.add(player._id);
     return null;
   }
 
   movePlayer(now: number, id: Id<'players'>, position: Point, orientation: number) {
     const player = this.players[id];
-    let buffer = this.moved.get(id);
+    let buffer = this.playersMoved.get(id);
     if (!buffer) {
       buffer = new PositionBuffer();
       buffer.push(this.startTs, player.position.x, player.position.y, player.orientation);
       if (now > this.startTs) {
         buffer.push(now - TICK, player.position.x, player.position.y, player.orientation);
       }
-      this.moved.set(id, buffer);
+      this.playersMoved.set(id, buffer);
     }
     player.position = position;
     player.orientation = orientation;
     buffer.push(now, position.x, position.y, orientation);
-    this.modified.add(id);
+    this.playersModified.add(id);
   }
 
   async save(db: DatabaseWriter, endTs: number) {
     for (const player of Object.values(this.players)) {
       if (player.previousPositions) {
         delete player.previousPositions;
-        this.modified.add(player._id);
+        this.playersModified.add(player._id);
       }
     }
     let numMoved = 0;
     let bufferSize = 0;
-    for (const [id, buffer] of this.moved.entries()) {
+    for (const [id, buffer] of this.playersMoved.entries()) {
       const player = this.players[id];
       if (buffer.maxTs()! < endTs) {
         buffer.push(endTs, player.position.x, player.position.y, player.orientation);
       }
       const packed = buffer.pack();
       player.previousPositions = packed;
-      this.modified.add(id);
+      this.playersModified.add(id);
       numMoved += 1;
       bufferSize += packed.x.byteLength + packed.y.byteLength + packed.t.byteLength;
     }
     console.log(`Packed ${numMoved} moved players in ${(bufferSize / 1024).toFixed(2)}KiB`);
-    for (const id of this.modified) {
+    for (const id of this.playersModified) {
       await db.replace(id, this.players[id]!);
     }
   }

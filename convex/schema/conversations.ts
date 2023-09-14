@@ -1,18 +1,6 @@
 import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-// API
-// start conversation
-// invite to conversation
-// accept invite
-// reject invite
-// -> implicitly join when close enough, rotates orientation
-// - startTyping
-// - startMessage(hasMore:?)
-// - appendMessage (out of band)
-// - finishMessage
-// leave conversation
-// ## Conversation state
 const conversations = defineTable({
   creator: v.id('players'),
   typing: v.optional(v.id('players')),
