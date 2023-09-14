@@ -9,34 +9,30 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
-import type * as characterdata_data from "../data/characters";
-import type * as characterdata_spritesheets_f1 from "../data/spritesheets/f1";
-import type * as characterdata_spritesheets_f2 from "../data/spritesheets/f2";
-import type * as characterdata_spritesheets_f3 from "../data/spritesheets/f3";
-import type * as characterdata_spritesheets_f4 from "../data/spritesheets/f4";
-import type * as characterdata_spritesheets_f5 from "../data/spritesheets/f5";
-import type * as characterdata_spritesheets_f6 from "../data/spritesheets/f6";
-import type * as characterdata_spritesheets_f7 from "../data/spritesheets/f7";
-import type * as characterdata_spritesheets_f8 from "../data/spritesheets/f8";
-import type * as characterdata_spritesheets_p1 from "../data/spritesheets/p1";
-import type * as characterdata_spritesheets_p2 from "../data/spritesheets/p2";
-import type * as characterdata_spritesheets_p3 from "../data/spritesheets/p3";
-import type * as characterdata_spritesheets_player from "../data/spritesheets/player";
-import type * as characterdata_spritesheets_types from "../data/spritesheets/types";
-import type * as crons from "../crons";
-import type * as engine from "../engine";
-import type * as gameState from "../gameState";
-import type * as geometry from "../util/geometry";
-import type * as humans from "../humans";
-import type * as map from "../data/map";
-import type * as minheap from "../util/minheap";
-import type * as players from "../players";
-import type * as positionBuffer from "../positionBuffer";
+import type { ApiFromModules, FilterApi, FunctionReference } from 'convex/server';
+import type * as characterdata_data from '../data/characters';
+import type * as characterdata_spritesheets_f1 from '../data/spritesheets/f1';
+import type * as characterdata_spritesheets_f2 from '../data/spritesheets/f2';
+import type * as characterdata_spritesheets_f3 from '../data/spritesheets/f3';
+import type * as characterdata_spritesheets_f4 from '../data/spritesheets/f4';
+import type * as characterdata_spritesheets_f5 from '../data/spritesheets/f5';
+import type * as characterdata_spritesheets_f6 from '../data/spritesheets/f6';
+import type * as characterdata_spritesheets_f7 from '../data/spritesheets/f7';
+import type * as characterdata_spritesheets_f8 from '../data/spritesheets/f8';
+import type * as characterdata_spritesheets_p1 from '../data/spritesheets/p1';
+import type * as characterdata_spritesheets_p2 from '../data/spritesheets/p2';
+import type * as characterdata_spritesheets_p3 from '../data/spritesheets/p3';
+import type * as characterdata_spritesheets_player from '../data/spritesheets/player';
+import type * as characterdata_spritesheets_types from '../data/spritesheets/types';
+import type * as crons from '../crons';
+import type * as engine from '../engine';
+import type * as gameState from '../gameState';
+import type * as geometry from '../util/geometry';
+import type * as humans from '../humans';
+import type * as map from '../data/map';
+import type * as minheap from '../util/minheap';
+import type * as players from '../players';
+import type * as positionBuffer from '../positionBuffer';
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -47,20 +43,20 @@ import type * as positionBuffer from "../positionBuffer";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  "characterdata/data": typeof characterdata_data;
-  "characterdata/spritesheets/f1": typeof characterdata_spritesheets_f1;
-  "characterdata/spritesheets/f2": typeof characterdata_spritesheets_f2;
-  "characterdata/spritesheets/f3": typeof characterdata_spritesheets_f3;
-  "characterdata/spritesheets/f4": typeof characterdata_spritesheets_f4;
-  "characterdata/spritesheets/f5": typeof characterdata_spritesheets_f5;
-  "characterdata/spritesheets/f6": typeof characterdata_spritesheets_f6;
-  "characterdata/spritesheets/f7": typeof characterdata_spritesheets_f7;
-  "characterdata/spritesheets/f8": typeof characterdata_spritesheets_f8;
-  "characterdata/spritesheets/p1": typeof characterdata_spritesheets_p1;
-  "characterdata/spritesheets/p2": typeof characterdata_spritesheets_p2;
-  "characterdata/spritesheets/p3": typeof characterdata_spritesheets_p3;
-  "characterdata/spritesheets/player": typeof characterdata_spritesheets_player;
-  "characterdata/spritesheets/types": typeof characterdata_spritesheets_types;
+  'characterdata/data': typeof characterdata_data;
+  'characterdata/spritesheets/f1': typeof characterdata_spritesheets_f1;
+  'characterdata/spritesheets/f2': typeof characterdata_spritesheets_f2;
+  'characterdata/spritesheets/f3': typeof characterdata_spritesheets_f3;
+  'characterdata/spritesheets/f4': typeof characterdata_spritesheets_f4;
+  'characterdata/spritesheets/f5': typeof characterdata_spritesheets_f5;
+  'characterdata/spritesheets/f6': typeof characterdata_spritesheets_f6;
+  'characterdata/spritesheets/f7': typeof characterdata_spritesheets_f7;
+  'characterdata/spritesheets/f8': typeof characterdata_spritesheets_f8;
+  'characterdata/spritesheets/p1': typeof characterdata_spritesheets_p1;
+  'characterdata/spritesheets/p2': typeof characterdata_spritesheets_p2;
+  'characterdata/spritesheets/p3': typeof characterdata_spritesheets_p3;
+  'characterdata/spritesheets/player': typeof characterdata_spritesheets_player;
+  'characterdata/spritesheets/types': typeof characterdata_spritesheets_types;
   crons: typeof crons;
   engine: typeof engine;
   gameState: typeof gameState;
@@ -71,11 +67,5 @@ declare const fullApi: ApiFromModules<{
   players: typeof players;
   positionBuffer: typeof positionBuffer;
 }>;
-export declare const api: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "public">
->;
-export declare const internal: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "internal">
->;
+export declare const api: FilterApi<typeof fullApi, FunctionReference<any, 'public'>>;
+export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, 'internal'>>;

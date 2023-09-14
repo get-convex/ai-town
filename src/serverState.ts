@@ -1,4 +1,4 @@
-import { Point } from "../convex/schema/types.ts";
+import { Point } from '../convex/schema/types.ts';
 import { api } from '../convex/_generated/api';
 import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';
@@ -7,7 +7,7 @@ import { PositionBuffer } from '../convex/positionBuffer.ts';
 const LOGGING_INTERVAL: number = 17360;
 
 export type GameState = {
-  players: Record<Id<"players">, InterpolatedPlayer>;
+  players: Record<Id<'players'>, InterpolatedPlayer>;
 };
 
 export type InterpolatedPlayer = {
@@ -15,11 +15,11 @@ export type InterpolatedPlayer = {
   orientation: number;
   isMoving: boolean;
 
-  player: Doc<"players">;
+  player: Doc<'players'>;
 };
 
 type ServerSnapshot = {
-  players: { player: Doc<"players">; previousPositions?: PositionBuffer; }[];
+  players: { player: Doc<'players'>; previousPositions?: PositionBuffer }[];
   serverStartTs: number;
   serverEndTs: number;
 };
@@ -44,15 +44,18 @@ export class ServerState {
         return;
       }
       if (latest.serverEndTs > gameState.endTs) {
-        throw new Error(`Server time moving backwards: ${latest.serverEndTs} -> ${gameState.endTs}`);
+        throw new Error(
+          `Server time moving backwards: ${latest.serverEndTs} -> ${gameState.endTs}`,
+        );
       }
       if (latest.serverEndTs !== gameState.startTs) {
         this.numGaps += 1;
       }
     }
     const newSnapshot = {
-      players: gameState.players.map(player => {
-        const previousPositions = player.previousPositions && PositionBuffer.unpack(player.previousPositions);
+      players: gameState.players.map((player) => {
+        const previousPositions =
+          player.previousPositions && PositionBuffer.unpack(player.previousPositions);
         return { player, previousPositions };
       }),
       serverStartTs: gameState.startTs,
@@ -71,7 +74,7 @@ export class ServerState {
     const lastClientTs = this.lastClientTs ?? now;
     const lastServerTs = this.lastServerTs ?? this.snapshots[0].serverStartTs;
 
-    let serverTs = (now - lastClientTs) + lastServerTs;
+    let serverTs = now - lastClientTs + lastServerTs;
 
     let chosen = null;
     for (let i = 0; i < this.snapshots.length; i++) {
@@ -101,7 +104,7 @@ export class ServerState {
 
     const snapshot = this.snapshots[chosen];
 
-    const players: Record<Id<"players">, InterpolatedPlayer> = {};
+    const players: Record<Id<'players'>, InterpolatedPlayer> = {};
     for (const { player, previousPositions } of snapshot.players) {
       const interpolatedPlayer = {
         position: player.position,
@@ -151,10 +154,21 @@ export class ServerState {
     report.push('');
     report.push(`${this.snapshots.length} snapshots:`);
     for (const snapshot of this.snapshots) {
-      const current = this.lastServerTs && snapshot.serverStartTs <= this.lastServerTs && this.lastServerTs < snapshot.serverEndTs;
-      const currentMsg = current ? ` (current, ${((snapshot.serverEndTs - this.lastServerTs!) / 1000).toFixed(2)}s remaining)` : "";
+      const current =
+        this.lastServerTs &&
+        snapshot.serverStartTs <= this.lastServerTs &&
+        this.lastServerTs < snapshot.serverEndTs;
+      const currentMsg = current
+        ? ` (current, ${((snapshot.serverEndTs - this.lastServerTs!) / 1000).toFixed(
+            2,
+          )}s remaining)`
+        : '';
       const duration = (snapshot.serverEndTs - snapshot.serverStartTs) / 1000;
-      report.push(`  [${snapshot.serverStartTs}, ${snapshot.serverEndTs}]: ${duration.toFixed(2)}s${currentMsg}`);
+      report.push(
+        `  [${snapshot.serverStartTs}, ${snapshot.serverEndTs}]: ${duration.toFixed(
+          2,
+        )}s${currentMsg}`,
+      );
     }
     console.log(report.join('\n'));
     this.numAdvances = 0;

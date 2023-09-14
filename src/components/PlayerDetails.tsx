@@ -3,7 +3,7 @@ import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-import closeImg from "../../assets/close.svg";
+import closeImg from '../../assets/close.svg';
 import { SelectPlayer } from './Player';
 import { SignedIn } from '@clerk/clerk-react';
 
@@ -113,124 +113,132 @@ import { SignedIn } from '@clerk/clerk-react';
 //   </div>;
 // }
 
-export default function PlayerDetails(props: { playerId?: Id<'players'>, setSelectedPlayer: SelectPlayer }) {
-  const playerMetadata = useQuery(api.players.playerMetadata, props.playerId ? { playerId: props.playerId } : "skip");
+export default function PlayerDetails(props: {
+  playerId?: Id<'players'>;
+  setSelectedPlayer: SelectPlayer;
+}) {
+  const playerMetadata = useQuery(
+    api.players.playerMetadata,
+    props.playerId ? { playerId: props.playerId } : 'skip',
+  );
 
-//   const currentConversationPlayers = useQuery(api.agent.myCurrentConversation, {});
-//   const inConversation = currentConversationPlayers !== undefined && currentConversationPlayers !== null;
-//   if (inConversation) {
-//     if (!playerId || !currentConversationPlayers.includes(playerId)) {
-//       playerId = currentConversationPlayers[0];
-//     }
-//   }
-//   const playerState = useQuery(api.players.playerState, playerId ? { playerId } : "skip");
-//   const playerDetails = useQuery(api.agent.playerDetails, playerId ? { playerId } : "skip");
-    const playerState = null;
-    const playerDetails = null;
-//   const talkToMe = useMutation(api.agent.talkToMe);
-//   const leaveCurrentConversation = useMutation(api.agent.leaveMyCurrentConversation);
+  //   const currentConversationPlayers = useQuery(api.agent.myCurrentConversation, {});
+  //   const inConversation = currentConversationPlayers !== undefined && currentConversationPlayers !== null;
+  //   if (inConversation) {
+  //     if (!playerId || !currentConversationPlayers.includes(playerId)) {
+  //       playerId = currentConversationPlayers[0];
+  //     }
+  //   }
+  //   const playerState = useQuery(api.players.playerState, playerId ? { playerId } : "skip");
+  //   const playerDetails = useQuery(api.agent.playerDetails, playerId ? { playerId } : "skip");
+  const playerState = null;
+  const playerDetails = null;
+  //   const talkToMe = useMutation(api.agent.talkToMe);
+  //   const leaveCurrentConversation = useMutation(api.agent.leaveMyCurrentConversation);
 
-//   const [playerApproaching, setPlayerApproaching] = useState<Id<"players"> | undefined>();
-//   useEffect(() => {
-//     if (playerApproaching && playerApproaching !== playerId) {
-//       setPlayerApproaching(undefined);
-//     }
-//   }, [playerApproaching, playerId, setPlayerApproaching]);
+  //   const [playerApproaching, setPlayerApproaching] = useState<Id<"players"> | undefined>();
+  //   useEffect(() => {
+  //     if (playerApproaching && playerApproaching !== playerId) {
+  //       setPlayerApproaching(undefined);
+  //     }
+  //   }, [playerApproaching, playerId, setPlayerApproaching]);
 
-//   const startConversation = () => {
-//     void talkToMe({ playerId: playerId! });
-//     setPlayerApproaching(playerId);
-//   }
-//   const approaching = playerApproaching == playerId;
-//   const startConversationMsg = approaching ? "Walking over..." : "Start conversation";
-//   let startConversationCls = "mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto";
-//   if (approaching) {
-//     startConversationCls += " opacity-50"
-//   }
+  //   const startConversation = () => {
+  //     void talkToMe({ playerId: playerId! });
+  //     setPlayerApproaching(playerId);
+  //   }
+  //   const approaching = playerApproaching == playerId;
+  //   const startConversationMsg = approaching ? "Walking over..." : "Start conversation";
+  //   let startConversationCls = "mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto";
+  //   if (approaching) {
+  //     startConversationCls += " opacity-50"
+  //   }
   if (!props.playerId) {
     return (
       <div className="h-full text-xl flex text-center items-center p-4">
         Click on an agent on the map to see chat history.
       </div>
-    )
+    );
   } else {
-    return playerMetadata && (
+    return (
+      playerMetadata && (
         <>
-            <div className="flex gap-4">
-                <div className="box flex-grow">
-                    <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
-                    {playerMetadata.name}
-                    </h2>
-                </div>
-                <a
-                    className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
-                    onClick={() => {
-                        props.setSelectedPlayer(undefined)
-                    }}
-                >
-                    <h2 className="h-full bg-clay-700">
-                    <img className="w-5 h-5" src={closeImg} />
-                    </h2>
-                </a>
+          <div className="flex gap-4">
+            <div className="box flex-grow">
+              <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
+                {playerMetadata.name}
+              </h2>
             </div>
+            <a
+              className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
+              onClick={() => {
+                props.setSelectedPlayer(undefined);
+              }}
+            >
+              <h2 className="h-full bg-clay-700">
+                <img className="w-5 h-5" src={closeImg} />
+              </h2>
+            </a>
+          </div>
         </>
-    )
+      )
+    );
   }
-//   return (
-//     playerState && playerDetails !== undefined && (
-//       <>
-//         <div className="flex gap-4">
-//           <div className="box flex-grow">
-//             <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
-//               {playerState.name}
-//             </h2>
-//           </div>
-//           <a className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
-//             onClick={() => {
-//               if (inConversation) {
-//                 void leaveCurrentConversation();
-//               }
-//               setSelectedPlayer(undefined)
-//             }}
-//           >
-//             <h2 className="h-full bg-clay-700">
-//               <img className="w-5 h-5" src={closeImg} />
-//             </h2>
-//           </a>
-//         </div>
+  //   return (
+  //     playerState && playerDetails !== undefined && (
+  //       <>
+  //         <div className="flex gap-4">
+  //           <div className="box flex-grow">
+  //             <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
+  //               {playerState.name}
+  //             </h2>
+  //           </div>
+  //           <a className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
+  //             onClick={() => {
+  //               if (inConversation) {
+  //                 void leaveCurrentConversation();
+  //               }
+  //               setSelectedPlayer(undefined)
+  //             }}
+  //           >
+  //             <h2 className="h-full bg-clay-700">
+  //               <img className="w-5 h-5" src={closeImg} />
+  //             </h2>
+  //           </a>
+  //         </div>
 
-//         {playerDetails.canTalk && (
-//           <SignedIn>
-//           <a className={startConversationCls}
-//             title="Start a conversation"
-//             onClick={startConversation}
-//           >
-//             <div className="h-full bg-clay-700 text-center">
-//               <span>{startConversationMsg}</span>
-//             </div>
-//           </a>
-//         </SignedIn>
-//         )}
+  //         {playerDetails.canTalk && (
+  //           <SignedIn>
+  //           <a className={startConversationCls}
+  //             title="Start a conversation"
+  //             onClick={startConversation}
+  //           >
+  //             <div className="h-full bg-clay-700 text-center">
+  //               <span>{startConversationMsg}</span>
+  //             </div>
+  //           </a>
+  //         </SignedIn>
+  //         )}
 
-//         <div className="desc my-6">
-//           <p className="leading-tight -m-4 bg-brown-700 text-lg">
-//             {!playerDetails.isMe && playerState.identity}
-//             {playerDetails.isMe && (<i>This is you!</i>)}
-//             {inConversation && (<><br/><br/>(<i>Conversing with you!</i>)</>)}
-//           </p>
-//         </div>
+  //         <div className="desc my-6">
+  //           <p className="leading-tight -m-4 bg-brown-700 text-lg">
+  //             {!playerDetails.isMe && playerState.identity}
+  //             {playerDetails.isMe && (<i>This is you!</i>)}
+  //             {inConversation && (<><br/><br/>(<i>Conversing with you!</i>)</>)}
+  //           </p>
+  //         </div>
 
-//         {!playerDetails.isMe && playerState.lastChat?.conversationId && (
-//           <div className="chats">
-//             <div className="bg-brown-200 text-black p-2">
-//               <Messages
-//                 conversationId={playerState.lastChat?.conversationId}
-//                 currentPlayerId={playerState.id}
-//               />
-//             </div>
-//           </div>
-//         )}
-//       </>
-//     )
-//   );
+  //         {!playerDetails.isMe && playerState.lastChat?.conversationId && (
+  //           <div className="chats">
+  //             <div className="bg-brown-200 text-black p-2">
+  //               <Messages
+  //                 conversationId={playerState.lastChat?.conversationId}
+  //                 currentPlayerId={playerState.id}
+  //               />
+  //             </div>
+  //           </div>
+  //         )}
+  //       </>
+  //     )
+  //   );
 }

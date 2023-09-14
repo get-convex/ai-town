@@ -7,15 +7,15 @@ import { Application } from 'pixi.js';
 import { MutableRefObject, ReactNode } from 'react';
 
 export type ViewportProps = {
-  app: Application,
-  viewportRef?: MutableRefObject<Viewport | undefined>,
+  app: Application;
+  viewportRef?: MutableRefObject<Viewport | undefined>;
 
-  screenWidth: number,
-  screenHeight: number,
-  worldWidth: number,
-  worldHeight: number,
-  children?: ReactNode,
-}
+  screenWidth: number;
+  screenHeight: number;
+  worldWidth: number;
+  worldHeight: number;
+  children?: ReactNode;
+};
 
 // https://davidfig.github.io/pixi-viewport/jsdoc/Viewport.html
 export default PixiComponent('Viewport', {

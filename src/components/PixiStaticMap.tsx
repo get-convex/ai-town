@@ -1,4 +1,3 @@
-
 import { PixiComponent, applyDefaultProps } from '@pixi/react';
 import * as PIXI from 'pixi.js';
 import { map } from '../../convex/schema';
@@ -55,7 +54,12 @@ export const PixiStaticMap = PixiComponent('StaticMap', {
 
     // Set the hit area manually to ensure `pointerdown` events are delivered to this container.
     container.interactive = true;
-    container.hitArea = new PIXI.Rectangle(0, 0, screenxtiles * map.tileDim, screenytiles * map.tileDim);
+    container.hitArea = new PIXI.Rectangle(
+      0,
+      0,
+      screenxtiles * map.tileDim,
+      screenytiles * map.tileDim,
+    );
 
     return container;
   },

@@ -8,12 +8,12 @@ const SpokeRecentlyMs = 5_000;
 export type SelectPlayer = (playerId?: Id<'players'>) => void;
 
 export const Player = (props: {
-  player: Doc<"players">;
+  player: Doc<'players'>;
 
-  x: number,
-  y: number,
-  orientation: number,
-  isMoving: boolean,
+  x: number;
+  y: number;
+  orientation: number;
+  isMoving: boolean;
 
   onClick: SelectPlayer;
 }) => {

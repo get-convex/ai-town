@@ -9,10 +9,10 @@
  * @module
  */
 
-import type { DataModelFromSchemaDefinition } from "convex/server";
-import type { DocumentByName, TableNamesInDataModel } from "convex/server";
-import type { GenericId } from "convex/values";
-import schema from "../schema";
+import type { DataModelFromSchemaDefinition } from 'convex/server';
+import type { DocumentByName, TableNamesInDataModel } from 'convex/server';
+import type { GenericId } from 'convex/values';
+import schema from '../schema';
 
 /**
  * The names of all of your Convex tables.
@@ -24,10 +24,7 @@ export type TableNames = TableNamesInDataModel<DataModel>;
  *
  * @typeParam TableName - A string literal type of the table name (like "users").
  */
-export type Doc<TableName extends TableNames> = DocumentByName<
-  DataModel,
-  TableName
->;
+export type Doc<TableName extends TableNames> = DocumentByName<DataModel, TableName>;
 
 /**
  * An identifier for a document in Convex.
