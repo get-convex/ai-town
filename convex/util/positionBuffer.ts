@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Point } from "./schema";
+import { Point } from "../schema/types";
 
 export class PositionBuffer {
     t: Array<number> = [];

@@ -1,4 +1,4 @@
-import { Point } from '../convex/schema.ts';
+import { Point } from "../convex/schema/types.ts";
 import { api } from '../convex/_generated/api';
 import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';

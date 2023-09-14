@@ -1,18 +1,14 @@
-// TODO:
-// [ ] Start with non interactive latency server driven path finding
-// [ ] Do some client interpolation with that?
-// [ ] Reintroduce client timestamp for not relying on server time alone?
-// [ ] Find some way to handle errors!
-
 import { v } from "convex/values";
 import { DatabaseReader, DatabaseWriter, mutation } from "./_generated/server";
-import { COLLISION_THRESHOLD, Path, Point, Vector, map, point, world } from "./schema";
+import { COLLISION_THRESHOLD, map, world } from "./schema";
+import { Path, Point, Vector, point } from "./schema/types";
 import { Doc, Id } from "./_generated/dataModel";
-import { distance, manhattanDistance, orientationDegrees, pathPosition, pointsEqual } from "./geometry";
-import { MinHeap } from "./minheap";
-import { movementSpeed } from "./characterdata/data";
-import { PositionBuffer } from "./positionBuffer";
+import { distance, manhattanDistance, orientationDegrees, pathPosition, pointsEqual } from "./util/geometry";
+import { MinHeap } from "./util/minheap";
+import { movementSpeed } from "./data/characters";
 import { api } from "./_generated/api";
+import { PositionBuffer } from "./util/positionBuffer";
+import { MAX_STEP, TICK, PATHFINDING_TIMEOUT, PATHFINDING_BACKOFF } from "./MAX_STEP";
 
 export const addPlayerInput = mutation({
     args: {
@@ -397,8 +393,3 @@ type PathCandidate = {
     cost: number,
     prev?: PathCandidate,
 };
-
-const PATHFINDING_TIMEOUT = 60 * 1000;
-const PATHFINDING_BACKOFF = 1000;
-const MAX_STEP = 60 * 60 * 1000;
-const TICK = 16;

@@ -14,27 +14,27 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as characterdata_data from "../characterdata/data";
-import type * as characterdata_spritesheets_f1 from "../characterdata/spritesheets/f1";
-import type * as characterdata_spritesheets_f2 from "../characterdata/spritesheets/f2";
-import type * as characterdata_spritesheets_f3 from "../characterdata/spritesheets/f3";
-import type * as characterdata_spritesheets_f4 from "../characterdata/spritesheets/f4";
-import type * as characterdata_spritesheets_f5 from "../characterdata/spritesheets/f5";
-import type * as characterdata_spritesheets_f6 from "../characterdata/spritesheets/f6";
-import type * as characterdata_spritesheets_f7 from "../characterdata/spritesheets/f7";
-import type * as characterdata_spritesheets_f8 from "../characterdata/spritesheets/f8";
-import type * as characterdata_spritesheets_p1 from "../characterdata/spritesheets/p1";
-import type * as characterdata_spritesheets_p2 from "../characterdata/spritesheets/p2";
-import type * as characterdata_spritesheets_p3 from "../characterdata/spritesheets/p3";
-import type * as characterdata_spritesheets_player from "../characterdata/spritesheets/player";
-import type * as characterdata_spritesheets_types from "../characterdata/spritesheets/types";
+import type * as characterdata_data from "../data/characters";
+import type * as characterdata_spritesheets_f1 from "../data/spritesheets/f1";
+import type * as characterdata_spritesheets_f2 from "../data/spritesheets/f2";
+import type * as characterdata_spritesheets_f3 from "../data/spritesheets/f3";
+import type * as characterdata_spritesheets_f4 from "../data/spritesheets/f4";
+import type * as characterdata_spritesheets_f5 from "../data/spritesheets/f5";
+import type * as characterdata_spritesheets_f6 from "../data/spritesheets/f6";
+import type * as characterdata_spritesheets_f7 from "../data/spritesheets/f7";
+import type * as characterdata_spritesheets_f8 from "../data/spritesheets/f8";
+import type * as characterdata_spritesheets_p1 from "../data/spritesheets/p1";
+import type * as characterdata_spritesheets_p2 from "../data/spritesheets/p2";
+import type * as characterdata_spritesheets_p3 from "../data/spritesheets/p3";
+import type * as characterdata_spritesheets_player from "../data/spritesheets/player";
+import type * as characterdata_spritesheets_types from "../data/spritesheets/types";
 import type * as crons from "../crons";
 import type * as engine from "../engine";
 import type * as gameState from "../gameState";
-import type * as geometry from "../geometry";
+import type * as geometry from "../util/geometry";
 import type * as humans from "../humans";
-import type * as map from "../map";
-import type * as minheap from "../minheap";
+import type * as map from "../data/map";
+import type * as minheap from "../util/minheap";
 import type * as players from "../players";
 import type * as positionBuffer from "../positionBuffer";
 

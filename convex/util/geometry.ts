@@ -1,4 +1,4 @@
-import { Path, Point, Vector } from "./schema";
+import { Path, Point, Vector } from "../schema/types";
 
 export function distance(p0: Point, p1: Point): number {
     const dx = p0.x - p1.x;
