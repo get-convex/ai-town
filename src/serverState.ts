@@ -4,7 +4,7 @@ import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';
 import { PositionBuffer } from '../convex/util/positionBuffer.ts';
 
-const LOGGING_INTERVAL: number = 17360;
+const LOGGING_INTERVAL: number = 1736;
 
 export type GameState = {
   players: Record<Id<'players'>, InterpolatedPlayer>;
@@ -37,7 +37,7 @@ export class ServerState {
   numHalts: number = 0;
   numTrims: number = 0;
 
-  receive(gameState: FunctionReturnType<typeof api.gameState.default>) {
+  receive(gameState: FunctionReturnType<typeof api.queryGameState.default>) {
     const latest = this.snapshots[this.snapshots.length - 1];
     if (latest) {
       if (latest.serverEndTs == gameState.endTs) {

@@ -1,13 +1,10 @@
-import { defineSchema, defineTable } from 'convex/server';
+import { defineSchema } from 'convex/server';
 import { bgtiles, objmap, tiledim, tilefiledim, tilesetpath } from './data/map';
 import { engineTables } from './schema/engine';
 import { playersTables } from './schema/players';
 import { conversationsTables } from './schema/conversations';
-import { v } from 'convex/values';
 
 export default defineSchema({
-  test: defineTable(v.any()),
-
   ...engineTables,
   ...playersTables,
   ...conversationsTables,

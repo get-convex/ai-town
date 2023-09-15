@@ -1,7 +1,7 @@
 import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { point } from './types';
-import { playerInput } from './input';
+import { playerInput } from '../game/input';
 
 // The input queue is a combination of generic
 // engine state (the playerId and serverTimestamp)

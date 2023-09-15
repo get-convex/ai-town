@@ -5,10 +5,11 @@ import { WithoutSystemFields } from 'convex/server';
 export class MappedTable<T extends TableNames> {
   data: Map<Id<T>, Doc<T>> = new Map();
   modified: Set<Id<T>> = new Set();
+  deleted: Set<Id<T>> = new Set();
 
   constructor(
-    private table: T,
-    private db: DatabaseWriter,
+    public table: T,
+    public db: DatabaseWriter,
     rows: Doc<T>[],
   ) {
     for (const row of rows) {
@@ -26,6 +27,27 @@ export class MappedTable<T extends TableNames> {
     return id;
   }
 
+  find(f: (doc: Doc<T>) => boolean): Doc<T> | null {
+    for (const id of this.allIds()) {
+      const doc = this.lookup(id);
+      if (f(doc)) {
+        return doc;
+      }
+    }
+    return null;
+  }
+
+  filter(f: (doc: Doc<T>) => boolean): Array<Doc<T>> {
+    const out = [];
+    for (const id of this.allIds()) {
+      const doc = this.lookup(id);
+      if (f(doc)) {
+        out.push(doc);
+      }
+    }
+    return out;
+  }
+
   allIds(): Array<Id<T>> {
     const ids = [];
     for (const [id] of this.data.entries()) {
@@ -40,6 +62,10 @@ export class MappedTable<T extends TableNames> {
       throw new Error(`Invalid ID: ${id}`);
     }
     const handlers = {
+      defineProperty: (target: any, key: any, descriptor: any) => {
+        this.markModified(id);
+        return Reflect.defineProperty(target, key, descriptor);
+      },
       get: (target: any, prop: any, receiver: any) => {
         const value = Reflect.get(target, prop, receiver);
         if (typeof value === 'object') {
@@ -49,18 +75,30 @@ export class MappedTable<T extends TableNames> {
         }
       },
       set: (obj: any, prop: any, value: any) => {
-        this.modified.add(id);
+        this.markModified(id);
         return Reflect.set(obj, prop, value);
       },
       deleteProperty: (target: any, prop: any) => {
-        this.modified.add(id);
+        this.markModified(id);
         return Reflect.deleteProperty(target, prop);
       },
     };
     return new Proxy<Doc<T>>(row, handlers);
   }
 
+  delete(id: Id<T>) {
+    if (!this.data.has(id)) {
+      throw new Error(`Invalid ID: ${id}`);
+    }
+    this.data.delete(id);
+    this.modified.delete(id);
+    this.deleted.add(id);
+  }
+
   async save() {
+    for (const id of this.deleted) {
+      await this.db.delete(id);
+    }
     for (const id of this.modified) {
       const row = this.data.get(id);
       if (!row) {
@@ -70,5 +108,15 @@ export class MappedTable<T extends TableNames> {
       // generic `Doc<T>` unifies with `replace()`'s type.
       await this.db.replace(id, row as any);
     }
+    this.modified.clear();
+    this.deleted.clear();
+  }
+
+  private markModified(id: Id<T>) {
+    if (!this.data.has(id)) {
+      console.warn(`Modifying deleted id ${id}`);
+      return;
+    }
+    this.modified.add(id);
   }
 }

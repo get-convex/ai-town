@@ -14,7 +14,6 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as GameState from "../GameState";
 import type * as constants from "../constants";
 import type * as crons from "../crons";
 import type * as data_characters from "../data/characters";
@@ -34,12 +33,15 @@ import type * as data_spritesheets_player from "../data/spritesheets/player";
 import type * as data_spritesheets_types from "../data/spritesheets/types";
 import type * as debug from "../debug";
 import type * as engine from "../engine";
+import type * as game_input from "../game/input";
+import type * as game_movement from "../game/movement";
+import type * as game_state from "../game/state";
+import type * as game_tick from "../game/tick";
 import type * as humans from "../humans";
 import type * as players from "../players";
 import type * as queryGameState from "../queryGameState";
 import type * as schema_conversations from "../schema/conversations";
 import type * as schema_engine from "../schema/engine";
-import type * as schema_input from "../schema/input";
 import type * as schema_players from "../schema/players";
 import type * as schema_types from "../schema/types";
 import type * as util_assertNever from "../util/assertNever";
@@ -57,7 +59,6 @@ import type * as util_positionBuffer from "../util/positionBuffer";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  GameState: typeof GameState;
   constants: typeof constants;
   crons: typeof crons;
   "data/characters": typeof data_characters;
@@ -77,12 +78,15 @@ declare const fullApi: ApiFromModules<{
   "data/spritesheets/types": typeof data_spritesheets_types;
   debug: typeof debug;
   engine: typeof engine;
+  "game/input": typeof game_input;
+  "game/movement": typeof game_movement;
+  "game/state": typeof game_state;
+  "game/tick": typeof game_tick;
   humans: typeof humans;
   players: typeof players;
   queryGameState: typeof queryGameState;
   "schema/conversations": typeof schema_conversations;
   "schema/engine": typeof schema_engine;
-  "schema/input": typeof schema_input;
   "schema/players": typeof schema_players;
   "schema/types": typeof schema_types;
   "util/assertNever": typeof util_assertNever;

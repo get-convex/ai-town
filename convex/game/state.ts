@@ -1,11 +1,11 @@
-import { DatabaseWriter } from './_generated/server';
-import { Point } from './schema/types';
-import { Id } from './_generated/dataModel';
-import { PositionBuffer } from './util/positionBuffer';
-import { TICK } from './constants';
-import { MappedTable } from './util/mappedTable';
+import { DatabaseWriter } from '../_generated/server';
+import { Point } from '../schema/types';
+import { Id } from '../_generated/dataModel';
+import { PositionBuffer } from '../util/positionBuffer';
+import { TICK } from '../constants';
+import { MappedTable } from '../util/mappedTable';
 
-export class GameState2 {
+export class GameState {
   playersMoved: Map<Id<'players'>, PositionBuffer> = new Map();
 
   constructor(
@@ -29,7 +29,7 @@ export class GameState2 {
     // TODO: Only load messages for active conversations.
     const messages = await db.query('messages').collect();
 
-    return new GameState2(
+    return new GameState(
       startTs,
       new MappedTable('players', db, players),
       new MappedTable('conversations', db, conversations),

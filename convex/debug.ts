@@ -3,9 +3,11 @@ import { DatabaseWriter, mutation } from './_generated/server';
 import { characters, world } from './schema';
 import { objmap } from './data/map';
 import { distance } from './util/geometry';
-import { GameState, insertInput } from './engine';
+import { insertInput } from './engine';
 import { TableNames } from './_generated/dataModel';
 import { point } from './schema/types';
+import { GameState } from './game/state';
+import { blocked } from './game/movement';
 
 export const addManyPlayers = mutation({
   handler: async (ctx) => {
@@ -50,20 +52,21 @@ export const randomPositions = mutation({
     const gameState = await GameState.load(Date.now(), ctx.db);
     let inserted = 0;
     const humans = await ctx.db.query('humans').collect();
-    for (const player of Object.values(gameState.players)) {
+    for (const playerId of gameState.players.allIds()) {
       if (args.max && inserted >= args.max) {
         break;
       }
-      if (humans.find((p) => p.playerId === player._id)) {
+      if (humans.find((p) => p.playerId === playerId)) {
         continue;
       }
+      const player = gameState.players.lookup(playerId);
       let position;
       for (let i = 0; i < 10; i++) {
         const candidate = {
           x: Math.floor(Math.random() * world.width),
           y: Math.floor(Math.random() * world.height),
         };
-        const collision = gameState.blocked(candidate, player);
+        const collision = blocked(gameState, candidate, player);
         if (collision !== null) {
           console.warn(
             `Candidate ${JSON.stringify(candidate)} failed for ${player.name}: ${collision}`,
@@ -82,6 +85,17 @@ export const randomPositions = mutation({
         destination: position,
       });
       inserted += 1;
+    }
+  },
+});
+
+export const acceptAllInvites = mutation({
+  handler: async (ctx) => {
+    const members = await ctx.db.query('conversationMembers').collect();
+    for (const member of members) {
+      if (member.status === 'invited') {
+        await ctx.db.patch(member._id, { status: 'participating' });
+      }
     }
   },
 });

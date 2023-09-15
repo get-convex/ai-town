@@ -38,18 +38,3 @@ export const addPlayer = mutation({
     });
   },
 });
-
-export const playerMetadata = query({
-  args: {
-    playerId: v.id('players'),
-  },
-  handler: async (ctx, args) => {
-    const player = await ctx.db.get(args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    return {
-      name: player.name,
-    };
-  },
-});

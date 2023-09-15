@@ -4,7 +4,7 @@ import { Player, SelectPlayer } from './Player.tsx';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { useRef, useState } from 'react';
-import { ServerState, InterpolatedPlayer, GameState } from '../serverState.ts';
+import { ServerState, GameState } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/schema.ts';
@@ -64,7 +64,10 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
       y: Math.floor(gameSpacePx.y / map.tileDim),
     };
     console.log(`Sending player input`, humanStatus, gameSpaceTiles, e);
-    addPlayerInput({ playerId: humanStatus, destination: gameSpaceTiles });
+    addPlayerInput({
+      playerId: humanStatus,
+      input: { kind: 'moveTo', destination: gameSpaceTiles },
+    });
   };
 
   if (!latestState || !state) {

@@ -3,10 +3,19 @@ import { v } from 'convex/values';
 
 const conversations = defineTable({
   creator: v.id('players'),
-  typing: v.optional(v.id('players')),
+  typing: v.optional(
+    v.object({
+      playerId: v.id('players'),
+      started: v.number(),
+    }),
+  ),
   finished: v.optional(v.number()),
 });
 
+// Invariants:
+// A player is in at most one conversation.
+// At most two players are in one conversation.
+// Two players in a conversation are close together if they're both participating.
 const conversationMembers = defineTable({
   conversationId: v.id('conversations'),
   playerId: v.id('players'),
@@ -14,21 +23,24 @@ const conversationMembers = defineTable({
 });
 
 const messages = defineTable({
-  conversation: v.id('conversations'),
+  conversationId: v.id('conversations'),
   author: v.id('players'),
+  streamed: v.boolean(),
   doneWriting: v.boolean(),
 });
 
 // Separate out the actual message text to be state not managed by the game engine. This way we can
 // append chunks to it out of band when streaming in tokens from OpenAI.
 const messageText = defineTable({
-  message: v.id('messages'),
+  messageId: v.id('messages'),
   text: v.string(),
 });
 
 export const conversationsTables = {
   conversations: conversations.index('finished', ['finished']),
-  conversationMembers: conversationMembers.index('conversationid', ['conversationId']),
-  messages: messages.index('conversation', ['conversation', 'doneWriting']),
-  messageText: messageText.index('message', ['message']),
+  conversationMembers: conversationMembers
+    .index('playerId', ['playerId'])
+    .index('conversationId', ['conversationId', 'playerId']),
+  messages: messages.index('conversationId', ['conversationId']),
+  messageText: messageText.index('messageId', ['messageId']),
 };
