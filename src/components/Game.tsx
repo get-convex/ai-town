@@ -111,6 +111,5 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
       {DEBUG_POSITIONS && destination && <DestinationMarker destination={destination} />}
     </PixiViewport>
   );
-  return null;
 };
 export default Game;

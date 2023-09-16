@@ -1,6 +1,5 @@
 import { Infer, v } from 'convex/values';
 import { Point, Vector } from '../schema/types';
-import { orientationDegrees } from './geometry';
 
 export class PositionBuffer {
   t: Array<number> = [];

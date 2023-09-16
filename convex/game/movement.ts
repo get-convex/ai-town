@@ -92,7 +92,7 @@ export function findRoute(
     cost: manhattanDistance(player.position, destination),
     prev: undefined,
   };
-  const minheap = MinHeap<PathCandidate>((more, less) => more.cost > less.cost);
+  const minheap = new MinHeap<PathCandidate>((p0, p1) => p0.cost < p1.cost);
   while (current) {
     if (pointsEqual(current.position, destination)) {
       break;
