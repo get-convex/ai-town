@@ -4,7 +4,7 @@ import { Player, SelectPlayer } from './Player.tsx';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { useRef, useState } from 'react';
-import { ServerState, GameState, DEBUG_POSITIONS } from '../serverState.ts';
+import { ServerState, GameState, DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/schema.ts';
@@ -76,18 +76,17 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
     });
   };
 
-  if (!latestState || !state) {
-    return null;
+  let players: InterpolatedPlayer[] = [];
+  if (latestState && state) {
+    // Skip over players that aren't in the latest server state.
+    const latestPlayers = new Set();
+    for (const player of latestState.players) {
+      latestPlayers.add(player._id);
+    }
+    players = Object.values(state.players).filter((p) => latestPlayers.has(p.player._id));
+    // Order the players by their y coordinates.
+    players.sort((a, b) => a.position.y - b.position.y);
   }
-  // Skip over players that aren't in the latest server state.
-  const latestPlayers = new Set();
-  for (const player of latestState.players) {
-    latestPlayers.add(player._id);
-  }
-  const players = Object.values(state.players).filter((p) => latestPlayers.has(p.player._id));
-  // Order the players by their y coordinates.
-  players.sort((a, b) => a.position.y - b.position.y);
-
   const destination =
     currentDestination ||
     players.find((p) => p.player._id == humanStatus)?.player.pathfinding?.destination;
@@ -101,13 +100,14 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
       viewportRef={viewportRef}
     >
       <PixiStaticMap onpointerup={onMapPointerUp} onpointerdown={onMapPointerDown} />
-      {players.map((interpolated) => (
-        <Player
-          key={interpolated.player._id}
-          interpolated={interpolated}
-          onClick={props.setSelectedPlayer}
-        />
-      ))}
+      {players &&
+        players.map((interpolated) => (
+          <Player
+            key={interpolated.player._id}
+            interpolated={interpolated}
+            onClick={props.setSelectedPlayer}
+          />
+        ))}
       {DEBUG_POSITIONS && destination && <DestinationMarker destination={destination} />}
     </PixiViewport>
   );

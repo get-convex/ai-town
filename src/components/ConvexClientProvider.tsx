@@ -30,7 +30,7 @@ function convexUrl(): string {
   return newUrl;
 }
 
-const convex = new ConvexReactClient(convexUrl());
+const convex = new ConvexReactClient(convexUrl(), { unsavedChangesWarning: false });
 
 export default function ConvexClientProvider({ children }: { children: ReactNode }) {
   return (
