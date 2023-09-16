@@ -4,12 +4,14 @@ import { Player, SelectPlayer } from './Player.tsx';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { useRef, useState } from 'react';
-import { ServerState, GameState } from '../serverState.ts';
+import { ServerState, GameState, DEBUG_POSITIONS } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/schema.ts';
 import { Viewport } from 'pixi-viewport';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
+import { Point } from '../../convex/schema/types.ts';
+import DestinationMarker from './DestinationMarker.tsx';
 
 export const Game = (props: { width: number; height: number; setSelectedPlayer: SelectPlayer }) => {
   // Convex setup.
@@ -37,6 +39,7 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
 
   // Interaction for clicking on the world to navigate.
   const dragStart = useRef<{ screenX: number; screenY: number } | null>(null);
+  const [currentDestination, setCurrentDestination] = useState<Point>();
   const onMapPointerDown = (e: any) => {
     // https://pixijs.download/dev/docs/PIXI.FederatedPointerEvent.html
     dragStart.current = { screenX: e.screenX, screenY: e.screenY };
@@ -65,6 +68,8 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
       y: Math.floor(gameSpacePx.y / map.tileDim),
     };
     console.log(`Sending player input`, humanStatus, gameSpaceTiles, e);
+    setCurrentDestination(gameSpaceTiles);
+    setTimeout(() => setCurrentDestination(undefined), 2000);
     addPlayerInput({
       playerId: humanStatus,
       input: { kind: 'moveTo', destination: gameSpaceTiles },
@@ -82,6 +87,10 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
   const players = Object.values(state.players).filter((p) => latestPlayers.has(p.player._id));
   // Order the players by their y coordinates.
   players.sort((a, b) => a.position.y - b.position.y);
+
+  const destination =
+    currentDestination ||
+    players.find((p) => p.player._id == humanStatus)?.player.pathfinding?.destination;
   return (
     <PixiViewport
       app={pixiApp}
@@ -99,6 +108,7 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
           onClick={props.setSelectedPlayer}
         />
       ))}
+      {DEBUG_POSITIONS && destination && <DestinationMarker destination={destination} />}
     </PixiViewport>
   );
   return null;
