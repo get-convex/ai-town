@@ -1,34 +1,38 @@
 import { Infer, v } from 'convex/values';
-import { Point } from '../schema/types';
+import { Point, Vector } from '../schema/types';
+import { orientationDegrees } from './geometry';
 
 export class PositionBuffer {
   t: Array<number> = [];
   x: Array<number> = [];
   y: Array<number> = [];
-  orientation: Array<number> = [];
+  dx: Array<number> = [];
+  dy: Array<number> = [];
 
   maxTs(): number | null {
     return this.t.at(-1) ?? null;
   }
 
-  push(t: number, x: number, y: number, orientation: number) {
+  push(t: number, position: Point, facing: Vector) {
     const lastTime = this.t.at(-1);
     if (lastTime && t < lastTime) {
       throw new Error(`Time moving backwards from ${lastTime} to ${t}`);
     }
     if (lastTime && t === lastTime) {
-      this.x[this.x.length - 1] = x;
-      this.y[this.y.length - 1] = y;
-      this.orientation[this.orientation.length - 1] = orientation;
+      this.x[this.x.length - 1] = position.x;
+      this.y[this.y.length - 1] = position.y;
+      this.dx[this.dx.length - 1] = facing.dx;
+      this.dy[this.dx.length - 1] = facing.dy;
       return;
     }
     this.t.push(t);
-    this.x.push(x);
-    this.y.push(y);
-    this.orientation.push(orientation);
+    this.x.push(position.x);
+    this.y.push(position.y);
+    this.dx.push(facing.dx);
+    this.dy.push(facing.dy);
   }
 
-  query(time: number): { position: Point; orientation: number } | null {
+  query(time: number): { position: Point; facing: Vector } | null {
     if (this.t.length <= 1) {
       return null;
     }
@@ -46,7 +50,7 @@ export class PositionBuffer {
             x: this.x[i - 1] + interp * dx,
             y: this.y[i - 1] + interp * dy,
           },
-          orientation: this.orientation[i - 1],
+          facing: { dx: this.dx[i - 1], dy: this.dy[i - 1] },
         };
       }
     }
@@ -61,8 +65,9 @@ export class PositionBuffer {
     const t = new Float64Array(this.t).buffer;
     const x = new Float64Array(this.x).buffer;
     const y = new Float64Array(this.y).buffer;
-    const orientation = new Float64Array(this.orientation).buffer;
-    return { t, x, y, orientation };
+    const dx = new Float64Array(this.dx).buffer;
+    const dy = new Float64Array(this.dy).buffer;
+    return { t, x, y, dx, dy };
   }
 
   static unpack(packed: PackedPositionBuffer): PositionBuffer {
@@ -77,7 +82,8 @@ export class PositionBuffer {
     out.t = Array.from(new Float64Array(packed.t));
     out.x = Array.from(new Float64Array(packed.x));
     out.y = Array.from(new Float64Array(packed.y));
-    out.orientation = Array.from(new Float64Array(packed.orientation));
+    out.dx = Array.from(new Float64Array(packed.dx));
+    out.dy = Array.from(new Float64Array(packed.dy));
     return out;
   }
 }
@@ -86,7 +92,8 @@ export const packedPositionBuffer = v.object({
   t: v.bytes(),
   x: v.bytes(),
   y: v.bytes(),
-  orientation: v.bytes(),
+  dx: v.bytes(),
+  dy: v.bytes(),
 });
 export type PackedPositionBuffer = Infer<typeof packedPositionBuffer>;
 

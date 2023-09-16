@@ -5,14 +5,7 @@ import {
   PATHFINDING_TIMEOUT,
   TYPING_TIMEOUT,
 } from '../constants';
-import {
-  EPSILON,
-  distance,
-  orientationDegrees,
-  pathPosition,
-  pointsEqual,
-  vector,
-} from '../util/geometry';
+import { EPSILON, distance, normalize, pathPosition, pointsEqual, vector } from '../util/geometry';
 import { blocked, findRoute } from './movement';
 import { GameState } from './state';
 
@@ -79,7 +72,12 @@ function tickPosition(game: GameState, now: number, playerId: Id<'players'>) {
   // Compute a candidate new position and check if it collides
   // with anything.
   const candidate = pathPosition(player.pathfinding.state.path, now);
-  const collisionReason = blocked(game, candidate.position, player);
+  if (!candidate) {
+    console.warn(`Path out of range of ${now} for ${player._id}`);
+    return;
+  }
+  const { position, facing } = candidate;
+  const collisionReason = blocked(game, position, player);
   if (collisionReason !== null) {
     const backoff = Math.random() * PATHFINDING_BACKOFF;
     console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);
@@ -89,10 +87,8 @@ function tickPosition(game: GameState, now: number, playerId: Id<'players'>) {
     };
     return;
   }
-
-  // Compute the new orientation and update the player's position.
-  const orientation = orientationDegrees(candidate.vector);
-  game.movePlayer(now, playerId, candidate.position, orientation);
+  // Update the player's position.
+  game.movePlayer(now, playerId, position, facing);
 }
 
 function tickConversation(game: GameState, now: number, conversationId: Id<'conversations'>) {
@@ -125,9 +121,15 @@ function tickConversation(game: GameState, now: number, conversationId: Id<'conv
 
       // Orient the players towards each other.
       if (playerDistance > EPSILON) {
-        const v = vector(player1.position, player2.position);
-        player1.orientation = orientationDegrees(v);
-        player2.orientation = (player1.orientation + 180) % 360;
+        const v = normalize(vector(player1.position, player2.position));
+        if (v) {
+          player1.facing = v;
+          player2.facing = { dx: -v.dx, dy: -v.dy };
+        } else {
+          console.warn(
+            `Starting conversation between ${player1._id} and ${player2._id} who are *too* close!`,
+          );
+        }
       }
     }
   }

@@ -7,8 +7,8 @@ import { MinHeap } from '../util/minheap';
 import { GameState } from './state';
 
 type PathCandidate = {
-  pos: Point;
-  vector?: Vector;
+  position: Point;
+  facing?: Vector;
   t: number;
   length: number;
   cost: number;
@@ -26,66 +26,67 @@ export function findRoute(
   }
   const minDistances: PathCandidate[][] = [];
   const explore = (current: PathCandidate): Array<PathCandidate> => {
-    let deltas: { vector: Vector; dx: number; dy: number }[] = [];
+    const { x, y } = current.position;
+    const neighbors = [];
 
-    // Initial condition: Try to move to an adjacent grid point.
-    const xSnap = Math.floor(current.pos.x);
-    const ySnap = Math.floor(current.pos.y);
-    if (xSnap !== current.pos.x) {
-      deltas = [
-        { vector: { dx: -1, dy: 0 }, dx: xSnap - current.pos.x, dy: 0 },
-        { vector: { dx: 1, dy: 0 }, dx: xSnap + 1 - current.pos.x, dy: 0 },
-      ];
-    } else if (ySnap !== current.pos.y) {
-      deltas = [
-        { vector: { dx: 0, dy: -1 }, dx: 0, dy: ySnap - current.pos.y },
-        { vector: { dx: 0, dy: 1 }, dx: 0, dy: ySnap + 1 - current.pos.y },
-      ];
+    // If we're not on a grid point, first try to move horizontally
+    // or vertically to a grid point. Note that this can create very small
+    // deltas between the current position and the nearest grid point so
+    // be careful to preserve the `facing` vectors rather than trying to
+    // derive them anew.
+    if (x !== Math.floor(x)) {
+      neighbors.push(
+        { position: { x: Math.floor(x), y }, facing: { dx: -1, dy: 0 } },
+        { position: { x: Math.floor(x) + 1, y }, facing: { dx: 1, dy: 0 } },
+      );
     }
-
-    // Otherwise: Explore in each of the grid directions.
-    else {
-      for (const [dx, dy] of [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ]) {
-        deltas.push({ vector: { dx, dy }, dx, dy });
-      }
+    if (y !== Math.floor(y)) {
+      neighbors.push(
+        { position: { x, y: Math.floor(y) }, facing: { dx: 0, dy: -1 } },
+        { position: { x, y: Math.floor(y) + 1 }, facing: { dx: 0, dy: 1 } },
+      );
+    }
+    // Otherwise, just move to adjacent grid points.
+    if (x == Math.floor(x) && y == Math.floor(y)) {
+      neighbors.push(
+        { position: { x: x + 1, y }, facing: { dx: 1, dy: 0 } },
+        { position: { x: x - 1, y }, facing: { dx: -1, dy: 0 } },
+        { position: { x, y: y + 1 }, facing: { dx: 0, dy: 1 } },
+        { position: { x, y: y - 1 }, facing: { dx: 0, dy: -1 } },
+      );
     }
     const next = [];
-    for (const { vector, dx, dy } of deltas) {
-      const length = current.length + 1;
-      const pos = { x: current.pos.x + dx, y: current.pos.y + dy };
-      if (blocked(game, pos, player)) {
+    for (const { position, facing } of neighbors) {
+      const segmentLength = distance(current.position, position);
+      const length = current.length + segmentLength;
+      if (blocked(game, position, player)) {
         continue;
       }
-      const remaining = manhattanDistance(pos, destination);
+      const remaining = manhattanDistance(position, destination);
       const path = {
-        pos,
-        vector,
+        position,
+        facing,
         // Movement speed is in tiles per second.
-        t: current.t + 1000 / movementSpeed,
+        t: current.t + (segmentLength / movementSpeed) * 1000,
         length,
         cost: length + remaining,
         prev: current,
       };
-      const existingMin = minDistances[pos.y]?.[pos.x];
-      if (!existingMin) {
-        minDistances[pos.y] ??= [];
-        minDistances[pos.y][pos.x] = path;
-      } else if (path.cost >= existingMin.cost) {
+      const existingMin = minDistances[position.y]?.[position.x];
+      if (existingMin && existingMin.cost <= path.cost) {
         continue;
       }
+      minDistances[position.y] ??= [];
+      minDistances[position.y][position.x] = path;
       next.push(path);
     }
     return next;
   };
 
   let current: PathCandidate | undefined = {
-    pos: { ...player.position },
-    vector: undefined,
+    position: { ...player.position },
+    // We'll set the facing vector based on where we go to next.
+    facing: undefined,
     t: now,
     length: 0,
     cost: manhattanDistance(player.position, destination),
@@ -93,7 +94,7 @@ export function findRoute(
   };
   const minheap = MinHeap<PathCandidate>((more, less) => more.cost > less.cost);
   while (current) {
-    if (pointsEqual(current.pos, destination)) {
+    if (pointsEqual(current.position, destination)) {
       break;
     }
     for (const candidate of explore(current)) {
@@ -105,10 +106,10 @@ export function findRoute(
     return "couldn't find path";
   }
   const densePath = [];
-  let vector = { dx: 0, dy: 0 };
+  let facing = current.facing!;
   while (current) {
-    densePath.push({ position: current.pos, t: current.t, vector });
-    vector = current.vector!;
+    densePath.push({ position: current.position, t: current.t, facing });
+    facing = current.facing!;
     current = current.prev;
   }
   densePath.reverse();

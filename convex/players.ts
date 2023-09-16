@@ -7,6 +7,7 @@ import { distance } from './util/geometry';
 export const addPlayer = mutation({
   args: {
     name: v.string(),
+    description: v.string(),
   },
   handler: async (ctx, args) => {
     const otherPlayers = await ctx.db.query('players').collect();
@@ -32,9 +33,10 @@ export const addPlayer = mutation({
     }
     return ctx.db.insert('players', {
       name: args.name,
+      description: args.description,
       character: Math.floor(Math.random() * characters.length),
       position,
-      orientation: 0,
+      facing: { dx: 1, dy: 0 },
     });
   },
 });

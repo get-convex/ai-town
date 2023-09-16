@@ -1,7 +1,7 @@
 import { defineTable } from 'convex/server';
 import { Infer, v } from 'convex/values';
 import { packedPositionBuffer } from '../util/positionBuffer';
-import { path, point } from './types';
+import { path, point, vector } from './types';
 
 const pathfinding = v.object({
   destination: point,
@@ -30,11 +30,13 @@ export type Pathfinding = Infer<typeof pathfinding>;
 // out into something engine managed.
 const players = defineTable({
   name: v.string(),
+  description: v.string(),
   character: v.number(),
 
   position: point,
+  // Normalized vector indicating which way they're facing.
   // Degrees counterclockwise from east/right.
-  orientation: v.number(),
+  facing: vector,
 
   pathfinding: v.optional(pathfinding),
 

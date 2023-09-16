@@ -36,9 +36,10 @@ export const addManyPlayers = mutation({
       }
       await ctx.db.insert('players', {
         name: `robot${orig.length + j}`,
+        description: "Hi! I'm a robot 🤖",
         character: Math.floor(Math.random() * characters.length),
         position,
-        orientation: 0,
+        facing: { dx: 1, dy: 0 },
       });
     }
   },

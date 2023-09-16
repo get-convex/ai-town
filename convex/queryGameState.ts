@@ -15,11 +15,16 @@ export default query({
       .collect();
     const conversations = [];
     for (const row of conversationRows) {
+      let typingName;
+      if (row.typing) {
+        const player = await ctx.db.get(row.typing.playerId);
+        typingName = player?.name;
+      }
       const members = await ctx.db
         .query('conversationMembers')
         .withIndex('conversationId', (q) => q.eq('conversationId', row._id))
         .collect();
-      conversations.push({ members, ...row });
+      conversations.push({ members, typingName, ...row });
     }
     return {
       startTs: lastStep?.startTs ?? Date.now(),
@@ -46,16 +51,22 @@ export const playerMetadata = query({
       .query('conversationMembers')
       .withIndex('playerId', (q) => q.eq('playerId', player._id))
       .first();
-    let conversation: Doc<'conversations'> | null = null;
+    let conversation: (Doc<'conversations'> & { typingName?: string }) | null = null;
     if (member) {
       const row = await ctx.db.get(member.conversationId);
       if (row && !row.finished) {
-        conversation = row;
+        let typingName;
+        if (row.typing) {
+          const player = await ctx.db.get(row.typing.playerId);
+          typingName = player?.name;
+        }
+        conversation = { typingName, ...row };
       }
     }
     return {
       _id: args.playerId,
       name: player.name,
+      description: player.description,
       member,
       conversation,
     };

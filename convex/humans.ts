@@ -39,7 +39,10 @@ export const join = mutation({
     if (human!.playerId) {
       return human!.playerId;
     }
-    const playerId = await addPlayer(ctx, { name: identity.givenName });
+    const playerId = await addPlayer(ctx, {
+      name: identity.givenName,
+      description: `${identity.givenName} is a human player`,
+    });
     await ctx.db.patch(human!._id, { playerId, joined: Date.now() });
     return playerId;
   },

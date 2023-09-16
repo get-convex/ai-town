@@ -1,5 +1,5 @@
 import { DatabaseWriter } from '../_generated/server';
-import { Point } from '../schema/types';
+import { Point, Vector } from '../schema/types';
 import { Id } from '../_generated/dataModel';
 import { PositionBuffer } from '../util/positionBuffer';
 import { TICK } from '../constants';
@@ -38,20 +38,20 @@ export class GameState {
     );
   }
 
-  movePlayer(now: number, id: Id<'players'>, position: Point, orientation: number) {
+  movePlayer(now: number, id: Id<'players'>, position: Point, facing: Vector) {
     const player = this.players.lookup(id);
     let buffer = this.playersMoved.get(id);
     if (!buffer) {
       buffer = new PositionBuffer();
-      buffer.push(this.startTs, player.position.x, player.position.y, player.orientation);
-      if (now > this.startTs) {
-        buffer.push(now - TICK, player.position.x, player.position.y, player.orientation);
+      buffer.push(this.startTs, player.position, player.facing);
+      if (now - TICK > this.startTs) {
+        buffer.push(now - TICK, player.position, player.facing);
       }
       this.playersMoved.set(id, buffer);
     }
     player.position = position;
-    player.orientation = orientation;
-    buffer.push(now, position.x, position.y, orientation);
+    player.facing = facing;
+    buffer.push(now, position, facing);
   }
 
   async save(endTs: number) {
@@ -66,9 +66,11 @@ export class GameState {
     let bufferSize = 0;
     for (const [playerId, buffer] of this.playersMoved.entries()) {
       const player = this.players.lookup(playerId);
-      if (buffer.maxTs()! < endTs) {
-        buffer.push(endTs, player.position.x, player.position.y, player.orientation);
+      const bufferMaxTs = buffer.maxTs()!;
+      if (bufferMaxTs + TICK < endTs) {
+        buffer.push(bufferMaxTs + TICK, player.position, player.facing);
       }
+      buffer.push(endTs, player.position, player.facing);
       const packed = buffer.pack();
       player.previousPositions = packed;
       numMoved += 1;

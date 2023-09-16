@@ -21,39 +21,31 @@ export function pathOverlaps(path: Path, time: number): boolean {
   return path.at(0)!.t <= time && time <= path.at(-1)!.t;
 }
 
-export function pathPosition(path: Path, time: number): { position: Point; vector: Vector } {
+export function pathPosition(path: Path, time: number): { position: Point; facing: Vector } | null {
   if (path.length < 2) {
     throw new Error(`Invalid path: ${JSON.stringify(path)}`);
   }
-  const first = path.at(0)!;
+  const first = path[0];
   if (time < first.t) {
-    return {
-      position: first.position,
-      vector: normalize(first.vector),
-    };
+    return { position: first.position, facing: first.facing };
   }
-  const last = path.at(-1)!;
+  const last = path[path.length - 1];
   if (last.t < time) {
-    const secondToLast = path.at(-2)!;
-    return {
-      position: last.position,
-      vector: normalize(secondToLast.vector),
-    };
+    return { position: last.position, facing: last.facing };
   }
-  let segmentStart = first;
-  for (const segmentEnd of path.slice(1)) {
-    if (time < segmentStart.t || segmentEnd.t < time) {
-      segmentStart = segmentEnd;
-      continue;
+  for (let i = 0; i < path.length - 1; i++) {
+    const segmentStart = path[i];
+    const segmentEnd = path[i + 1];
+    if (segmentStart.t <= time && time <= segmentEnd.t) {
+      const interp = (time - segmentStart.t) / (segmentEnd.t - segmentStart.t);
+      return {
+        position: {
+          x: segmentStart.position.x + interp * (segmentEnd.position.x - segmentStart.position.x),
+          y: segmentStart.position.y + interp * (segmentEnd.position.y - segmentStart.position.y),
+        },
+        facing: segmentStart.facing,
+      };
     }
-    const interp = (time - segmentStart.t) / (segmentEnd.t - segmentStart.t);
-    return {
-      position: {
-        x: segmentStart.position.x + interp * segmentStart.vector.dx,
-        y: segmentStart.position.y + interp * segmentStart.vector.dy,
-      },
-      vector: normalize(segmentStart.vector),
-    };
   }
   throw new Error(`Timestamp checks not exhaustive?`);
 }
@@ -66,11 +58,11 @@ export function vector(p0: Point, p1: Point): Vector {
   return { dx, dy };
 }
 
-export function normalize(vector: Vector): Vector {
+export function normalize(vector: Vector): Vector | null {
   const { dx, dy } = vector;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < EPSILON) {
-    throw new Error(`Can't normalize too small vector ${JSON.stringify(vector)}`);
+    return null;
   }
   return {
     dx: dx / len,

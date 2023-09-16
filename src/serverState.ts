@@ -1,10 +1,11 @@
-import { Point } from '../convex/schema/types.ts';
+import { Point, Vector } from '../convex/schema/types.ts';
 import { api } from '../convex/_generated/api';
 import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';
 import { PositionBuffer } from '../convex/util/positionBuffer.ts';
 
-const LOGGING_INTERVAL: number = 1736;
+const LOGGING_INTERVAL = 1736;
+export const DEBUG_POSITIONS = true;
 
 export type GameState = {
   players: Record<Id<'players'>, InterpolatedPlayer>;
@@ -12,10 +13,11 @@ export type GameState = {
 
 export type InterpolatedPlayer = {
   position: Point;
-  orientation: number;
+  facing: Vector;
   isMoving: boolean;
 
   player: Doc<'players'>;
+  positionBuffers?: PositionBuffer[];
 };
 
 type ServerSnapshot = {
@@ -106,9 +108,9 @@ export class ServerState {
 
     const players: Record<Id<'players'>, InterpolatedPlayer> = {};
     for (const { player, previousPositions } of snapshot.players) {
-      const interpolatedPlayer = {
+      const interpolatedPlayer: InterpolatedPlayer = {
         position: player.position,
-        orientation: player.orientation,
+        facing: player.facing,
         isMoving: false,
         player,
       };
@@ -116,9 +118,17 @@ export class ServerState {
         const interpolated = previousPositions.query(serverTs);
         if (interpolated) {
           interpolatedPlayer.position = interpolated.position;
-          interpolatedPlayer.orientation = interpolated.orientation;
+          interpolatedPlayer.facing = interpolated.facing;
           interpolatedPlayer.isMoving = true;
         }
+      }
+      if (DEBUG_POSITIONS) {
+        interpolatedPlayer.positionBuffers = this.snapshots
+          .slice(chosen)
+          .flatMap((s) =>
+            s.players.filter((p) => p.player._id === player._id && p.previousPositions),
+          )
+          .map((p) => p.previousPositions!);
       }
       players[player._id] = interpolatedPlayer;
     }

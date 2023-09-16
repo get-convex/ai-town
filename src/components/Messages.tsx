@@ -5,9 +5,10 @@ import { api } from '../../convex/_generated/api';
 import { MessageInput } from './MessageInput';
 
 export function Messages(props: {
-  conversation: Doc<'conversations'>;
+  conversation: Doc<'conversations'> & { typingName?: string };
   inConversationWithMe: boolean;
 }) {
+  const conversation = props.conversation;
   const userPlayerId = useQuery(api.queryGameState.userPlayerId);
   const messages = useQuery(api.queryGameState.listConversation, {
     conversationId: props.conversation._id,
@@ -34,7 +35,22 @@ export function Messages(props: {
               </div>
             </div>
           ))}
-        {props.inConversationWithMe && <MessageInput conversation={props.conversation} />}
+        {conversation.typing && conversation.typing.playerId !== userPlayerId && (
+          <div key="typing" className="leading-tight mb-6">
+            <div className="flex gap-4">
+              <span className="uppercase flex-grow">{conversation.typingName}</span>
+              <time dateTime={conversation.typing.started.toString()}>
+                {new Date(conversation.typing.started).toLocaleString()}
+              </time>
+            </div>
+            <div className={clsx('bubble')}>
+              <p className="bg-white -mx-3 -my-1">
+                <i>typing...</i>
+              </p>
+            </div>
+          </div>
+        )}
+        {props.inConversationWithMe && <MessageInput conversation={conversation} />}
       </div>
     </div>
   );

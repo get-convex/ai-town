@@ -12,5 +12,5 @@ export const vector = v.object({
 });
 export type Vector = Infer<typeof vector>;
 
-export const path = v.array(v.object({ position: point, vector: vector, t: v.number() }));
+export const path = v.array(v.object({ position: point, facing: vector, t: v.number() }));
 export type Path = Infer<typeof path>;

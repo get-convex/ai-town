@@ -9,6 +9,7 @@ import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/schema.ts';
 import { Viewport } from 'pixi-viewport';
+import { orientationDegrees } from '../../convex/util/geometry.ts';
 
 export const Game = (props: { width: number; height: number; setSelectedPlayer: SelectPlayer }) => {
   // Convex setup.
@@ -91,14 +92,10 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
       viewportRef={viewportRef}
     >
       <PixiStaticMap onpointerup={onMapPointerUp} onpointerdown={onMapPointerDown} />
-      {players.map(({ position, orientation, isMoving, player }) => (
+      {players.map((interpolated) => (
         <Player
-          key={player._id}
-          player={player}
-          x={position.x}
-          y={position.y}
-          orientation={orientation}
-          isMoving={isMoving}
+          key={interpolated.player._id}
+          interpolated={interpolated}
           onClick={props.setSelectedPlayer}
         />
       ))}
