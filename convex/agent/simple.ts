@@ -94,7 +94,7 @@ export const simpleAgent = action({
       }
       // Otherwise, we're in a conversation.
       if (conversation.membership.status === 'participating') {
-        // Try to "grab the lock" if no one is typing
+        // Try to "grab the lock" if no one is typing.
         if (!conversation.typing) {
           console.log(`Starting typing for ${conversation._id}`);
           await ctx.runMutation(api.engine.addPlayerInput, {
