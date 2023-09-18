@@ -14,6 +14,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as agent_simple from "../agent/simple";
 import type * as constants from "../constants";
 import type * as crons from "../crons";
 import type * as data_characters from "../data/characters";
@@ -59,6 +60,7 @@ import type * as util_positionBuffer from "../util/positionBuffer";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "agent/simple": typeof agent_simple;
   constants: typeof constants;
   crons: typeof crons;
   "data/characters": typeof data_characters;

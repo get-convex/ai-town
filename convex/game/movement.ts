@@ -21,7 +21,8 @@ export function findRoute(
   player: Doc<'players'>,
   destination: Point,
 ): Path | string {
-  if (blocked(game, destination, player)) {
+  const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
+  if (blocked(allPlayers, destination, player)) {
     return 'destination blocked';
   }
   const minDistances: PathCandidate[][] = [];
@@ -59,7 +60,7 @@ export function findRoute(
     for (const { position, facing } of neighbors) {
       const segmentLength = distance(current.position, position);
       const length = current.length + segmentLength;
-      if (blocked(game, position, player)) {
+      if (blocked(allPlayers, position, player)) {
         continue;
       }
       const remaining = manhattanDistance(position, destination);
@@ -92,7 +93,7 @@ export function findRoute(
     cost: manhattanDistance(player.position, destination),
     prev: undefined,
   };
-  const minheap = new MinHeap<PathCandidate>((p0, p1) => p0.cost < p1.cost);
+  const minheap = MinHeap<PathCandidate>((p0, p1) => p0.cost > p1.cost);
   while (current) {
     if (pointsEqual(current.position, destination)) {
       break;
@@ -123,7 +124,7 @@ export function findRoute(
   return densePath;
 }
 
-export function blocked(game: GameState, pos: Point, player: Doc<'players'>) {
+export function blocked(allPlayers: Doc<'players'>[], pos: Point, player: Doc<'players'>) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
@@ -133,11 +134,10 @@ export function blocked(game: GameState, pos: Point, player: Doc<'players'>) {
   if (map.objectTiles[Math.floor(pos.y)][Math.floor(pos.x)] !== -1) {
     return 'world blocked';
   }
-  for (const otherPlayerId of game.players.allIds()) {
-    if (otherPlayerId === player._id) {
+  for (const otherPlayer of allPlayers) {
+    if (otherPlayer._id === player._id) {
       continue;
     }
-    const otherPlayer = game.players.lookup(otherPlayerId);
     if (distance(otherPlayer.position, pos) < COLLISION_THRESHOLD) {
       return 'player collision';
     }

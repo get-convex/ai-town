@@ -2,18 +2,21 @@ import { useApp, useTick } from '@pixi/react';
 import { useMutation, useQuery } from 'convex/react';
 import { Player, SelectPlayer } from './Player.tsx';
 import { api } from '../../convex/_generated/api';
-import { Id } from '../../convex/_generated/dataModel';
 import { useRef, useState } from 'react';
 import { ServerState, GameState, DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/schema.ts';
 import { Viewport } from 'pixi-viewport';
-import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { Point } from '../../convex/schema/types.ts';
 import DestinationMarker from './DestinationMarker.tsx';
 
-export const Game = (props: { width: number; height: number; setSelectedPlayer: SelectPlayer }) => {
+export const Game = (props: {
+  serverState: ServerState;
+  width: number;
+  height: number;
+  setSelectedPlayer: SelectPlayer;
+}) => {
   // Convex setup.
   const latestState = useQuery(api.queryGameState.default);
   const humanStatus = useQuery(api.humans.humanStatus);
@@ -25,12 +28,8 @@ export const Game = (props: { width: number; height: number; setSelectedPlayer: 
 
   // Server state management and updates.
   const [state, setState] = useState<GameState | undefined>();
-  const serverState = useRef(new ServerState());
-  if (latestState) {
-    serverState.current.receive(latestState);
-  }
   useTick(() => {
-    const currentState = serverState.current.currentState(Date.now());
+    const currentState = props.serverState.currentState(Date.now());
     if (!currentState) {
       return;
     }

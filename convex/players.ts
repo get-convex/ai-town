@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { mutation } from './_generated/server';
 import { characters, world } from './schema';
 import { objmap } from './data/map';
 import { distance } from './util/geometry';

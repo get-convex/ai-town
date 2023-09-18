@@ -77,7 +77,8 @@ function tickPosition(game: GameState, now: number, playerId: Id<'players'>) {
     return;
   }
   const { position, facing } = candidate;
-  const collisionReason = blocked(game, position, player);
+  const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
+  const collisionReason = blocked(allPlayers, position, player);
   if (collisionReason !== null) {
     const backoff = Math.random() * PATHFINDING_BACKOFF;
     console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);

@@ -88,7 +88,7 @@ export const step = mutation({
           break;
         }
         inputIndex += 1;
-        handleInput(gameState, currentTs, input);
+        await handleInput(gameState, currentTs, input);
       }
       tick(gameState, currentTs);
     }

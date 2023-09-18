@@ -72,19 +72,19 @@ export async function handleInput(
       handleMoveTo(game, now, playerId, payload.destination);
       break;
     case 'startConversation':
-      handleStartConversation(game, now, playerId, payload.invite);
+      await handleStartConversation(game, now, playerId, payload.invite);
       break;
     case 'acceptInvite':
-      handleAcceptInvite(game, now, playerId, payload.conversationId);
+      await handleAcceptInvite(game, now, playerId, payload.conversationId);
       break;
     case 'rejectInvite':
-      handleRejectInvite(game, now, playerId, payload.conversationId);
+      await handleRejectInvite(game, now, playerId, payload.conversationId);
       break;
     case 'startTyping':
-      handleStartTyping(game, now, playerId, payload.conversationId);
+      await handleStartTyping(game, now, playerId, payload.conversationId);
       break;
     case 'writeMessage':
-      handleWriteMessage(
+      await handleWriteMessage(
         game,
         now,
         playerId,
@@ -94,10 +94,10 @@ export async function handleInput(
       );
       break;
     case 'finishWriting':
-      handleFinishWriting(game, now, playerId, payload.messageId);
+      await handleFinishWriting(game, now, playerId, payload.messageId);
       break;
     case 'leaveConversation':
-      handleLeaveConversation(game, now, playerId, payload.conversationId);
+      await handleLeaveConversation(game, now, playerId, payload.conversationId);
       break;
     default:
       assertNever(payload);
@@ -146,6 +146,7 @@ async function handleStartConversation(
   playerId: Id<'players'>,
   inviteeId: Id<'players'>,
 ) {
+  console.log(`Starting ${playerId} ${inviteeId}...`);
   if (playerId === inviteeId) {
     console.warn(`Can't invite yourself to a conversation`);
   }
@@ -157,12 +158,12 @@ async function handleStartConversation(
     console.warn(`Invitee ${inviteeId} is already in a conversation`);
     return;
   }
-
   const conversationId = await game.conversations.insert({
     creator: playerId,
     typing: undefined,
     finished: undefined,
   });
+  console.log(`Creating conversation ${conversationId}`);
   await game.conversationMembers.insert({
     conversationId,
     playerId,
