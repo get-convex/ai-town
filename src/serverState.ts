@@ -3,9 +3,17 @@ import { api } from '../convex/_generated/api';
 import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';
 import { PositionBuffer } from '../convex/util/positionBuffer.ts';
+import { buffer } from 'stream/consumers';
+import { STEP_INTERVAL } from '../convex/constants.ts';
 
 const LOGGING_INTERVAL = 1736;
 export const DEBUG_POSITIONS = true;
+
+// If we're behind more than 5s, jump to the latest server time minus 5s.
+const MAX_SERVER_BUFFER_AGE = 5 * STEP_INTERVAL;
+
+const SOFT_MAX_SERVER_BUFFER_AGE = STEP_INTERVAL;
+const SOFT_MIN_SERVER_BUFFER_AGE = 100;
 
 export type GameState = {
   players: Record<Id<'players'>, InterpolatedPlayer>;
@@ -30,8 +38,9 @@ export class ServerState {
   snapshots: Array<ServerSnapshot> = [];
   totalDuration: number = 0;
 
-  lastClientTs?: number;
-  lastServerTs?: number;
+  prevClientTs?: number;
+  prevServerTs?: number;
+  tsWaiters: Array<{ ts: number; resolve: () => void }> = [];
 
   lastLog: number = Date.now();
   numAdvances: number = 0;
@@ -73,10 +82,26 @@ export class ServerState {
       return null;
     }
     // If this is our first time simulating, start at the beginning of the buffer.
-    const lastClientTs = this.lastClientTs ?? now;
-    const lastServerTs = this.lastServerTs ?? this.snapshots[0].serverStartTs;
+    const prevClientTs = this.prevClientTs ?? now;
+    const prevServerTs = this.prevServerTs ?? this.snapshots[0].serverStartTs;
 
-    let serverTs = now - lastClientTs + lastServerTs;
+    const lastServerTs = this.snapshots[this.snapshots.length - 1].serverEndTs;
+
+    // Simple rate adjustment: run time at 1.2 speed if we're more than 1s behind and
+    // 0.8 speed if we only have 100ms of buffer left. A more sophisticated approach
+    // would be to continuously adjust the rate based on the size of the buffer.
+    const bufferDuration = lastServerTs - prevServerTs;
+    let rate = 1;
+    if (bufferDuration < SOFT_MIN_SERVER_BUFFER_AGE) {
+      rate = 0.8;
+    } else if (bufferDuration > SOFT_MAX_SERVER_BUFFER_AGE) {
+      rate = 1.2;
+    }
+    let serverTs = Math.max(
+      prevServerTs + (now - prevClientTs) * rate,
+      // Jump forward if we're too far behind.
+      lastServerTs - MAX_SERVER_BUFFER_AGE,
+    );
 
     let chosen = null;
     for (let i = 0; i < this.snapshots.length; i++) {
@@ -142,11 +167,36 @@ export class ServerState {
       }
       this.snapshots = this.snapshots.slice(toTrim);
     }
-    this.lastClientTs = now;
-    this.lastServerTs = serverTs;
+    // Wake up all of the waiters who are waiting for a timestamp before the current one.
+    this.tsWaiters = this.tsWaiters.filter((waiter) => {
+      if (waiter.ts <= serverTs) {
+        waiter.resolve();
+        return false;
+      }
+      return true;
+    });
 
-    this.log(now);
+    this.prevClientTs = now;
+    this.prevServerTs = serverTs;
+
     return { players };
+  }
+
+  bufferHealth(now: number): number {
+    if (!this.snapshots.length) {
+      return 0;
+    }
+    const lastServerTs = this.prevServerTs ?? this.snapshots[0].serverStartTs;
+    return this.snapshots[this.snapshots.length - 1].serverEndTs - lastServerTs;
+  }
+
+  waitUntil(serverTimestamp: number): Promise<void> {
+    if (this.prevServerTs && this.prevServerTs >= serverTimestamp) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.tsWaiters.push({ ts: serverTimestamp, resolve });
+    });
   }
 
   log(now: number) {
@@ -159,17 +209,17 @@ export class ServerState {
     if (this.numGaps > 0 || this.numHalts > 0) {
       report.push(`errors: ${this.numGaps} gaps, ${this.numHalts} halts!`);
     }
-    report.push(`lastClientTs: ${this.lastClientTs}`);
-    report.push(`lastServerTs: ${this.lastServerTs}`);
+    report.push(`lastClientTs: ${this.prevClientTs}`);
+    report.push(`lastServerTs: ${this.prevServerTs}`);
     report.push('');
     report.push(`${this.snapshots.length} snapshots:`);
     for (const snapshot of this.snapshots) {
       const current =
-        this.lastServerTs &&
-        snapshot.serverStartTs <= this.lastServerTs &&
-        this.lastServerTs < snapshot.serverEndTs;
+        this.prevServerTs &&
+        snapshot.serverStartTs <= this.prevServerTs &&
+        this.prevServerTs < snapshot.serverEndTs;
       const currentMsg = current
-        ? ` (current, ${((snapshot.serverEndTs - this.lastServerTs!) / 1000).toFixed(
+        ? ` (current, ${((snapshot.serverEndTs - this.prevServerTs!) / 1000).toFixed(
             2,
           )}s remaining)`
         : '';
