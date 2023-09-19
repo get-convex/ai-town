@@ -1,5 +1,6 @@
 import GameWrapper from './components/GameWrapper.tsx';
 
+import { ToastContainer } from 'react-toastify';
 import a16zImg from '../assets/a16z.png';
 import convexImg from '../assets/convex.svg';
 import starImg from '../assets/star.svg';
@@ -100,6 +101,7 @@ export default function Home() {
             <img className="w-20 h-8 pointer-events-auto" src={convexImg} alt="Convex" />
           </a>
         </footer>
+        <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
       </div>
     </main>
   );

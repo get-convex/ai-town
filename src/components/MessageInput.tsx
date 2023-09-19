@@ -3,23 +3,25 @@ import { useMutation, useQuery } from 'convex/react';
 import { KeyboardEvent, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
 import { Doc } from '../../convex/_generated/dataModel';
+import { ServerState } from '../serverState';
+import { toastOnError } from '../toasts';
 
-export function MessageInput(props: { conversation: Doc<'conversations'> }) {
+export function MessageInput(props: {
+  serverState: ServerState;
+  conversation: Doc<'conversations'>;
+}) {
   const userPlayerId = useQuery(api.queryGameState.userPlayerId);
   const userPlayer = useQuery(
     api.queryGameState.playerMetadata,
     userPlayerId ? { playerId: userPlayerId } : 'skip',
   );
   const inputRef = useRef<HTMLParagraphElement>(null);
-  const addPlayerInput = useMutation(api.engine.addPlayerInput);
-
   const [inflight, setInflight] = useState(0);
 
   if (!userPlayerId || !userPlayer) {
     return;
   }
   const onKeyDown = async (e: KeyboardEvent) => {
-    console.log(e);
     e.stopPropagation();
     // Send the current message.
     if (e.key === 'Enter') {
@@ -27,15 +29,14 @@ export function MessageInput(props: { conversation: Doc<'conversations'> }) {
       if (!userPlayerId || !inputRef.current) {
         return;
       }
-      await addPlayerInput({
-        playerId: userPlayerId,
-        input: {
-          kind: 'writeMessage',
+      await toastOnError(
+        props.serverState.sendInput('writeMessage', {
+          playerId: userPlayerId,
           conversationId: props.conversation._id,
-          text: inputRef.current.innerText,
+          message: inputRef.current.innerText,
           doneWriting: true,
-        },
-      });
+        }),
+      );
       inputRef.current.innerText = '';
       return;
     }
@@ -44,17 +45,15 @@ export function MessageInput(props: { conversation: Doc<'conversations'> }) {
       if (props.conversation.typing || !userPlayerId || inflight > 0) {
         return;
       }
+      setInflight((i) => i + 1);
       try {
-        setInflight((n) => n + 1);
-        await addPlayerInput({
+        // Don't show a toast on error.
+        await props.serverState.sendInput('startTyping', {
           playerId: userPlayerId,
-          input: {
-            kind: 'startTyping',
-            conversationId: props.conversation._id,
-          },
+          conversationId: props.conversation._id,
         });
       } finally {
-        setInflight((n) => n - 1);
+        setInflight((i) => i - 1);
       }
     }
   };

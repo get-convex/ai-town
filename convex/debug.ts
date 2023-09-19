@@ -1,13 +1,14 @@
 import { v } from 'convex/values';
 import { DatabaseWriter, mutation } from './_generated/server';
-import { characters, world } from './schema';
+import { world } from './data/world';
 import { objmap } from './data/map';
 import { distance } from './util/geometry';
 import { insertInput } from './engine';
 import { TableNames } from './_generated/dataModel';
-import { point } from './schema/types';
+import { point } from './util/types';
 import { GameState } from './game/state';
 import { blocked } from './game/movement';
+import { characters } from './data/characters';
 
 export const addManyPlayers = mutation({
   handler: async (ctx) => {
@@ -53,6 +54,7 @@ export const randomPositions = mutation({
     const gameState = await GameState.load(Date.now(), ctx.db);
     let inserted = 0;
     const humans = await ctx.db.query('humans').collect();
+    const allPlayers = await ctx.db.query('players').collect();
     for (const playerId of gameState.players.allIds()) {
       if (args.max && inserted >= args.max) {
         break;
@@ -67,7 +69,7 @@ export const randomPositions = mutation({
           x: Math.floor(Math.random() * world.width),
           y: Math.floor(Math.random() * world.height),
         };
-        const collision = blocked(gameState, candidate, player);
+        const collision = blocked(allPlayers, candidate, player);
         if (collision !== null) {
           console.warn(
             `Candidate ${JSON.stringify(candidate)} failed for ${player.name}: ${collision}`,

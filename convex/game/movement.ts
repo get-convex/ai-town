@@ -1,7 +1,8 @@
 import { Doc } from '../_generated/dataModel';
 import { movementSpeed } from '../data/characters';
-import { COLLISION_THRESHOLD, map, world } from '../schema';
-import { Path, Point, Vector } from '../schema/types';
+import { COLLISION_THRESHOLD } from '../constants';
+import { map, world } from '../data/world';
+import { Path, Point, Vector } from '../util/types';
 import { distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';
 import { GameState } from './state';

@@ -1,5 +1,5 @@
 import { Infer, v } from 'convex/values';
-import { Point, Vector } from '../schema/types';
+import { Point, Vector } from './types';
 
 export class PositionBuffer {
   t: Array<number> = [];

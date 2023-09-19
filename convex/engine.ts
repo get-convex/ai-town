@@ -1,43 +1,49 @@
-import { v } from 'convex/values';
-import { DatabaseWriter, mutation } from './_generated/server';
-import { Id } from './_generated/dataModel';
+import { Infer, v } from 'convex/values';
+import { DatabaseWriter, mutation, query } from './_generated/server';
 import { MAX_STEP, TICK } from './constants';
-import { PlayerInput, playerInput, handleInput } from './game/input';
+import { handleInput } from './game/input';
 import { GameState } from './game/state';
 import { tick } from './game/tick';
+import { args } from './schema/input';
 
-export const addPlayerInput = mutation({
+export const sendInput = mutation({
   args: {
-    playerId: v.id('players'),
-    input: playerInput,
+    inputArgs: args,
   },
-  handler: async (ctx, args) => {
-    await insertInput(ctx.db, args.playerId, args.input);
+  handler: async (ctx, { inputArgs }) => {
+    const serverTimestamp = Date.now();
+    const inputId = await insertInput(ctx.db, serverTimestamp, inputArgs);
+    return { inputId, serverTimestamp };
   },
 });
 
 export async function insertInput(
   db: DatabaseWriter,
-  playerId: Id<'players'>,
-  payload: PlayerInput,
+  serverTimestamp: number,
+  inputArgs: Infer<typeof args>,
 ) {
-  const serverTimestamp = Date.now();
-  const lastInput = await db
-    .query('inputQueue')
-    .withIndex('clientTimestamp', (q) => q.eq('playerId', playerId))
-    .order('desc')
-    .first();
-  if (lastInput !== null) {
-    if (lastInput.serverTimestamp >= serverTimestamp) {
-      throw new Error('Time not moving forwards');
-    }
-  }
-  await db.insert('inputQueue', {
-    playerId,
+  const inputId = await db.insert('inputs', {
     serverTimestamp,
-    payload,
+    args: inputArgs,
   });
+  return inputId;
 }
+
+export const inputStatus = query({
+  args: {
+    inputId: v.id('inputs'),
+  },
+  handler: async (ctx, args) => {
+    const input = await ctx.db.get(args.inputId);
+    if (!input) {
+      return { status: 'notFound' };
+    }
+    if (input.returnValue === undefined) {
+      return { status: 'processing' };
+    }
+    return { status: 'done', returnValue: input.returnValue };
+  },
+});
 
 export const step = mutation({
   handler: async (ctx) => {
@@ -55,29 +61,13 @@ export const step = mutation({
     // Load the game state.
     const gameState = await GameState.load(startTs, ctx.db);
 
-    // Collect player inputs since the last step, sorted by (serverTimestamp, playerId, _id)
-    const stepInputs = [];
-    for (const playerId of gameState.players.allIds()) {
-      const playerInputs = await ctx.db
-        .query('inputQueue')
-        .withIndex('clientTimestamp', (q) =>
-          q
-            .eq('playerId', playerId)
-            .gt('serverTimestamp', lastServerTs)
-            .lte('serverTimestamp', endTs),
-        )
-        .collect();
-      stepInputs.push(...playerInputs);
-    }
-    stepInputs.sort((a, b) => {
-      if (a.serverTimestamp !== b.serverTimestamp) {
-        return a.serverTimestamp - b.serverTimestamp;
-      }
-      if (a.playerId !== b.playerId) {
-        return a.playerId.localeCompare(b.playerId);
-      }
-      return a._id.localeCompare(b._id);
-    });
+    // Collect player inputs since the last step.
+    const stepInputs = await ctx.db
+      .query('inputs')
+      .withIndex('serverTimestamp', (q) =>
+        q.gt('serverTimestamp', lastServerTs).lte('serverTimestamp', endTs),
+      )
+      .collect();
 
     let inputIndex = 0;
     let currentTs;
@@ -88,7 +78,13 @@ export const step = mutation({
           break;
         }
         inputIndex += 1;
-        await handleInput(gameState, currentTs, input);
+        try {
+          const result = await handleInput(gameState, currentTs, input.args);
+          input.returnValue = { kind: input.args.kind, returnValue: { ok: result as any } };
+        } catch (e: any) {
+          input.returnValue = { kind: input.args.kind, returnValue: { err: e.message } };
+        }
+        await ctx.db.replace(input._id, input);
       }
       tick(gameState, currentTs);
     }

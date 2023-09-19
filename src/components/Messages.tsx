@@ -3,8 +3,10 @@ import { Doc } from '../../convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { MessageInput } from './MessageInput';
+import { ServerState } from '@/serverState';
 
 export function Messages(props: {
+  serverState: ServerState;
   conversation: Doc<'conversations'> & { typingName?: string };
   inConversationWithMe: boolean;
 }) {
@@ -14,6 +16,9 @@ export function Messages(props: {
     conversationId: props.conversation._id,
   });
   if (userPlayerId === undefined || messages === undefined) {
+    return null;
+  }
+  if (messages.length === 0 && !props.inConversationWithMe) {
     return null;
   }
   return (
@@ -50,7 +55,9 @@ export function Messages(props: {
             </div>
           </div>
         )}
-        {props.inConversationWithMe && <MessageInput conversation={conversation} />}
+        {props.inConversationWithMe && !conversation.finished && (
+          <MessageInput serverState={props.serverState} conversation={conversation} />
+        )}
       </div>
     </div>
   );

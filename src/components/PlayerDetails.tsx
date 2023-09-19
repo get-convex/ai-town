@@ -1,14 +1,17 @@
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import closeImg from '../../assets/close.svg';
 import { SelectPlayer } from './Player';
 import { SignedIn } from '@clerk/clerk-react';
 import { Messages } from './Messages';
-import { PlayerInput } from '../../convex/game/input';
+import { ServerState } from '../serverState';
+import { toastOnError } from '../toasts';
 
 export default function PlayerDetails(props: {
+  serverState: ServerState;
+  humanPlayerId: Id<'players'> | null;
   playerId?: Id<'players'>;
   setSelectedPlayer: SelectPlayer;
 }) {
@@ -21,8 +24,6 @@ export default function PlayerDetails(props: {
     api.queryGameState.playerMetadata,
     userPlayerId ? { playerId: userPlayerId } : 'skip',
   );
-  const addPlayerInput = useMutation(api.engine.addPlayerInput);
-  const [pendingActions, setPendingActions] = useState(0);
 
   if (!props.playerId) {
     return (
@@ -60,68 +61,63 @@ export default function PlayerDetails(props: {
     player.member?.status === 'participating' &&
     userPlayer.member?.status === 'participating';
 
-  const sendInput = async (input: PlayerInput) => {
-    if (!userPlayerId) {
-      return;
-    }
-    setPendingActions((n) => n + 1);
-    try {
-      await addPlayerInput({
-        playerId: userPlayerId,
-        input,
-      });
-    } finally {
-      // Jank: ideally want to wait for mutation to be reflected in state.
-      setTimeout(() => setPendingActions((n) => n - 1), 500);
-    }
-  };
-
   const startConversation = async () => {
-    if (!props.playerId) {
+    if (!props.humanPlayerId || !props.playerId) {
+      console.log(props);
       return;
     }
-    sendInput({
-      kind: 'startConversation',
-      invite: props.playerId,
-    });
+    console.log(`Starting conversation`);
+    await toastOnError(
+      props.serverState.sendInput('startConversation', {
+        playerId: props.humanPlayerId,
+        invitee: props.playerId,
+      }),
+    );
   };
   const acceptInvite = async () => {
+    if (!props.humanPlayerId || !props.playerId) {
+      return;
+    }
     if (!userPlayer || !userPlayer.conversation?._id) {
       return;
     }
-    sendInput({
-      kind: 'acceptInvite',
-      conversationId: userPlayer.conversation?._id,
-    });
+    await toastOnError(
+      props.serverState.sendInput('acceptInvite', {
+        playerId: props.humanPlayerId,
+        conversationId: userPlayer.conversation?._id,
+      }),
+    );
   };
   const rejectInvite = async () => {
-    if (!userPlayer || !userPlayer.conversation?._id) {
+    if (!props.humanPlayerId || !userPlayer || !userPlayer.conversation?._id) {
       return;
     }
-    sendInput({
-      kind: 'rejectInvite',
-      conversationId: userPlayer.conversation?._id,
-    });
+    await toastOnError(
+      props.serverState.sendInput('rejectInvite', {
+        playerId: props.humanPlayerId,
+        conversationId: userPlayer.conversation?._id,
+      }),
+    );
   };
   const leaveConversation = async () => {
-    if (!userPlayerId || !inConversationWithMe || !userPlayer.conversation?._id) {
+    if (
+      !props.humanPlayerId ||
+      !userPlayerId ||
+      !inConversationWithMe ||
+      !userPlayer.conversation?._id
+    ) {
       return;
     }
-    setPendingActions((n) => n + 1);
-    try {
-      await addPlayerInput({
-        playerId: userPlayerId,
-        input: {
-          kind: 'leaveConversation',
-          conversationId: userPlayer.conversation?._id,
-        },
-      });
-    } finally {
-      // Jank: ideally want to wait for mutation to be reflected in state.
-      setTimeout(() => setPendingActions((n) => n - 1), 500);
-    }
+    await toastOnError(
+      props.serverState.sendInput('leaveConversation', {
+        playerId: props.humanPlayerId,
+        conversationId: userPlayer.conversation?._id,
+      }),
+    );
   };
-  const pendingCls = pendingActions > 0 ? ' opacity-50' : '';
+  // const pendingSuffix = (inputName: string) =>
+  //   [...inflightInputs.values()].find((i) => i.name === inputName) ? ' opacity-50' : '';
+  const pendingSuffix = (s: string) => '';
   return (
     <>
       <div className="flex gap-4">
@@ -146,7 +142,7 @@ export default function PlayerDetails(props: {
           <a
             className={
               'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-              pendingCls
+              pendingSuffix('startConversation')
             }
             onClick={startConversation}
           >
@@ -173,7 +169,7 @@ export default function PlayerDetails(props: {
           <a
             className={
               'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-              pendingCls
+              pendingSuffix('leaveConversation')
             }
             onClick={leaveConversation}
           >
@@ -187,7 +183,7 @@ export default function PlayerDetails(props: {
             <a
               className={
                 'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-                pendingCls
+                pendingSuffix('acceptInvite')
               }
               onClick={acceptInvite}
             >
@@ -198,7 +194,7 @@ export default function PlayerDetails(props: {
             <a
               className={
                 'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-                pendingCls
+                pendingSuffix('rejectInvite')
               }
               onClick={rejectInvite}
             >
@@ -222,6 +218,7 @@ export default function PlayerDetails(props: {
         </div>
         {!isMe && player.conversation && (
           <Messages
+            serverState={props.serverState}
             inConversationWithMe={inConversationWithMe ?? false}
             conversation={player.conversation}
           />

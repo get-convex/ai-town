@@ -1,5 +1,5 @@
 import { DatabaseWriter } from '../_generated/server';
-import { Point, Vector } from '../schema/types';
+import { Point, Vector } from '../util/types';
 import { Id } from '../_generated/dataModel';
 import { PositionBuffer } from '../util/positionBuffer';
 import { TICK } from '../constants';

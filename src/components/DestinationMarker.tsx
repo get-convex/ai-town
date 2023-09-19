@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { map } from '../../convex/schema';
+import { map } from '../../convex/data/world';
 import { Graphics as PixiGraphics } from 'pixi.js';
 import { Graphics } from '@pixi/react';
 

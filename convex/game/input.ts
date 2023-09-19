@@ -1,135 +1,57 @@
-import { Point, point } from '../schema/types';
+import { Point, point } from '../util/types';
 import { Doc, Id } from '../_generated/dataModel';
 import { assertNever } from '../util/assertNever';
 import { GameState } from './state';
 import { pointsEqual } from '../util/geometry';
 import { Infer, v } from 'convex/values';
+import { InputArgs, InputReturnValue, args } from '../schema/input';
 
-export const playerInput = v.union(
-  // Move the player to a specified location.
-  v.object({
-    kind: v.literal('moveTo'),
-    destination: v.union(point, v.null()),
-  }),
-  // Start a conversation, inviting the specified player.
-  // Conversations can only have two participants for now,
-  // so we don't have a separate "invite" input.
-  v.object({
-    kind: v.literal('startConversation'),
-    invite: v.id('players'),
-  }),
-  // Accept an invite to a conversation, which puts the
-  // player in the "walkingOver" state until they're close
-  // enough to the other participant.
-  v.object({
-    kind: v.literal('acceptInvite'),
-    conversationId: v.id('conversations'),
-  }),
-  // Reject the invite. Eventually we might add a message
-  // that explains why!
-  v.object({
-    kind: v.literal('rejectInvite'),
-    conversationId: v.id('conversations'),
-  }),
-  // Start typing, indicating that the player wants to talk
-  // and other players should wait for them to say something.
-  // This "lock" on the conversation will timeout after
-  // a few moments.
-  v.object({
-    kind: v.literal('startTyping'),
-    conversationId: v.id('conversations'),
-  }),
-  // Write a message to a conversation, potentially signalling
-  // that we'll be appending to it out-of-band.
-  v.object({
-    kind: v.literal('writeMessage'),
-    conversationId: v.id('conversations'),
-    text: v.string(),
-    doneWriting: v.boolean(),
-  }),
-  // For streaming writers that set `doneWriting: false` in `writeMessage` above,
-  // tell the game engine that they're done writing.
-  v.object({
-    kind: v.literal('finishWriting'),
-    messageId: v.id('messages'),
-  }),
-  // Leave a conversation.
-  v.object({
-    kind: v.literal('leaveConversation'),
-    conversationId: v.id('conversations'),
-  }),
-);
-
-export type PlayerInput = Infer<typeof playerInput>;
-
-export async function handleInput(
-  game: GameState,
-  now: number,
-  { playerId, payload }: Doc<'inputQueue'>,
-) {
-  switch (payload.kind) {
+export async function handleInput(game: GameState, now: number, input: Infer<typeof args>) {
+  switch (input.kind) {
     case 'moveTo':
-      handleMoveTo(game, now, playerId, payload.destination);
-      break;
+      return await handleMoveTo(game, now, input.args);
     case 'startConversation':
-      await handleStartConversation(game, now, playerId, payload.invite);
-      break;
+      return await handleStartConversation(game, now, input.args);
     case 'acceptInvite':
-      await handleAcceptInvite(game, now, playerId, payload.conversationId);
-      break;
+      return await handleAcceptInvite(game, now, input.args);
     case 'rejectInvite':
-      await handleRejectInvite(game, now, playerId, payload.conversationId);
-      break;
+      return await handleRejectInvite(game, now, input.args);
     case 'startTyping':
-      await handleStartTyping(game, now, playerId, payload.conversationId);
-      break;
+      return await handleStartTyping(game, now, input.args);
     case 'writeMessage':
-      await handleWriteMessage(
-        game,
-        now,
-        playerId,
-        payload.conversationId,
-        payload.text,
-        payload.doneWriting,
-      );
-      break;
+      return await handleWriteMessage(game, now, input.args);
     case 'finishWriting':
-      await handleFinishWriting(game, now, playerId, payload.messageId);
-      break;
+      return await handleFinishWriting(game, now, input.args);
     case 'leaveConversation':
-      await handleLeaveConversation(game, now, playerId, payload.conversationId);
-      break;
+      return await handleLeaveConversation(game, now, input.args);
     default:
-      assertNever(payload);
+      assertNever(input);
   }
 }
 
 async function handleMoveTo(
   game: GameState,
   now: number,
-  playerId: Id<'players'>,
-  destination: Point | null,
-) {
+  { playerId, destination }: InputArgs<'moveTo'>,
+): Promise<InputReturnValue<'moveTo'>> {
   const player = game.players.lookup(playerId);
   if (destination === null) {
     delete player.pathfinding;
-    return;
+    return null;
   }
   if (Math.floor(destination.x) !== destination.x || Math.floor(destination.y) !== destination.y) {
-    console.warn(`Non-integral destination: ${JSON.stringify(destination)}`);
-    return;
+    throw new Error(`Non-integral destination: ${JSON.stringify(destination)}`);
   }
   // Close enough to current position or destination => no-op.
   if (pointsEqual(player.position, destination)) {
-    return;
+    return null;
   }
   // Don't allow players in a conversation to move.
   const member = game.conversationMembers.find(
     (m) => m.playerId === playerId && m.status === 'participating',
   );
   if (member) {
-    console.warn(`Can't move player ${playerId} in a conversation`);
-    return;
+    throw new Error(`Can't move when in a conversation. Leave the conversation first!`);
   }
   player.pathfinding = {
     destination: destination,
@@ -138,25 +60,23 @@ async function handleMoveTo(
       kind: 'needsPath',
     },
   };
+  return null;
 }
 
 async function handleStartConversation(
   game: GameState,
   _now: number,
-  playerId: Id<'players'>,
-  inviteeId: Id<'players'>,
-) {
-  console.log(`Starting ${playerId} ${inviteeId}...`);
-  if (playerId === inviteeId) {
-    console.warn(`Can't invite yourself to a conversation`);
+  { playerId, invitee }: InputArgs<'startConversation'>,
+): Promise<InputReturnValue<'startConversation'>> {
+  console.log(`Starting ${playerId} ${invitee}...`);
+  if (playerId === invitee) {
+    throw new Error(`Can't invite yourself to a conversation`);
   }
   if (game.conversationMembers.find((m) => m.playerId === playerId)) {
-    console.warn(`Player ${playerId} is already in a conversation`);
-    return;
+    throw new Error(`Player ${playerId} is already in a conversation`);
   }
-  if (game.conversationMembers.find((m) => m.playerId === inviteeId)) {
-    console.warn(`Invitee ${inviteeId} is already in a conversation`);
-    return;
+  if (game.conversationMembers.find((m) => m.playerId === invitee)) {
+    throw new Error(`Invitee ${invitee} is already in a conversation`);
   }
   const conversationId = await game.conversations.insert({
     creator: playerId,
@@ -171,54 +91,49 @@ async function handleStartConversation(
   });
   await game.conversationMembers.insert({
     conversationId,
-    playerId: inviteeId,
+    playerId: invitee,
     status: 'invited',
   });
+  return conversationId;
 }
 
 async function handleAcceptInvite(
   game: GameState,
   _now: number,
-  playerId: Id<'players'>,
-  conversationId: Id<'conversations'>,
-) {
+  { playerId, conversationId }: InputArgs<'acceptInvite'>,
+): Promise<InputReturnValue<'acceptInvite'>> {
   const membership = game.conversationMembers.find((m) => m.playerId === playerId);
   if (membership === null) {
-    console.warn(`Couldn't find invite for ${playerId}:${conversationId}`);
-    return;
+    throw new Error(`Couldn't find invite for ${playerId}:${conversationId}`);
   }
   if (membership.status !== 'invited') {
-    console.warn(
+    throw new Error(
       `Invalid membership status for ${playerId}:${conversationId}: ${JSON.stringify(membership)}`,
     );
-    return;
   }
   membership.status = 'walkingOver';
+  return null;
 }
 
 async function handleRejectInvite(
   game: GameState,
   now: number,
-  playerId: Id<'players'>,
-  conversationId: Id<'conversations'>,
-) {
+  { playerId, conversationId }: InputArgs<'rejectInvite'>,
+): Promise<InputReturnValue<'rejectInvite'>> {
   const conversation = game.conversations.find((d) => d._id === conversationId);
   if (conversation === null) {
-    console.warn(`Couldn't find conversation: ${conversationId}`);
-    return;
+    throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
   const memberships = game.conversationMembers.filter((d) => d.conversationId === conversationId);
   if (memberships.length !== 2) {
-    console.warn(`Conversation ${conversationId} didn't have two members.`);
-    return;
+    throw new Error(`Conversation ${conversationId} didn't have two members.`);
   }
   const membership = memberships.find((m) => m.playerId === playerId);
   if (!membership) {
-    console.warn(`Couldn't find membership for ${conversationId}:${playerId}`);
-    return;
+    throw new Error(`Couldn't find membership for ${conversationId}:${playerId}`);
   }
   if (membership.status !== 'invited') {
-    console.warn(
+    throw new Error(
       `Rejecting invite in wrong membership state: ${conversationId}:${playerId}: ${JSON.stringify(
         membership,
       )}`,
@@ -233,52 +148,46 @@ async function handleRejectInvite(
   for (const membership of memberships) {
     game.conversationMembers.delete(membership._id);
   }
+
+  return null;
 }
 
 async function handleStartTyping(
   game: GameState,
   now: number,
-  playerId: Id<'players'>,
-  conversationId: Id<'conversations'>,
-) {
+  { playerId, conversationId }: InputArgs<'startTyping'>,
+): Promise<InputReturnValue<'startTyping'>> {
   const conversation = game.conversations.find((d) => d._id === conversationId);
   if (conversation === null) {
-    console.warn(`Couldn't find conversation: ${conversationId}`);
-    return;
+    throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
   if (conversation.typing) {
-    console.warn(`Player ${playerId} is already typing`);
-    return;
+    throw new Error(`Player ${playerId} is already typing`);
   }
   conversation.typing = {
     playerId,
     started: now,
   };
+  return null;
 }
 
 async function handleWriteMessage(
   game: GameState,
   _now: number,
-  playerId: Id<'players'>,
-  conversationId: Id<'conversations'>,
-  text: string,
-  doneWriting: boolean,
-) {
+  { playerId, conversationId, message, doneWriting }: InputArgs<'writeMessage'>,
+): Promise<InputReturnValue<'writeMessage'>> {
   const conversation = game.conversations.find((d) => d._id === conversationId);
   if (conversation === null) {
-    console.warn(`Couldn't find conversation: ${conversationId}`);
-    return;
+    throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
   const membership = game.conversationMembers.find(
     (d) => d.conversationId === conversationId && d.playerId === playerId,
   );
   if (!membership) {
-    console.warn(`${playerId} not in conversation ${conversationId}`);
-    return;
+    throw new Error(`${playerId} not in conversation ${conversationId}`);
   }
   if (membership.status !== 'participating') {
-    console.warn(`${playerId} not participating in conversation ${conversationId}`);
-    return;
+    throw new Error(`${playerId} not participating in conversation ${conversationId}`);
   }
 
   // If we were previously typing, release the "lock" now that we've sent our message.
@@ -293,44 +202,40 @@ async function handleWriteMessage(
   });
   await game.messages.db.insert('messageText', {
     messageId: messageId,
-    text,
+    text: message,
   });
+  return messageId;
 }
 
 async function handleFinishWriting(
   game: GameState,
   _now: number,
-  playerId: Id<'players'>,
-  messageId: Id<'messages'>,
-) {
+  { playerId, messageId }: InputArgs<'finishWriting'>,
+): Promise<InputReturnValue<'finishWriting'>> {
   const message = game.messages.lookup(messageId);
   if (message.author !== playerId) {
-    console.warn("Can't finish another user's message");
-    return;
+    throw new Error("Can't finish another user's message");
   }
   if (message.doneWriting) {
-    console.warn('Message has already been closed');
-    return;
+    throw new Error('Message has already been closed');
   }
   message.doneWriting = true;
+  return null;
 }
 
 async function handleLeaveConversation(
   game: GameState,
   now: number,
-  playerId: Id<'players'>,
-  conversationId: Id<'conversations'>,
-) {
+  { playerId, conversationId }: InputArgs<'leaveConversation'>,
+): Promise<InputReturnValue<'leaveConversation'>> {
   const conversation = game.conversations.find((d) => d._id === conversationId);
   if (conversation === null) {
-    console.warn(`Couldn't find conversation: ${conversationId}`);
-    return;
+    throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
   const memberships = game.conversationMembers.filter((d) => d.conversationId === conversationId);
   const membership = memberships.find((m) => m.playerId === playerId);
   if (!membership) {
-    console.warn(`Couldn't find membership for ${conversationId}:${playerId}`);
-    return;
+    throw new Error(`Couldn't find membership for ${conversationId}:${playerId}`);
   }
 
   // Stop the conversation.
@@ -341,4 +246,6 @@ async function handleLeaveConversation(
   for (const membership of memberships) {
     game.conversationMembers.delete(membership._id);
   }
+
+  return null;
 }

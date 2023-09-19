@@ -1,13 +1,14 @@
 import { Doc, Id } from '../../convex/_generated/dataModel';
 import { Character } from './Character.tsx';
-import { characters, map } from '../../convex/schema.ts';
+import { map } from '../../convex/data/world.ts';
 import { PositionBuffer } from '../../convex/util/positionBuffer.ts';
 import { Graphics } from '@pixi/react';
 import { DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
 import { useCallback } from 'react';
 import { Graphics as PixiGraphics } from 'pixi.js';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
-import { Path } from '../../convex/schema/types.ts';
+import { Path } from '../../convex/util/types.ts';
+import { characters } from '../../convex/data/characters.ts';
 
 const SpeechDurationMs = 2000;
 const SpokeRecentlyMs = 5_000;

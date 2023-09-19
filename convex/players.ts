@@ -1,8 +1,9 @@
 import { v } from 'convex/values';
 import { mutation } from './_generated/server';
-import { characters, world } from './schema';
+import { world } from './data/world';
 import { objmap } from './data/map';
 import { distance } from './util/geometry';
+import { characters } from './data/characters';
 
 export const addPlayer = mutation({
   args: {

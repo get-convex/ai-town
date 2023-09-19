@@ -1,27 +1,22 @@
 import { useApp, useTick } from '@pixi/react';
-import { useMutation, useQuery } from 'convex/react';
 import { Player, SelectPlayer } from './Player.tsx';
-import { api } from '../../convex/_generated/api';
 import { useRef, useState } from 'react';
 import { ServerState, GameState, DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
-import { map } from '../../convex/schema.ts';
+import { map } from '../../convex/data/world.ts';
 import { Viewport } from 'pixi-viewport';
-import { Point } from '../../convex/schema/types.ts';
 import DestinationMarker from './DestinationMarker.tsx';
+import { Id } from '../../convex/_generated/dataModel';
+import { toastOnError } from '../toasts.ts';
 
 export const Game = (props: {
   serverState: ServerState;
+  humanPlayerId: Id<'players'> | null;
   width: number;
   height: number;
   setSelectedPlayer: SelectPlayer;
 }) => {
-  // Convex setup.
-  const latestState = useQuery(api.queryGameState.default);
-  const humanStatus = useQuery(api.humans.humanStatus);
-  const addPlayerInput = useMutation(api.engine.addPlayerInput);
-
   // PIXI setup.
   const pixiApp = useApp();
   const viewportRef = useRef<Viewport | undefined>();
@@ -38,12 +33,11 @@ export const Game = (props: {
 
   // Interaction for clicking on the world to navigate.
   const dragStart = useRef<{ screenX: number; screenY: number } | null>(null);
-  const [currentDestination, setCurrentDestination] = useState<Point>();
   const onMapPointerDown = (e: any) => {
     // https://pixijs.download/dev/docs/PIXI.FederatedPointerEvent.html
     dragStart.current = { screenX: e.screenX, screenY: e.screenY };
   };
-  const onMapPointerUp = (e: any) => {
+  const onMapPointerUp = async (e: any) => {
     if (dragStart.current) {
       const { screenX, screenY } = dragStart.current;
       dragStart.current = null;
@@ -54,7 +48,7 @@ export const Game = (props: {
         return;
       }
     }
-    if (!humanStatus) {
+    if (!props.humanPlayerId) {
       return;
     }
     const viewport = viewportRef.current;
@@ -66,29 +60,33 @@ export const Game = (props: {
       x: Math.floor(gameSpacePx.x / map.tileDim),
       y: Math.floor(gameSpacePx.y / map.tileDim),
     };
-    console.log(`Sending player input`, humanStatus, gameSpaceTiles, e);
-    setCurrentDestination(gameSpaceTiles);
-    setTimeout(() => setCurrentDestination(undefined), 2000);
-    addPlayerInput({
-      playerId: humanStatus,
-      input: { kind: 'moveTo', destination: gameSpaceTiles },
-    });
+    await toastOnError(
+      props.serverState.sendInput('moveTo', {
+        playerId: props.humanPlayerId,
+        destination: gameSpaceTiles,
+      }),
+    );
   };
 
-  let players: InterpolatedPlayer[] = [];
-  if (latestState && state) {
-    // Skip over players that aren't in the latest server state.
-    const latestPlayers = new Set();
-    for (const player of latestState.players) {
-      latestPlayers.add(player._id);
-    }
-    players = Object.values(state.players).filter((p) => latestPlayers.has(p.player._id));
-    // Order the players by their y coordinates.
-    players.sort((a, b) => a.position.y - b.position.y);
+  if (!state) {
+    return;
   }
-  const destination =
-    currentDestination ||
-    players.find((p) => p.player._id == humanStatus)?.player.pathfinding?.destination;
+
+  let players: InterpolatedPlayer[] = Object.values(state.players);
+  // Order the players by their y coordinates.
+  players.sort((a, b) => a.position.y - b.position.y);
+
+  const human = players.find((p) => p.player._id == props.humanPlayerId);
+  let humanDestination = human && human.player.pathfinding?.destination;
+
+  let inflightDestination;
+  for (const input of state.inflightInputs) {
+    if (input.name !== 'moveTo' || input.args.playerId !== props.humanPlayerId) {
+      continue;
+    }
+    inflightDestination = input.args.destination;
+  }
+  humanDestination = inflightDestination ?? humanDestination;
   return (
     <PixiViewport
       app={pixiApp}
@@ -107,7 +105,7 @@ export const Game = (props: {
             onClick={props.setSelectedPlayer}
           />
         ))}
-      {DEBUG_POSITIONS && destination && <DestinationMarker destination={destination} />}
+      {DEBUG_POSITIONS && humanDestination && <DestinationMarker destination={humanDestination} />}
     </PixiViewport>
   );
 };

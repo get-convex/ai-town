@@ -6,3 +6,4 @@ export const PATHFINDING_TIMEOUT = 60 * 1000;
 export const PATHFINDING_BACKOFF = 1000;
 export const CONVERSATION_DISTANCE = 2;
 export const TYPING_TIMEOUT = 15 * 1000;
+export const COLLISION_THRESHOLD = 0.75;

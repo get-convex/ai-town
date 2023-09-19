@@ -55,7 +55,7 @@ export function DebugPlot(props: { state?: ServerState; width: number; height: n
         }
         const now = Date.now();
         data.t.push(now);
-        data.y.push(props.state!.bufferHealth(now));
+        data.y.push(props.state!.bufferHealth());
         plot.setData([data.t, data.y], true);
         plot.setScale('x', { min: now - 10000, max: now });
       }

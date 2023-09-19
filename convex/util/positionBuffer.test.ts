@@ -1,4 +1,4 @@
-import { Point, Vector } from '../schema/types';
+import { Point, Vector } from './types';
 import { PositionBuffer } from './positionBuffer';
 
 test('position buffer roundtrips', () => {

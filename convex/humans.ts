@@ -65,7 +65,14 @@ export const leave = mutation({
     if (!human.playerId) {
       return;
     }
+    const members = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', human.playerId!))
+      .collect();
     await ctx.db.patch(human._id, { playerId: undefined });
     await ctx.db.delete(human.playerId);
+    for (const member of members) {
+      await ctx.db.delete(member._id);
+    }
   },
 });

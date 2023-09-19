@@ -1,16 +1,6 @@
 import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { point } from './types';
-import { playerInput } from '../game/input';
-
-// The input queue is a combination of generic
-// engine state (the playerId and serverTimestamp)
-// and the game-specific payload.
-const inputQueue = defineTable({
-  playerId: v.id('players'),
-  serverTimestamp: v.number(),
-  payload: playerInput,
-});
+import { args, returnValue } from './input';
 
 // The steps table is entirely engine-specific and
 // records how server time has advanced. Eventually,
@@ -22,6 +12,10 @@ const steps = defineTable({
 });
 
 export const engineTables = {
-  inputQueue: inputQueue.index('clientTimestamp', ['playerId', 'serverTimestamp']),
+  inputs: defineTable({
+    serverTimestamp: v.number(),
+    args,
+    returnValue: v.optional(returnValue),
+  }).index('serverTimestamp', ['serverTimestamp']),
   steps: steps.index('endTs', ['endTs']),
 };

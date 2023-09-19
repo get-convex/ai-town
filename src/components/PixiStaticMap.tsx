@@ -1,6 +1,6 @@
 import { PixiComponent, applyDefaultProps } from '@pixi/react';
 import * as PIXI from 'pixi.js';
-import { map } from '../../convex/schema';
+import { map } from '../../convex/data/world';
 
 export const PixiStaticMap = PixiComponent('StaticMap', {
   create: () => {

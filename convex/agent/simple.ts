@@ -1,13 +1,12 @@
 import { v } from 'convex/values';
-import { DatabaseReader, action, mutation, query } from '../_generated/server';
+import { DatabaseReader, action, query } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
-import { Point } from '../schema/types';
 import { distance } from '../util/geometry';
-import { addPlayerInput } from '../engine';
 import { blocked } from '../game/movement';
-import { map, world } from '../schema';
+import { world } from '../data/world';
 import { api } from '../_generated/api';
 import { FunctionReturnType } from 'convex/server';
+import { sendInput } from './lib/actions';
 
 // (Ideas for) design principles:
 // 1. Agents have unlimited readonly access to game engine state. Run whatever queries you want.
@@ -44,12 +43,9 @@ export const simpleAgent = action({
       const candidate = await conversationCandidate(player, otherPlayers);
       if (candidate) {
         console.log(`Starting conversation with ${candidate.name}`);
-        await ctx.runMutation(api.engine.addPlayerInput, {
+        await sendInput(ctx, 'startConversation', {
           playerId: player._id,
-          input: {
-            kind: 'startConversation',
-            invite: candidate._id,
-          },
+          invitee: candidate._id,
         });
       }
     }
@@ -59,21 +55,15 @@ export const simpleAgent = action({
       if (conversation.membership.status === 'invited') {
         if (Math.random() < 0.75) {
           console.log(`Accepting invitation for ${conversation._id}`);
-          await ctx.runMutation(api.engine.addPlayerInput, {
+          await sendInput(ctx, 'acceptInvite', {
             playerId: player._id,
-            input: {
-              kind: 'acceptInvite',
-              conversationId: conversation._id,
-            },
+            conversationId: conversation._id,
           });
         } else {
           console.log(`Declining invitation for ${conversation._id}`);
-          await ctx.runMutation(api.engine.addPlayerInput, {
+          await sendInput(ctx, 'rejectInvite', {
             playerId: player._id,
-            input: {
-              kind: 'rejectInvite',
-              conversationId: conversation._id,
-            },
+            conversationId: conversation._id,
           });
         }
       }
@@ -83,12 +73,9 @@ export const simpleAgent = action({
         const destination = await conversationDestination(conversation._id, player, otherPlayers);
         if (destination) {
           console.log(`Walking to conversation buddy at ${JSON.stringify(destination)}`);
-          await ctx.runMutation(api.engine.addPlayerInput, {
+          await sendInput(ctx, 'moveTo', {
             playerId: player._id,
-            input: {
-              kind: 'moveTo',
-              destination,
-            },
+            destination,
           });
         }
       }
@@ -97,36 +84,27 @@ export const simpleAgent = action({
         // Try to "grab the lock" if no one is typing.
         if (!conversation.typing) {
           console.log(`Starting typing for ${conversation._id}`);
-          await ctx.runMutation(api.engine.addPlayerInput, {
+          await sendInput(ctx, 'startTyping', {
             playerId: player._id,
-            input: {
-              kind: 'startTyping',
-              conversationId: conversation._id,
-            },
+            conversationId: conversation._id,
           });
         }
         // Say a message if we're the ones typing.
         if (conversation.typing && conversation.typing.playerId === player._id) {
           console.log(`Sending message for ${conversation._id}`);
-          await ctx.runMutation(api.engine.addPlayerInput, {
+          await sendInput(ctx, 'writeMessage', {
             playerId: player._id,
-            input: {
-              kind: 'writeMessage',
-              conversationId: conversation._id,
-              doneWriting: true,
-              text: 'hello world!',
-            },
+            conversationId: conversation._id,
+            doneWriting: true,
+            message: 'hello world!',
           });
         }
         // If it's been at least a minute since the conversation started, leave with 50% probability.
         if (conversation._creationTime + 60_000 < Date.now() && Math.random() < 0.5) {
           console.log(`Leaving conversation ${conversation._id}`);
-          await ctx.runMutation(api.engine.addPlayerInput, {
+          await sendInput(ctx, 'leaveConversation', {
             playerId: player._id,
-            input: {
-              kind: 'leaveConversation',
-              conversationId: conversation._id,
-            },
+            conversationId: conversation._id,
           });
         }
       }

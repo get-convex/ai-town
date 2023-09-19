@@ -1,7 +1,7 @@
 import { defineTable } from 'convex/server';
 import { Infer, v } from 'convex/values';
 import { packedPositionBuffer } from '../util/positionBuffer';
-import { path, point, vector } from './types';
+import { path, point, vector } from '../util/types';
 
 const pathfinding = v.object({
   destination: point,

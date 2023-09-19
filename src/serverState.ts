@@ -1,10 +1,11 @@
-import { Point, Vector } from '../convex/schema/types.ts';
+import { Point, Vector } from '../convex/util/types.ts';
 import { api } from '../convex/_generated/api';
 import { Doc, Id } from '../convex/_generated/dataModel';
 import { FunctionReturnType } from 'convex/server';
 import { PositionBuffer } from '../convex/util/positionBuffer.ts';
-import { buffer } from 'stream/consumers';
 import { STEP_INTERVAL } from '../convex/constants.ts';
+import { InputArgs, InputReturnValue, inputHandlers } from '../convex/schema/input.ts';
+import { ConvexReactClient } from 'convex/react';
 
 const LOGGING_INTERVAL = 1736;
 export const DEBUG_POSITIONS = true;
@@ -16,7 +17,9 @@ const SOFT_MAX_SERVER_BUFFER_AGE = STEP_INTERVAL;
 const SOFT_MIN_SERVER_BUFFER_AGE = 100;
 
 export type GameState = {
+  serverTimestamp: number;
   players: Record<Id<'players'>, InterpolatedPlayer>;
+  inflightInputs: Array<{ name: string; args: any }>;
 };
 
 export type InterpolatedPlayer = {
@@ -34,19 +37,46 @@ type ServerSnapshot = {
   serverEndTs: number;
 };
 
+// TODO:
+// [ ] Rename to "game client" or something like that.
+// [ ] Add a callback-based interface for React hooks.
+// [ ] Drive state updates from here with `requestAnimationFrame`.
 export class ServerState {
   snapshots: Array<ServerSnapshot> = [];
   totalDuration: number = 0;
 
   prevClientTs?: number;
   prevServerTs?: number;
-  tsWaiters: Array<{ ts: number; resolve: () => void }> = [];
+
+  inflightInputs: Map<Id<'inputs'>, { serverTimestamp: number; name: string; args: any }> =
+    new Map();
 
   lastLog: number = Date.now();
   numAdvances: number = 0;
   numGaps: number = 0;
   numHalts: number = 0;
   numTrims: number = 0;
+
+  watchDispose: () => void;
+
+  constructor(private convex: ConvexReactClient) {
+    const watch = this.convex.watchQuery(api.queryGameState.default);
+    const result = watch.localQueryResult();
+    if (result) {
+      this.receive(result);
+    }
+    this.watchDispose = watch.onUpdate(() => {
+      const result = watch.localQueryResult();
+      if (result) {
+        this.receive(result);
+      }
+    });
+  }
+
+  dispose() {
+    // TODO: Shutdown inflight inputs too.
+    this.watchDispose();
+  }
 
   receive(gameState: FunctionReturnType<typeof api.queryGameState.default>) {
     const latest = this.snapshots[this.snapshots.length - 1];
@@ -167,22 +197,25 @@ export class ServerState {
       }
       this.snapshots = this.snapshots.slice(toTrim);
     }
-    // Wake up all of the waiters who are waiting for a timestamp before the current one.
-    this.tsWaiters = this.tsWaiters.filter((waiter) => {
-      if (waiter.ts <= serverTs) {
-        waiter.resolve();
-        return false;
-      }
-      return true;
-    });
 
     this.prevClientTs = now;
     this.prevServerTs = serverTs;
 
-    return { players };
+    // TODO: This isn't quite right since the the inflight timestamp (1) definitely only
+    // shows up on the next step but also (2) might be reflected in the interpolated
+    // positions.
+    const inflightInputs = [...this.inflightInputs.values()].filter(
+      ({ serverTimestamp }) => serverTimestamp > serverTs,
+    );
+    inflightInputs.sort((a, b) => a.serverTimestamp - b.serverTimestamp);
+    return {
+      serverTimestamp: serverTs,
+      players,
+      inflightInputs,
+    };
   }
 
-  bufferHealth(now: number): number {
+  bufferHealth(): number {
     if (!this.snapshots.length) {
       return 0;
     }
@@ -190,13 +223,51 @@ export class ServerState {
     return this.snapshots[this.snapshots.length - 1].serverEndTs - lastServerTs;
   }
 
-  waitUntil(serverTimestamp: number): Promise<void> {
-    if (this.prevServerTs && this.prevServerTs >= serverTimestamp) {
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-      this.tsWaiters.push({ ts: serverTimestamp, resolve });
+  async sendInput<Name extends keyof typeof inputHandlers>(
+    name: Name,
+    args: InputArgs<Name>,
+  ): Promise<InputReturnValue<Name>> {
+    const { inputId, serverTimestamp } = await this.convex.mutation(api.engine.sendInput, {
+      inputArgs: {
+        kind: name,
+        args,
+      } as any,
     });
+    // NB: It's technically possible for our input to be reflected in game state
+    // before we receive the input ID here. We'll still correctly omit it from
+    // the inflight set on reads and clean it up below.
+    this.inflightInputs.set(inputId, { serverTimestamp, name, args });
+    let inputRow;
+    try {
+      const watch = this.convex.watchQuery(api.engine.inputStatus, { inputId });
+      inputRow = watch.localQueryResult()?.returnValue;
+      if (inputRow === undefined) {
+        await new Promise<void>((resolve, reject) => {
+          const unsubscribe = watch.onUpdate(() => {
+            try {
+              inputRow = watch.localQueryResult()?.returnValue;
+            } catch (error: any) {
+              reject(error);
+              unsubscribe();
+              return;
+            }
+            if (inputRow !== undefined) {
+              resolve();
+              unsubscribe();
+            }
+          });
+        });
+      }
+    } finally {
+      this.inflightInputs.delete(inputId);
+    }
+    if (!inputRow || inputRow.kind !== name) {
+      throw new Error(`Unexpected return value: ${JSON.stringify(inputRow)}`);
+    }
+    if ((inputRow.returnValue as any).err !== undefined) {
+      throw new Error((inputRow.returnValue as any).err);
+    }
+    return (inputRow.returnValue as any).ok;
   }
 
   log(now: number) {
