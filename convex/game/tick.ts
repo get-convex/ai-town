@@ -1,4 +1,4 @@
-import { Id } from '../_generated/dataModel';
+import { Doc, Id } from '../_generated/dataModel';
 import {
   CONVERSATION_DISTANCE,
   PATHFINDING_BACKOFF,
@@ -10,20 +10,18 @@ import { blocked, findRoute } from './movement';
 import { GameState } from './state';
 
 export function tick(game: GameState, now: number) {
-  for (const playerId of game.players.allIds()) {
-    tickPathfinding(game, now, playerId);
+  for (const player of game.enabledPlayers()) {
+    tickPathfinding(game, now, player);
   }
-  for (const playerId of game.players.allIds()) {
-    tickPosition(game, now, playerId);
+  for (const player of game.enabledPlayers()) {
+    tickPosition(game, now, player);
   }
   for (const conversationId of game.conversations.allIds()) {
     tickConversation(game, now, conversationId);
   }
 }
 
-function tickPathfinding(game: GameState, now: number, playerId: Id<'players'>) {
-  const player = game.players.lookup(playerId);
-
+function tickPathfinding(game: GameState, now: number, player: Doc<'players'>) {
   // There's nothing to do if we're not moving.
   const { pathfinding } = player;
   if (!pathfinding) {
@@ -61,9 +59,7 @@ function tickPathfinding(game: GameState, now: number, playerId: Id<'players'>) 
   }
 }
 
-function tickPosition(game: GameState, now: number, playerId: Id<'players'>) {
-  const player = game.players.lookup(playerId);
-
+function tickPosition(game: GameState, now: number, player: Doc<'players'>) {
   // There's nothing to do if we're not moving.
   if (!player.pathfinding || player.pathfinding.state.kind !== 'moving') {
     return;
@@ -89,7 +85,7 @@ function tickPosition(game: GameState, now: number, playerId: Id<'players'>) {
     return;
   }
   // Update the player's position.
-  game.movePlayer(now, playerId, position, facing);
+  game.movePlayer(now, player._id, position, facing);
 }
 
 function tickConversation(game: GameState, now: number, conversationId: Id<'conversations'>) {

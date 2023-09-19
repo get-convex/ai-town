@@ -125,7 +125,7 @@ export function findRoute(
   return densePath;
 }
 
-export function blocked(allPlayers: Doc<'players'>[], pos: Point, player: Doc<'players'>) {
+export function blocked(allPlayers: Doc<'players'>[], pos: Point, player?: Doc<'players'>) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
@@ -136,7 +136,7 @@ export function blocked(allPlayers: Doc<'players'>[], pos: Point, player: Doc<'p
     return 'world blocked';
   }
   for (const otherPlayer of allPlayers) {
-    if (otherPlayer._id === player._id) {
+    if (player && otherPlayer._id === player._id) {
       continue;
     }
     if (distance(otherPlayer.position, pos) < COLLISION_THRESHOLD) {

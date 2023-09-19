@@ -1,46 +1,21 @@
 import { v } from 'convex/values';
 import { DatabaseWriter, mutation } from './_generated/server';
 import { world } from './data/world';
-import { objmap } from './data/map';
-import { distance } from './util/geometry';
 import { insertInput } from './engine';
 import { TableNames } from './_generated/dataModel';
-import { point } from './util/types';
 import { GameState } from './game/state';
 import { blocked } from './game/movement';
-import { characters } from './data/characters';
 
 export const addManyPlayers = mutation({
   handler: async (ctx) => {
     const orig = await ctx.db.query('players').collect();
     for (let j = 0; j < 10; j++) {
-      const otherPlayers = await ctx.db.query('players').collect();
-      let position;
-      for (let i = 0; i < 100; i++) {
-        const candidate = {
-          x: Math.floor(Math.random() * world.width),
-          y: Math.floor(Math.random() * world.height),
-        };
-        if (objmap[candidate.y][candidate.x] !== -1) {
-          continue;
-        }
-        for (const player of otherPlayers) {
-          if (distance(candidate, player.position) < 1) {
-            continue;
-          }
-        }
-        position = candidate;
-        break;
-      }
-      if (!position) {
-        throw new Error(`Failed to find a free position!`);
-      }
-      await ctx.db.insert('players', {
-        name: `robot${orig.length + j}`,
-        description: "Hi! I'm a robot 🤖",
-        character: Math.floor(Math.random() * characters.length),
-        position,
-        facing: { dx: 1, dy: 0 },
+      await insertInput(ctx.db, Date.now(), {
+        kind: 'join',
+        args: {
+          name: `robot${orig.length + j}`,
+          description: "Hi! I'm a robot 🤖",
+        },
       });
     }
   },
@@ -53,16 +28,15 @@ export const randomPositions = mutation({
   handler: async (ctx, args) => {
     const gameState = await GameState.load(Date.now(), ctx.db);
     let inserted = 0;
-    const humans = await ctx.db.query('humans').collect();
     const allPlayers = await ctx.db.query('players').collect();
     for (const playerId of gameState.players.allIds()) {
       if (args.max && inserted >= args.max) {
         break;
       }
-      if (humans.find((p) => p.playerId === playerId)) {
+      const player = gameState.players.lookup(playerId);
+      if (player.human) {
         continue;
       }
-      const player = gameState.players.lookup(playerId);
       let position;
       for (let i = 0; i < 10; i++) {
         const candidate = {
@@ -83,9 +57,12 @@ export const randomPositions = mutation({
         console.error(`Failed to find a free position for ${player.name}!`);
         continue;
       }
-      await insertInput(ctx.db, player._id, {
+      await insertInput(ctx.db, Date.now(), {
         kind: 'moveTo',
-        destination: position,
+        args: {
+          destination: position,
+          playerId,
+        },
       });
       inserted += 1;
     }
@@ -108,8 +85,8 @@ export const clear = mutation({
     const tables: Array<TableNames> = [
       'conversationMembers',
       'conversations',
-      'humans',
-      'inputQueue',
+      'embeddings',
+      'inputs',
       'messages',
       'messageText',
       'players',

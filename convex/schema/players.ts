@@ -33,6 +33,12 @@ const players = defineTable({
   description: v.string(),
   character: v.number(),
 
+  // If present, it's the auth tokenIdentifier of the owning player.
+  human: v.optional(v.string()),
+
+  // Is the player active?
+  enabled: v.boolean(),
+
   position: point,
   // Normalized vector indicating which way they're facing.
   // Degrees counterclockwise from east/right.
@@ -43,15 +49,6 @@ const players = defineTable({
   previousPositions: v.optional(packedPositionBuffer),
 });
 
-// We currently manage this table outside the game engine, but
-// we could move it (and auth) in if we want to prevent cheating.
-const humans = defineTable({
-  tokenIdentifier: v.string(),
-  joined: v.number(),
-  playerId: v.optional(v.id('players')),
-});
-
 export const playersTables = {
-  players,
-  humans: humans.index('tokenIdentifier', ['tokenIdentifier']),
+  players: players.index('enabled', ['enabled', 'human']),
 };

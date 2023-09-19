@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
-import { Doc, Id } from './_generated/dataModel';
-import { DatabaseReader, query } from './_generated/server';
+import { Doc } from './_generated/dataModel';
+import { query } from './_generated/server';
 
 export default query({
   handler: async (ctx) => {
@@ -30,7 +30,10 @@ export default query({
       startTs: lastStep?.startTs ?? Date.now(),
       endTs: lastStep?.endTs ?? Date.now(),
 
-      players: await ctx.db.query('players').collect(),
+      players: await ctx.db
+        .query('players')
+        .withIndex('enabled', (q) => q.eq('enabled', true))
+        .collect(),
       conversations,
     };
   },
@@ -44,6 +47,10 @@ export const playerMetadata = query({
     const player = await ctx.db.get(args.playerId);
     if (!player) {
       console.warn(`Invalid player ID: ${args.playerId}`);
+      return null;
+    }
+    if (!player.enabled) {
+      console.warn(`Player ${args.playerId} is not enabled!`);
       return null;
     }
     // Check if the player is a conversation.
@@ -70,20 +77,6 @@ export const playerMetadata = query({
       member,
       conversation,
     };
-  },
-});
-
-export const userPlayerId = query({
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-    const human = await ctx.db
-      .query('humans')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
-      .unique();
-    return human?.playerId ?? null;
   },
 });
 

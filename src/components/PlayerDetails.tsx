@@ -15,14 +15,14 @@ export default function PlayerDetails(props: {
   playerId?: Id<'players'>;
   setSelectedPlayer: SelectPlayer;
 }) {
-  const userPlayerId = useQuery(api.queryGameState.userPlayerId);
+  const humanPlayerId = useQuery(api.humans.humanStatus);
   const player = useQuery(
     api.queryGameState.playerMetadata,
     props.playerId ? { playerId: props.playerId } : 'skip',
   );
-  const userPlayer = useQuery(
+  const humanPlayer = useQuery(
     api.queryGameState.playerMetadata,
-    userPlayerId ? { playerId: userPlayerId } : 'skip',
+    humanPlayerId ? { playerId: humanPlayerId } : 'skip',
   );
 
   if (!props.playerId) {
@@ -33,33 +33,33 @@ export default function PlayerDetails(props: {
     );
   }
   const loading =
-    (props.playerId && player === undefined) || (userPlayer && userPlayer === undefined);
+    (props.playerId && player === undefined) || (humanPlayer && humanPlayer === undefined);
   if (loading) {
     return null;
   }
   if (!player) {
     return null;
   }
-  const isMe = userPlayerId && props.playerId === userPlayerId;
+  const isMe = humanPlayerId && props.playerId === humanPlayerId;
   const canInvite =
-    !isMe && player.conversation === null && userPlayer && userPlayer.conversation === null;
+    !isMe && player.conversation === null && humanPlayer && humanPlayer.conversation === null;
   const sameConversation =
     !isMe &&
-    userPlayer &&
-    userPlayer.conversation &&
+    humanPlayer &&
+    humanPlayer.conversation &&
     player.conversation &&
-    userPlayer.conversation._id === player.conversation._id;
+    humanPlayer.conversation._id === player.conversation._id;
 
-  const haveInvite = sameConversation && userPlayer.member?.status === 'invited';
+  const haveInvite = sameConversation && humanPlayer.member?.status === 'invited';
   const waitingForAccept = sameConversation && player.member?.status === 'invited';
   const waitingForNearby =
     sameConversation &&
     player.member?.status === 'walkingOver' &&
-    userPlayer.member?.status === 'walkingOver';
+    humanPlayer.member?.status === 'walkingOver';
   const inConversationWithMe =
     sameConversation &&
     player.member?.status === 'participating' &&
-    userPlayer.member?.status === 'participating';
+    humanPlayer.member?.status === 'participating';
 
   const startConversation = async () => {
     if (!props.humanPlayerId || !props.playerId) {
@@ -78,40 +78,40 @@ export default function PlayerDetails(props: {
     if (!props.humanPlayerId || !props.playerId) {
       return;
     }
-    if (!userPlayer || !userPlayer.conversation?._id) {
+    if (!humanPlayer || !humanPlayer.conversation?._id) {
       return;
     }
     await toastOnError(
       props.serverState.sendInput('acceptInvite', {
         playerId: props.humanPlayerId,
-        conversationId: userPlayer.conversation?._id,
+        conversationId: humanPlayer.conversation?._id,
       }),
     );
   };
   const rejectInvite = async () => {
-    if (!props.humanPlayerId || !userPlayer || !userPlayer.conversation?._id) {
+    if (!props.humanPlayerId || !humanPlayer || !humanPlayer.conversation?._id) {
       return;
     }
     await toastOnError(
       props.serverState.sendInput('rejectInvite', {
         playerId: props.humanPlayerId,
-        conversationId: userPlayer.conversation?._id,
+        conversationId: humanPlayer.conversation?._id,
       }),
     );
   };
   const leaveConversation = async () => {
     if (
       !props.humanPlayerId ||
-      !userPlayerId ||
+      !humanPlayerId ||
       !inConversationWithMe ||
-      !userPlayer.conversation?._id
+      !humanPlayer.conversation?._id
     ) {
       return;
     }
     await toastOnError(
       props.serverState.sendInput('leaveConversation', {
         playerId: props.humanPlayerId,
-        conversationId: userPlayer.conversation?._id,
+        conversationId: humanPlayer.conversation?._id,
       }),
     );
   };

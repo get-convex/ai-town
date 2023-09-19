@@ -2,6 +2,23 @@ import { Infer, v } from 'convex/values';
 import { point } from '../util/types';
 
 export const inputHandlers = {
+  // Join, creating a new player...
+  join: {
+    args: v.object({
+      name: v.string(),
+      description: v.string(),
+      tokenIdentifier: v.optional(v.string()),
+    }),
+    returnValue: v.id('players'),
+  },
+  // ...or leave, disabling the specified player.
+  leave: {
+    args: v.object({
+      playerId: v.id('players'),
+    }),
+    returnValue: v.null(),
+  },
+
   // Move the player to a specified location.
   moveTo: {
     args: v.object({
@@ -88,6 +105,14 @@ export type InputReturnValue<K extends keyof InputHandlers> = Infer<
 >;
 export const args = v.union(
   v.object({
+    kind: v.literal('join'),
+    args: inputHandlers['join'].args,
+  }),
+  v.object({
+    kind: v.literal('leave'),
+    args: inputHandlers['leave'].args,
+  }),
+  v.object({
     kind: v.literal('moveTo'),
     args: inputHandlers['moveTo'].args,
   }),
@@ -121,6 +146,20 @@ export const args = v.union(
   }),
 );
 export const returnValue = v.union(
+  v.object({
+    kind: v.literal('join'),
+    returnValue: v.union(
+      v.object({ ok: inputHandlers['join'].returnValue }),
+      v.object({ err: v.string() }),
+    ),
+  }),
+  v.object({
+    kind: v.literal('leave'),
+    returnValue: v.union(
+      v.object({ ok: inputHandlers['leave'].returnValue }),
+      v.object({ err: v.string() }),
+    ),
+  }),
   v.object({
     kind: v.literal('moveTo'),
     returnValue: v.union(

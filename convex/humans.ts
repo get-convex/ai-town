@@ -1,5 +1,5 @@
 import { mutation, query } from './_generated/server';
-import { addPlayer } from './players';
+import { insertInput } from './engine';
 
 export const humanStatus = query({
   handler: async (ctx) => {
@@ -7,14 +7,11 @@ export const humanStatus = query({
     if (!identity) {
       return null;
     }
-    const human = await ctx.db
-      .query('humans')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
-      .unique();
-    if (!human) {
-      return null;
-    }
-    return human.playerId ?? null;
+    const player = await ctx.db
+      .query('players')
+      .withIndex('enabled', (q) => q.eq('enabled', true).eq('human', identity.tokenIdentifier))
+      .first();
+    return player?._id ?? null;
   },
 });
 
@@ -28,23 +25,21 @@ export const join = mutation({
       throw new Error(`Missing givenName on ${JSON.stringify(identity)}`);
     }
     const { tokenIdentifier } = identity;
-    let human = await ctx.db
-      .query('humans')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', tokenIdentifier))
-      .unique();
-    if (human === null) {
-      const humanId = await ctx.db.insert('humans', { tokenIdentifier, joined: Date.now() });
-      human = await ctx.db.get(humanId);
+    const existingPlayer = await ctx.db
+      .query('players')
+      .withIndex('enabled', (q) => q.eq('enabled', true).eq('human', tokenIdentifier))
+      .first();
+    if (existingPlayer) {
+      throw new Error(`Already joined as ${existingPlayer._id}`);
     }
-    if (human!.playerId) {
-      return human!.playerId;
-    }
-    const playerId = await addPlayer(ctx, {
-      name: identity.givenName,
-      description: `${identity.givenName} is a human player`,
+    await insertInput(ctx.db, Date.now(), {
+      kind: 'join',
+      args: {
+        name: identity.givenName,
+        description: `${identity.givenName} is a human player`,
+        tokenIdentifier,
+      },
     });
-    await ctx.db.patch(human!._id, { playerId, joined: Date.now() });
-    return playerId;
   },
 });
 
@@ -55,24 +50,16 @@ export const leave = mutation({
       throw new Error(`Not logged in`);
     }
     const { tokenIdentifier } = identity;
-    const human = await ctx.db
-      .query('humans')
-      .withIndex('tokenIdentifier', (q) => q.eq('tokenIdentifier', tokenIdentifier))
-      .unique();
-    if (human === null) {
+    const existingPlayer = await ctx.db
+      .query('players')
+      .withIndex('enabled', (q) => q.eq('enabled', true).eq('human', tokenIdentifier))
+      .first();
+    if (!existingPlayer) {
       return;
     }
-    if (!human.playerId) {
-      return;
-    }
-    const members = await ctx.db
-      .query('conversationMembers')
-      .withIndex('playerId', (q) => q.eq('playerId', human.playerId!))
-      .collect();
-    await ctx.db.patch(human._id, { playerId: undefined });
-    await ctx.db.delete(human.playerId);
-    for (const member of members) {
-      await ctx.db.delete(member._id);
-    }
+    await insertInput(ctx.db, Date.now(), {
+      kind: 'leave',
+      args: { playerId: existingPlayer._id },
+    });
   },
 });

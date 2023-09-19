@@ -10,15 +10,15 @@ export function MessageInput(props: {
   serverState: ServerState;
   conversation: Doc<'conversations'>;
 }) {
-  const userPlayerId = useQuery(api.queryGameState.userPlayerId);
-  const userPlayer = useQuery(
+  const humanPlayerId = useQuery(api.humans.humanStatus);
+  const humanPlayer = useQuery(
     api.queryGameState.playerMetadata,
-    userPlayerId ? { playerId: userPlayerId } : 'skip',
+    humanPlayerId ? { playerId: humanPlayerId } : 'skip',
   );
   const inputRef = useRef<HTMLParagraphElement>(null);
   const [inflight, setInflight] = useState(0);
 
-  if (!userPlayerId || !userPlayer) {
+  if (!humanPlayerId || !humanPlayer) {
     return;
   }
   const onKeyDown = async (e: KeyboardEvent) => {
@@ -26,12 +26,12 @@ export function MessageInput(props: {
     // Send the current message.
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (!userPlayerId || !inputRef.current) {
+      if (!humanPlayerId || !inputRef.current) {
         return;
       }
       await toastOnError(
         props.serverState.sendInput('writeMessage', {
-          playerId: userPlayerId,
+          playerId: humanPlayerId,
           conversationId: props.conversation._id,
           message: inputRef.current.innerText,
           doneWriting: true,
@@ -42,14 +42,14 @@ export function MessageInput(props: {
     }
     // Try to set a typing indicator.
     else {
-      if (props.conversation.typing || !userPlayerId || inflight > 0) {
+      if (props.conversation.typing || !humanPlayerId || inflight > 0) {
         return;
       }
       setInflight((i) => i + 1);
       try {
         // Don't show a toast on error.
         await props.serverState.sendInput('startTyping', {
-          playerId: userPlayerId,
+          playerId: humanPlayerId,
           conversationId: props.conversation._id,
         });
       } finally {
@@ -60,7 +60,7 @@ export function MessageInput(props: {
   return (
     <div className="leading-tight mb-6">
       <div className="flex gap-4">
-        <span className="uppercase flex-grow">{userPlayer.name}</span>
+        <span className="uppercase flex-grow">{humanPlayer.name}</span>
       </div>
       <div className={clsx('bubble', 'bubble-mine')}>
         <p

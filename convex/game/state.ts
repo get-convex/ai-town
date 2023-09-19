@@ -17,7 +17,9 @@ export class GameState {
   ) {}
 
   static async load(startTs: number, db: DatabaseWriter) {
-    // Load all players.
+    // TODO: Only load active players. We can add a notion of "pruning"
+    // game state that happens after each step that removes inactive
+    // objects.
     const players = await db.query('players').collect();
 
     // TODO: Only load active conversations.
@@ -36,6 +38,13 @@ export class GameState {
       new MappedTable('conversationMembers', db, conversationMembers),
       new MappedTable('messages', db, messages),
     );
+  }
+
+  enabledPlayers() {
+    return this.players
+      .allIds()
+      .map((id) => this.players.lookup(id))
+      .filter((p) => p.enabled);
   }
 
   movePlayer(now: number, id: Id<'players'>, position: Point, facing: Vector) {
