@@ -7,21 +7,23 @@ import {
   internalQuery,
 } from '../../_generated/server';
 import { internal } from '../../_generated/api';
-import * as openai from './openai';
+import * as openai from '../lib/openai';
 import { Id } from '../../_generated/dataModel';
 
 export const debugFetchEmbeddings = internalAction({
-  args: { owner: v.id('players'), texts: v.array(v.string()) },
+  args: { owner: v.id('players'), conversationTag: v.string(), texts: v.array(v.string()) },
   handler: async (ctx, args): Promise<any> => {
-    return await fetchEmbeddingsBatchWithCache(ctx, args.owner, args.texts, { write: true });
+    return await fetchEmbeddingsBatchWithCache(ctx, args.texts, {
+      owner: args.owner,
+      conversationTag: args.conversationTag,
+    });
   },
 });
 
 export async function fetchEmbeddingsBatchWithCache(
   ctx: ActionCtx,
-  owner: Id<'players'>,
   texts: string[],
-  opts: { write: boolean } = { write: false },
+  writeToCache?: { owner: Id<'players'>; conversationTag: string },
 ) {
   const start = Date.now();
 
@@ -34,7 +36,7 @@ export async function fetchEmbeddingsBatchWithCache(
     textHashes.push(textHash);
   }
   const results = new Array(texts.length);
-  const cacheResults = await ctx.runQuery(internal.agent.lib.embeddings.getEmbeddingsByText, {
+  const cacheResults = await ctx.runQuery(internal.agent.classic.embeddings.getEmbeddingsByText, {
     textHashes,
   });
   for (const { index, embedding } of cacheResults) {
@@ -53,17 +55,18 @@ export async function fetchEmbeddingsBatchWithCache(
       const resultIndex = missingIndexes[i];
       results[resultIndex] = response.embeddings[i];
     }
-    if (opts.write) {
-      const embeddings = missingIndexes.map((resultIndex, i) => {
+    if (writeToCache) {
+      const toWrite = missingIndexes.map((resultIndex, i) => {
         return {
-          owner,
+          owner: writeToCache.owner,
+          conversationTag: writeToCache.conversationTag,
           text: texts[resultIndex],
           textHash: textHashes[resultIndex],
           embedding: response.embeddings[i],
         };
       });
-      await ctx.runMutation(internal.agent.lib.embeddings.writeEmbeddings, {
-        embeddings,
+      await ctx.runMutation(internal.agent.classic.embeddings.writeEmbeddings, {
+        embeddings: toWrite,
       });
     }
   }
@@ -79,6 +82,7 @@ export const writeEmbeddings = internalMutation({
     embeddings: v.array(
       v.object({
         owner: v.id('players'),
+        conversationTag: v.string(),
         text: v.string(),
         textHash: v.bytes(),
         embedding: v.array(v.float64()),
@@ -103,7 +107,12 @@ export const getEmbeddingsByText = internalQuery({
         .withIndex('text', (q) => q.eq('textHash', textHash))
         .first();
       if (result) {
-        out.push({ index: i, embedding: result.embedding });
+        out.push({
+          index: i,
+          embedding: result.embedding,
+          owner: result.owner,
+          conversationTag: result.conversationTag,
+        });
       }
     }
     return out;
@@ -112,8 +121,13 @@ export const getEmbeddingsByText = internalQuery({
 
 const embeddings = v.object({
   owner: v.id('players'),
+  // Concatenation of `${player._id}-${otherPlayer._id}` so we can query
+  // for embeddings that were in a conversation with someone else.
+  conversationTag: v.string(),
+
   text: v.string(),
   textHash: v.bytes(),
+
   embedding: v.array(v.float64()),
 });
 
@@ -122,7 +136,7 @@ export const embeddingsTables = {
     .index('text', ['textHash'])
     .vectorIndex('embedding', {
       vectorField: 'embedding',
-      filterFields: ['owner'],
+      filterFields: ['owner', 'conversationTag'],
       dimensions: 1536,
     }),
 };

@@ -14,15 +14,15 @@ export async function sendInput<Name extends keyof typeof inputHandlers>(
     },
   });
   // TODO: Would love to have a way to subscribe on the input result.
-  let backoff = 100;
-  for (let i = 0; i < 10; i++) {
+  let backoff = 128;
+  for (let i = 0; i < 8; i++) {
     const queryResult = await ctx.runQuery(api.engine.inputStatus, { inputId });
     if (queryResult.status === 'notFound') {
       throw new Error(`Input ${inputId} not found!`);
     }
     if (queryResult.status === 'processing') {
       await new Promise((resolve) => setTimeout(resolve, backoff));
-      backoff = Math.min(backoff * 2, 1000);
+      backoff = Math.min(backoff * 2, 8192);
       continue;
     }
     if (queryResult.status === 'done') {

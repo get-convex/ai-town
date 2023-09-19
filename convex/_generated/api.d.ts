@@ -14,9 +14,9 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as agent_classic_embeddings from "../agent/classic/embeddings";
 import type * as agent_classic_memory from "../agent/classic/memory";
 import type * as agent_lib_actions from "../agent/lib/actions";
-import type * as agent_lib_embeddings from "../agent/lib/embeddings";
 import type * as agent_lib_openai from "../agent/lib/openai";
 import type * as agent_simple from "../agent/simple";
 import type * as constants from "../constants";
@@ -66,9 +66,9 @@ import type * as util_types from "../util/types";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "agent/classic/embeddings": typeof agent_classic_embeddings;
   "agent/classic/memory": typeof agent_classic_memory;
   "agent/lib/actions": typeof agent_lib_actions;
-  "agent/lib/embeddings": typeof agent_lib_embeddings;
   "agent/lib/openai": typeof agent_lib_openai;
   "agent/simple": typeof agent_simple;
   constants: typeof constants;
