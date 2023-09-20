@@ -10,37 +10,46 @@ import { internal } from '../../_generated/api';
 import * as openai from '../lib/openai';
 import { Id } from '../../_generated/dataModel';
 
+const selfInternal = internal.agent.classic.embeddings;
+
 export const debugFetchEmbeddings = internalAction({
-  args: { owner: v.id('players'), conversationTag: v.string(), texts: v.array(v.string()) },
+  args: { tag1: v.optional(v.string()), tag2: v.optional(v.string()), texts: v.array(v.string()) },
   handler: async (ctx, args): Promise<any> => {
-    return await fetchEmbeddingsBatchWithCache(ctx, args.texts, {
-      owner: args.owner,
-      conversationTag: args.conversationTag,
-    });
+    return await fetchBatch(ctx, args.texts);
   },
 });
 
-export async function fetchEmbeddingsBatchWithCache(
-  ctx: ActionCtx,
-  texts: string[],
-  writeToCache?: { owner: Id<'players'>; conversationTag: string },
-) {
+export async function insert(ctx: ActionCtx, text: string, tag1?: string, tag2?: string) {
+  const textHash = await hashText(text);
+  let embedding;
+  const [result] = await ctx.runQuery(selfInternal.getEmbeddingsByText, { textHashes: [textHash] });
+  if (result !== undefined) {
+    embedding = result.embedding;
+    if (result.tag1 == tag1 || result.tag2 == tag2) {
+      return result.embeddingId;
+    }
+  }
+  if (!embedding) {
+    const response = await openai.fetchEmbedding(text);
+    embedding = response.embedding;
+  }
+  const insertion = { tag1, tag2, text, textHash, embedding };
+  const [embeddingId] = await ctx.runMutation(selfInternal.writeEmbeddings, {
+    embeddings: [insertion],
+  });
+  return embeddingId;
+}
+
+export async function fetchBatch(ctx: ActionCtx, texts: string[]) {
   const start = Date.now();
 
-  const textEncoder = new TextEncoder();
-  const textHashes: Array<ArrayBuffer> = [];
-  for (const text of texts) {
-    const buf = textEncoder.encode(text);
-    const textHash = await crypto.subtle.digest('SHA-256', buf);
-    console.log(convexToJson(textHash));
-    textHashes.push(textHash);
-  }
-  const results = new Array(texts.length);
+  const textHashes = await Promise.all(texts.map((text) => hashText(text)));
+  const results = new Array<{ embeddingId?: Id<'embeddings'>; embedding: number[] }>(texts.length);
   const cacheResults = await ctx.runQuery(internal.agent.classic.embeddings.getEmbeddingsByText, {
     textHashes,
   });
-  for (const { index, embedding } of cacheResults) {
-    results[index] = embedding;
+  for (const { index, embeddingId, embedding } of cacheResults) {
+    results[index] = { embeddingId, embedding };
   }
   if (cacheResults.length < texts.length) {
     const missingIndexes = [...results.keys()].filter((i) => !results[i]);
@@ -53,21 +62,7 @@ export async function fetchEmbeddingsBatchWithCache(
     }
     for (let i = 0; i < missingIndexes.length; i++) {
       const resultIndex = missingIndexes[i];
-      results[resultIndex] = response.embeddings[i];
-    }
-    if (writeToCache) {
-      const toWrite = missingIndexes.map((resultIndex, i) => {
-        return {
-          owner: writeToCache.owner,
-          conversationTag: writeToCache.conversationTag,
-          text: texts[resultIndex],
-          textHash: textHashes[resultIndex],
-          embedding: response.embeddings[i],
-        };
-      });
-      await ctx.runMutation(internal.agent.classic.embeddings.writeEmbeddings, {
-        embeddings: toWrite,
-      });
+      results[resultIndex] = { embedding: response.embeddings[i] };
     }
   }
   return {
@@ -77,24 +72,12 @@ export async function fetchEmbeddingsBatchWithCache(
   };
 }
 
-export const writeEmbeddings = internalMutation({
-  args: {
-    embeddings: v.array(
-      v.object({
-        owner: v.id('players'),
-        conversationTag: v.string(),
-        text: v.string(),
-        textHash: v.bytes(),
-        embedding: v.array(v.float64()),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    for (const embedding of args.embeddings) {
-      await ctx.db.insert('embeddings', embedding);
-    }
-  },
-});
+async function hashText(text: string) {
+  const textEncoder = new TextEncoder();
+  const buf = textEncoder.encode(text);
+  const textHash = await crypto.subtle.digest('SHA-256', buf);
+  return textHash;
+}
 
 export const getEmbeddingsByText = internalQuery({
   args: { textHashes: v.array(v.bytes()) },
@@ -109,9 +92,10 @@ export const getEmbeddingsByText = internalQuery({
       if (result) {
         out.push({
           index: i,
+          embeddingId: result._id,
           embedding: result.embedding,
-          owner: result.owner,
-          conversationTag: result.conversationTag,
+          tag1: result.tag1,
+          tag2: result.tag2,
         });
       }
     }
@@ -119,11 +103,31 @@ export const getEmbeddingsByText = internalQuery({
   },
 });
 
+export const writeEmbeddings = internalMutation({
+  args: {
+    embeddings: v.array(
+      v.object({
+        tag1: v.optional(v.string()),
+        tag2: v.optional(v.string()),
+        text: v.string(),
+        textHash: v.bytes(),
+        embedding: v.array(v.float64()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const ids = [];
+    for (const embedding of args.embeddings) {
+      ids.push(await ctx.db.insert('embeddings', embedding));
+    }
+    return ids;
+  },
+});
+
 const embeddings = v.object({
-  owner: v.id('players'),
-  // Concatenation of `${player._id}-${otherPlayer._id}` so we can query
-  // for embeddings that were in a conversation with someone else.
-  conversationTag: v.string(),
+  // Unstructured tags for filtering.
+  tag1: v.optional(v.string()),
+  tag2: v.optional(v.string()),
 
   text: v.string(),
   textHash: v.bytes(),
@@ -136,7 +140,7 @@ export const embeddingsTables = {
     .index('text', ['textHash'])
     .vectorIndex('embedding', {
       vectorField: 'embedding',
-      filterFields: ['owner', 'conversationTag'],
+      filterFields: ['tag1', 'tag2'],
       dimensions: 1536,
     }),
 };
