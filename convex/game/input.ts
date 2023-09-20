@@ -85,7 +85,7 @@ async function handleLeave(
     return null;
   }
   // Stop our conversation if we're leaving the game.
-  const membership = game.conversationMembers.find((m) => m.playerId === playerId);
+  const membership = game.activeConversationMemberships().find((m) => m.playerId === playerId);
   if (membership) {
     const conversation = game.conversations.find((d) => d._id === membership.conversationId);
     if (conversation === null) {
@@ -151,10 +151,10 @@ async function handleStartConversation(
   if (!inviteePlayer.enabled) {
     throw new Error(`Invitee ${invitee} is not enabled`);
   }
-  if (game.conversationMembers.find((m) => m.playerId === playerId)) {
+  if (game.activeConversationMemberships().find((m) => m.playerId == playerId)) {
     throw new Error(`Player ${playerId} is already in a conversation`);
   }
-  if (game.conversationMembers.find((m) => m.playerId === invitee)) {
+  if (game.activeConversationMemberships().find((m) => m.playerId === invitee)) {
     throw new Error(`Invitee ${invitee} is already in a conversation`);
   }
   const conversationId = await game.conversations.insert({
@@ -185,8 +185,8 @@ async function handleAcceptInvite(
   if (!player.enabled) {
     throw new Error(`Player ${playerId} is not enabled`);
   }
-  const membership = game.conversationMembers.find((m) => m.playerId === playerId);
-  if (membership === null) {
+  const membership = game.activeConversationMemberships().find((m) => m.playerId === playerId);
+  if (!membership) {
     throw new Error(`Couldn't find invite for ${playerId}:${conversationId}`);
   }
   if (membership.status !== 'invited') {
@@ -211,9 +211,9 @@ async function handleRejectInvite(
   if (conversation === null) {
     throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
-  const membership = game.conversationMembers.find(
-    (m) => m.conversationId == conversationId && m.playerId === playerId,
-  );
+  const membership = game
+    .activeConversationMemberships()
+    .find((m) => m.conversationId == conversationId && m.playerId === playerId);
   if (!membership) {
     throw new Error(`Couldn't find membership for ${conversationId}:${playerId}`);
   }
@@ -264,9 +264,9 @@ async function handleWriteMessage(
   if (conversation === null) {
     throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
-  const membership = game.conversationMembers.find(
-    (d) => d.conversationId === conversationId && d.playerId === playerId,
-  );
+  const membership = game
+    .activeConversationMemberships()
+    .find((d) => d.conversationId === conversationId && d.playerId === playerId);
   if (!membership) {
     throw new Error(`${playerId} not in conversation ${conversationId}`);
   }
@@ -324,9 +324,9 @@ async function handleLeaveConversation(
   if (conversation === null) {
     throw new Error(`Couldn't find conversation: ${conversationId}`);
   }
-  const membership = game.conversationMembers.find(
-    (m) => m.conversationId === conversationId && m.playerId === playerId,
-  );
+  const membership = game
+    .activeConversationMemberships()
+    .find((m) => m.conversationId === conversationId && m.playerId === playerId);
   if (!membership) {
     throw new Error(`Couldn't find membership for ${conversationId}:${playerId}`);
   }
@@ -341,6 +341,8 @@ function stopConversation(game: GameState, now: number, conversation: Doc<'conve
   // Clear all memberships for the conversation.
   const memberships = game.conversationMembers.filter((d) => d.conversationId === conversation._id);
   for (const membership of memberships) {
-    game.conversationMembers.delete(membership._id);
+    if (membership.status !== 'left') {
+      membership.status = 'left';
+    }
   }
 }

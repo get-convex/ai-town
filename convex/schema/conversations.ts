@@ -19,7 +19,12 @@ const conversations = defineTable({
 const conversationMembers = defineTable({
   conversationId: v.id('conversations'),
   playerId: v.id('players'),
-  status: v.union(v.literal('invited'), v.literal('walkingOver'), v.literal('participating')),
+  status: v.union(
+    v.literal('invited'),
+    v.literal('walkingOver'),
+    v.literal('participating'),
+    v.literal('left'),
+  ),
 });
 
 const messages = defineTable({

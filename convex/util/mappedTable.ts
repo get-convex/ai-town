@@ -86,15 +86,6 @@ export class MappedTable<T extends TableNames> {
     return new Proxy<Doc<T>>(row, handlers);
   }
 
-  delete(id: Id<T>) {
-    if (!this.data.has(id)) {
-      throw new Error(`Invalid ID: ${id}`);
-    }
-    this.data.delete(id);
-    this.modified.delete(id);
-    this.deleted.add(id);
-  }
-
   async save() {
     for (const id of this.deleted) {
       await this.db.delete(id);

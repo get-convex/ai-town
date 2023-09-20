@@ -16,8 +16,8 @@ export function tick(game: GameState, now: number) {
   for (const player of game.enabledPlayers()) {
     tickPosition(game, now, player);
   }
-  for (const conversationId of game.conversations.allIds()) {
-    tickConversation(game, now, conversationId);
+  for (const conversation of game.activeConversations()) {
+    tickConversation(game, now, conversation);
   }
 }
 
@@ -88,16 +88,14 @@ function tickPosition(game: GameState, now: number, player: Doc<'players'>) {
   game.movePlayer(now, player._id, position, facing);
 }
 
-function tickConversation(game: GameState, now: number, conversationId: Id<'conversations'>) {
-  const conversation = game.conversations.lookup(conversationId);
-  if (conversation.finished) {
-    return;
-  }
-  const members = game.conversationMembers.filter((m) => m.conversationId === conversationId);
+function tickConversation(game: GameState, now: number, conversation: Doc<'conversations'>) {
+  const members = game
+    .activeConversationMemberships()
+    .filter((m) => m.conversationId === conversation._id);
+
   if (members.length !== 2) {
     return;
   }
-
   // If the players are both in the "walkingOver" state and they're sufficiently close, transition both
   // of them to "participating" and stop their paths.
   const [member1, member2] = members;

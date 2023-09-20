@@ -47,6 +47,20 @@ export class GameState {
       .filter((p) => p.enabled);
   }
 
+  activeConversations() {
+    return this.conversations
+      .allIds()
+      .map((id) => this.conversations.lookup(id))
+      .filter((c) => c.finished === undefined);
+  }
+
+  activeConversationMemberships() {
+    return this.conversationMembers
+      .allIds()
+      .map((id) => this.conversationMembers.lookup(id))
+      .filter((m) => m.status !== 'left');
+  }
+
   movePlayer(now: number, id: Id<'players'>, position: Point, facing: Vector) {
     const player = this.players.lookup(id);
     let buffer = this.playersMoved.get(id);
