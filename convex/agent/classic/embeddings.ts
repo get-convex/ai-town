@@ -1,5 +1,5 @@
 import { defineTable } from 'convex/server';
-import { convexToJson, v } from 'convex/values';
+import { v } from 'convex/values';
 import {
   ActionCtx,
   internalAction,
@@ -11,13 +11,6 @@ import * as openai from '../lib/openai';
 import { Id } from '../../_generated/dataModel';
 
 const selfInternal = internal.agent.classic.embeddings;
-
-export const debugFetchEmbeddings = internalAction({
-  args: { tag1: v.optional(v.string()), tag2: v.optional(v.string()), texts: v.array(v.string()) },
-  handler: async (ctx, args): Promise<any> => {
-    return await fetchBatch(ctx, args.texts);
-  },
-});
 
 export async function insert(ctx: ActionCtx, text: string, tag1?: string, tag2?: string) {
   const textHash = await hashText(text);
@@ -40,7 +33,20 @@ export async function insert(ctx: ActionCtx, text: string, tag1?: string, tag2?:
   return embeddingId;
 }
 
-export async function fetchBatch(ctx: ActionCtx, texts: string[]) {
+export async function fetch(
+  ctx: ActionCtx,
+  text: string,
+  writeBack?: { tag1?: string; tag2?: string },
+) {
+  const result = await fetchBatch(ctx, [text], writeBack);
+  return result.embeddings[0];
+}
+
+export async function fetchBatch(
+  ctx: ActionCtx,
+  texts: string[],
+  writeBack?: { tag1?: string; tag2?: string },
+) {
   const start = Date.now();
 
   const textHashes = await Promise.all(texts.map((text) => hashText(text)));
@@ -48,7 +54,18 @@ export async function fetchBatch(ctx: ActionCtx, texts: string[]) {
   const cacheResults = await ctx.runQuery(internal.agent.classic.embeddings.getEmbeddingsByText, {
     textHashes,
   });
-  for (const { index, embeddingId, embedding } of cacheResults) {
+  const toWrite = [];
+
+  for (const { index, embeddingId, embedding, tag1, tag2 } of cacheResults) {
+    if (writeBack && (tag1 !== writeBack.tag1 || tag2 !== writeBack.tag2)) {
+      toWrite.push({
+        text: texts[index],
+        textHash: textHashes[index],
+        tag1: writeBack.tag1,
+        tag2: writeBack.tag2,
+        embedding,
+      });
+    }
     results[index] = { embeddingId, embedding };
   }
   if (cacheResults.length < texts.length) {
@@ -61,9 +78,21 @@ export async function fetchBatch(ctx: ActionCtx, texts: string[]) {
       );
     }
     for (let i = 0; i < missingIndexes.length; i++) {
+      if (writeBack) {
+        toWrite.push({
+          text: missingTexts[i],
+          textHash: textHashes[missingIndexes[i]],
+          tag1: writeBack?.tag1,
+          tag2: writeBack?.tag2,
+          embedding: response.embeddings[i],
+        });
+      }
       const resultIndex = missingIndexes[i];
       results[resultIndex] = { embedding: response.embeddings[i] };
     }
+  }
+  if (toWrite.length > 0) {
+    await ctx.runMutation(selfInternal.writeEmbeddings, { embeddings: toWrite });
   }
   return {
     embeddings: results,
@@ -124,6 +153,32 @@ export const writeEmbeddings = internalMutation({
   },
 });
 
+export async function query(
+  ctx: ActionCtx,
+  vector: number[],
+  limit: number,
+  filter?: { tag1: string } | { tag2: string },
+) {
+  if (filter && 'tag1' in filter) {
+    return await ctx.vectorSearch('embeddings', 'embedding', {
+      vector,
+      filter: (q) => q.eq('tag1', filter.tag1),
+      limit,
+    });
+  }
+  if (filter && 'tag2' in filter) {
+    return await ctx.vectorSearch('embeddings', 'embedding', {
+      vector,
+      filter: (q) => q.eq('tag2', filter.tag2),
+      limit,
+    });
+  }
+  return await ctx.vectorSearch('embeddings', 'embedding', {
+    vector,
+    limit,
+  });
+}
+
 const embeddings = v.object({
   // Unstructured tags for filtering.
   tag1: v.optional(v.string()),
@@ -144,3 +199,10 @@ export const embeddingsTables = {
       dimensions: 1536,
     }),
 };
+
+// export const debugFetchEmbeddings = internalAction({
+//   args: { tag1: v.optional(v.string()), tag2: v.optional(v.string()), texts: v.array(v.string()) },
+//   handler: async (ctx, args): Promise<any> => {
+//     return await fetchBatch(ctx, args.texts);
+//   },
+// });

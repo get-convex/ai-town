@@ -22,9 +22,8 @@ export const debugRunAll = action({
 });
 export const debugAllPlayers = query({
   handler: async (ctx) => {
-    const humans = await ctx.db.query('humans').collect();
     const players = await ctx.db.query('players').collect();
-    return players.filter((p) => !humans.find((h) => h.playerId === p._id));
+    return players.filter((p) => !p.human);
   },
 });
 

@@ -1,4 +1,4 @@
-export const MAX_STEP = 10 * 1000;
+export const MAX_STEP = 10 * 60 * 1000;
 export const TICK = 16;
 export const STEP_INTERVAL = 1000;
 

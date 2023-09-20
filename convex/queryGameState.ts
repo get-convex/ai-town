@@ -57,6 +57,7 @@ export const playerMetadata = query({
     const member = await ctx.db
       .query('conversationMembers')
       .withIndex('playerId', (q) => q.eq('playerId', player._id))
+      .filter((q) => q.neq(q.field('status'), 'left'))
       .first();
     let conversation: (Doc<'conversations'> & { typingName?: string }) | null = null;
     if (member) {
@@ -99,7 +100,7 @@ export const listConversation = query({
         .query('messageText')
         .withIndex('messageId', (q) => q.eq('messageId', message._id))
         .collect();
-      withText.push({ authorName: author?.name, textFragments, ...message });
+      withText.push({ authorName: author.name, textFragments, ...message });
     }
     return withText;
   },

@@ -91,6 +91,7 @@ export const clear = mutation({
       'messageText',
       'players',
       'steps',
+      'conversationMemories',
     ];
     const maxRows = 1024;
     let deleted = 0;

@@ -33,10 +33,10 @@ export async function sendInput<Name extends keyof typeof inputHandlers>(
       if (r.kind !== name) {
         throw new Error(`Expected input ${inputId} to return ${name}, but got ${r.kind}!`);
       }
-      if ((r.returnValue as any).err) {
+      if ((r.returnValue as any).err !== undefined) {
         throw new Error((r.returnValue as any).message);
       }
-      if (!(r.returnValue as any).ok) {
+      if ((r.returnValue as any).ok === undefined) {
         throw new Error(`Input ${inputId} returned neither ok nor err!`);
       }
       return (r.returnValue as any).ok;
