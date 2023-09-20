@@ -12,10 +12,12 @@ import { characters } from '../../convex/data/characters.ts';
 
 const SpeechDurationMs = 2000;
 const SpokeRecentlyMs = 5_000;
-export type SelectPlayer = (playerId?: Id<'players'>) => void;
+export type SelectElement = (
+  element?: { kind: 'player'; id: Id<'players'> } | { kind: 'block'; id: Id<'blocks'> },
+) => void;
 
-export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectPlayer }) => {
-  const { player, positionBuffers, position, facing, isMoving } = props.interpolated;
+export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectElement }) => {
+  const { player, positionBuffers, position, facing, isMoving, hasBlock } = props.interpolated;
   const tileDim = map.tileDim;
   const character = characters[player.character];
   const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
@@ -32,11 +34,12 @@ export const Player = (props: { interpolated: InterpolatedPlayer; onClick: Selec
         isMoving={isMoving}
         isThinking={false}
         isSpeaking={false}
+        hasBlock={hasBlock}
         textureUrl={character.textureUrl}
         spritesheetData={character.spritesheetData}
         speed={character.speed}
         onClick={() => {
-          props.onClick(player._id);
+          props.onClick({ kind: 'player', id: player._id });
         }}
       />
     </>

@@ -26,6 +26,7 @@ export default query({
         .collect();
       conversations.push({ members, typingName, ...row });
     }
+    const blocks = await ctx.db.query('blocks').collect();
     return {
       startTs: lastStep?.startTs ?? Date.now(),
       endTs: lastStep?.endTs ?? Date.now(),
@@ -34,6 +35,7 @@ export default query({
         .query('players')
         .withIndex('enabled', (q) => q.eq('enabled', true))
         .collect(),
+      blocks,
       conversations,
     };
   },
@@ -70,13 +72,32 @@ export const playerMetadata = query({
         conversation = { typingName, ...row };
       }
     }
+    const block = await ctx.db
+      .query('blocks')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('metadata.state'), 'carried'),
+          q.eq(q.field('metadata.player'), player._id),
+        ),
+      )
+      .unique();
     return {
       _id: args.playerId,
       name: player.name,
       description: player.description,
       member,
       conversation,
+      block,
     };
+  },
+});
+
+export const blockMetadata = query({
+  args: {
+    blockId: v.id('blocks'),
+  },
+  handler: async (ctx, args) => {
+    return ctx.db.get(args.blockId);
   },
 });
 

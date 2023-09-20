@@ -45,6 +45,7 @@ import type * as game_state from "../game/state";
 import type * as game_tick from "../game/tick";
 import type * as humans from "../humans";
 import type * as queryGameState from "../queryGameState";
+import type * as schema_blocks from "../schema/blocks";
 import type * as schema_conversations from "../schema/conversations";
 import type * as schema_engine from "../schema/engine";
 import type * as schema_input from "../schema/input";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "game/tick": typeof game_tick;
   humans: typeof humans;
   queryGameState: typeof queryGameState;
+  "schema/blocks": typeof schema_blocks;
   "schema/conversations": typeof schema_conversations;
   "schema/engine": typeof schema_engine;
   "schema/input": typeof schema_input;

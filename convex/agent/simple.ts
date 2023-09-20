@@ -22,8 +22,10 @@ export const debugRunAll = action({
 });
 export const debugAllPlayers = query({
   handler: async (ctx) => {
+    // @ts-expect-error
     const humans = await ctx.db.query('humans').collect();
     const players = await ctx.db.query('players').collect();
+    // @ts-expect-error
     return players.filter((p) => !humans.find((h) => h.playerId === p._id));
   },
 });
@@ -33,7 +35,7 @@ export const simpleAgent = action({
     playerId: v.id('players'),
   },
   handler: async (ctx, args) => {
-    const { player, otherPlayers } = await ctx.runQuery(api.agent.simple.queryState, args);
+    const { player, otherPlayers, blocks } = await ctx.runQuery(api.agent.simple.queryState, args);
     const conversation = player.conversation;
 
     const isWalking = player.pathfinding !== undefined;
@@ -70,7 +72,12 @@ export const simpleAgent = action({
       // If we're walking over, try to walk towards our conversation partner.
       if (conversation.membership.status === 'walkingOver' && !isWalking) {
         // Find a free spot somewhere near our midpoint.
-        const destination = await conversationDestination(conversation._id, player, otherPlayers);
+        const destination = await conversationDestination(
+          conversation._id,
+          player,
+          otherPlayers,
+          blocks,
+        );
         if (destination) {
           console.log(`Walking to conversation buddy at ${JSON.stringify(destination)}`);
           await sendInput(ctx, 'moveTo', {
@@ -131,9 +138,11 @@ export const queryState = query({
       const conversation = await activeConversation(ctx.db, args.playerId);
       otherPlayers.push({ ...otherPlayer, conversation });
     }
+    const blocks = await ctx.db.query('blocks').collect();
     return {
       player: { conversation, ...player },
       otherPlayers,
+      blocks,
     };
   },
 });
@@ -173,6 +182,7 @@ async function conversationDestination(
   conversationId: Id<'conversations'>,
   player: Doc<'players'>,
   otherPlayers: OtherPlayers,
+  blocks: Array<Doc<'blocks'>>,
 ) {
   const otherPlayer = otherPlayers.find(
     (p) => p.conversation && p.conversation._id == conversationId,
@@ -189,7 +199,7 @@ async function conversationDestination(
   for (let x = 0; x < world.width; x++) {
     for (let y = 0; y < world.height; y++) {
       const candidate = { x, y };
-      if (blocked(allPlayers, candidate, player)) {
+      if (blocked(allPlayers, blocks, candidate, player._id)) {
         continue;
       }
       candidates.push(candidate);

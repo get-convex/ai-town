@@ -1,4 +1,4 @@
-import { Doc } from '../_generated/dataModel';
+import { Doc, Id } from '../_generated/dataModel';
 import { movementSpeed } from '../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
 import { map, world } from '../data/world';
@@ -23,7 +23,8 @@ export function findRoute(
   destination: Point,
 ): Path | string {
   const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
-  if (blocked(allPlayers, destination, player)) {
+  const allBlocks = game.freeBlocks();
+  if (blocked(allPlayers, allBlocks, destination, player._id)) {
     return 'destination blocked';
   }
   const minDistances: PathCandidate[][] = [];
@@ -61,7 +62,7 @@ export function findRoute(
     for (const { position, facing } of neighbors) {
       const segmentLength = distance(current.position, position);
       const length = current.length + segmentLength;
-      if (blocked(allPlayers, position, player)) {
+      if (blocked(allPlayers, allBlocks, position, player._id)) {
         continue;
       }
       const remaining = manhattanDistance(position, destination);
@@ -125,7 +126,12 @@ export function findRoute(
   return densePath;
 }
 
-export function blocked(allPlayers: Doc<'players'>[], pos: Point, player?: Doc<'players'>) {
+export function blocked(
+  allPlayers: Doc<'players'>[],
+  allBlocks: Doc<'blocks'>[],
+  pos: Point,
+  playerId?: Id<'players'>,
+) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
@@ -135,8 +141,16 @@ export function blocked(allPlayers: Doc<'players'>[], pos: Point, player?: Doc<'
   if (map.objectTiles[Math.floor(pos.y)][Math.floor(pos.x)] !== -1) {
     return 'world blocked';
   }
+  for (const block of allBlocks) {
+    if (
+      block.metadata.state !== 'carried' &&
+      distance(block.metadata.position, pos) < COLLISION_THRESHOLD
+    ) {
+      return 'block collision';
+    }
+  }
   for (const otherPlayer of allPlayers) {
-    if (player && otherPlayer._id === player._id) {
+    if (otherPlayer._id === playerId) {
       continue;
     }
     if (distance(otherPlayer.position, pos) < COLLISION_THRESHOLD) {

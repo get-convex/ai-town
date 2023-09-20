@@ -1,5 +1,5 @@
 import { useApp, useTick } from '@pixi/react';
-import { Player, SelectPlayer } from './Player.tsx';
+import { Player, SelectElement } from './Player.tsx';
 import { useRef, useState } from 'react';
 import { ServerState, GameState, DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
@@ -9,13 +9,14 @@ import { Viewport } from 'pixi-viewport';
 import DestinationMarker from './DestinationMarker.tsx';
 import { Id } from '../../convex/_generated/dataModel';
 import { toastOnError } from '../toasts.ts';
+import { Block } from './Block.tsx';
 
 export const Game = (props: {
   serverState: ServerState;
   humanPlayerId: Id<'players'> | null;
   width: number;
   height: number;
-  setSelectedPlayer: SelectPlayer;
+  setSelectedElement: SelectElement;
 }) => {
   // PIXI setup.
   const pixiApp = useApp();
@@ -87,6 +88,7 @@ export const Game = (props: {
     inflightDestination = input.args.destination;
   }
   humanDestination = inflightDestination ?? humanDestination;
+  const blocks = state.blocks;
   return (
     <PixiViewport
       app={pixiApp}
@@ -102,9 +104,22 @@ export const Game = (props: {
           <Player
             key={interpolated.player._id}
             interpolated={interpolated}
-            onClick={props.setSelectedPlayer}
+            onClick={props.setSelectedElement}
           />
         ))}
+      {blocks &&
+        blocks.map((b) => {
+          return b.metadata.state !== 'carried' ? (
+            <Block
+              key={b._id}
+              x={b.metadata.position.x}
+              y={b.metadata.position.y}
+              onClick={() => props.setSelectedElement({ kind: 'block', id: b._id })}
+            />
+          ) : (
+            ''
+          );
+        })}
       {DEBUG_POSITIONS && humanDestination && <DestinationMarker destination={humanDestination} />}
     </PixiViewport>
   );

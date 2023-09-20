@@ -1,6 +1,6 @@
 import { assertNever } from '../util/assertNever';
 import { GameState } from './state';
-import { pointsEqual } from '../util/geometry';
+import { manhattanDistance, pointsEqual } from '../util/geometry';
 import { Infer } from 'convex/values';
 import { InputArgs, InputReturnValue, args } from '../schema/input';
 import { characters } from '../data/characters';
@@ -30,6 +30,12 @@ export async function handleInput(game: GameState, now: number, input: Infer<typ
       return await handleFinishWriting(game, now, input.args);
     case 'leaveConversation':
       return await handleLeaveConversation(game, now, input.args);
+    case 'addBlock':
+      return await addBlock(game, now, input.args);
+    case 'pickUpBlock':
+      return await pickUpBlock(game, now, input.args);
+    case 'setDownBlock':
+      return await setDownBlock(game, now, input.args);
     default:
       assertNever(input);
   }
@@ -41,13 +47,14 @@ async function handleJoin(
   { name, description, tokenIdentifier }: InputArgs<'join'>,
 ): Promise<InputReturnValue<'join'>> {
   const allPlayers = game.enabledPlayers();
+  const allBlocks = game.freeBlocks();
   let position;
   for (let attempt = 0; attempt < 10; attempt++) {
     const candidate = {
       x: Math.floor(Math.random() * world.width),
       y: Math.floor(Math.random() * world.height),
     };
-    if (blocked(allPlayers, candidate)) {
+    if (blocked(allPlayers, allBlocks, candidate)) {
       continue;
     }
     position = candidate;
@@ -331,6 +338,109 @@ async function handleLeaveConversation(
     throw new Error(`Couldn't find membership for ${conversationId}:${playerId}`);
   }
   stopConversation(game, now, conversation);
+  return null;
+}
+
+async function addBlock(game: GameState, now: number, _args: InputArgs<'addBlock'>) {
+  const allPlayers = game.enabledPlayers();
+  const allBlocks = game.freeBlocks();
+  let position;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = {
+      x: Math.floor(Math.random() * world.width),
+      y: Math.floor(Math.random() * world.height),
+    };
+    if (blocked(allPlayers, allBlocks, candidate)) {
+      continue;
+    }
+    position = candidate;
+    break;
+  }
+  if (!position) {
+    throw new Error(`Failed to find a free position!`);
+  }
+  const blockId = await game.blocks.insert({
+    metadata: {
+      state: 'placed',
+      position,
+    },
+  });
+  return null;
+}
+
+async function pickUpBlock(
+  game: GameState,
+  _now: number,
+  { playerId, blockId }: InputArgs<'pickUpBlock'>,
+) {
+  const block = game.blocks.lookup(blockId);
+  const player = game.players.lookup(playerId);
+  if (!player.enabled) {
+    throw new Error(`Player ${playerId} is not enabled`);
+  }
+  if (block.metadata.state === 'carried') {
+    throw new Error(`Block ${block._id} cannot be picked up`);
+  }
+  const existingCarriedBlocks = game.blocks.filter(
+    (b) => b.metadata.state === 'carried' && b.metadata.player === playerId,
+  );
+  if (existingCarriedBlocks.length !== 0) {
+    throw new Error(`Player ${playerId} is already carrying a block`);
+  }
+  const existingBlocksForPlayer = game.blocks.filter((b) => {
+    return b.metadata.state === 'waitingForNearby' && b.metadata.player === playerId;
+  });
+  existingBlocksForPlayer.forEach((b) => {
+    b.metadata = {
+      state: 'placed',
+      // @ts-expect-error -- ugh I want either a forEach or to filter with a typeguard
+      position: b.metadata.position,
+    };
+  });
+  if (manhattanDistance(player.position, block.metadata.position) <= 1) {
+    block.metadata = {
+      state: 'carried',
+      player: player._id,
+    };
+  } else {
+    block.metadata = {
+      state: 'waitingForNearby',
+      player: player._id,
+      position: block.metadata.position,
+    };
+  }
+  return null;
+}
+
+async function setDownBlock(
+  game: GameState,
+  _now: number,
+  { playerId, blockId }: InputArgs<'setDownBlock'>,
+) {
+  const block = game.blocks.lookup(blockId);
+  const player = game.players.lookup(playerId);
+  const allPlayers = game.enabledPlayers();
+  const allBlocks = game.freeBlocks();
+  if (!player.enabled) {
+    throw new Error(`Player ${playerId} is not enabled`);
+  }
+  if (block.metadata.state !== 'carried') {
+    throw new Error(`Block ${block._id} cannot be set down`);
+  }
+  if (block.metadata.player !== playerId) {
+    throw new Error(`Block ${blockId} is not carried by player ${playerId}`);
+  }
+  const positionInFront = {
+    x: Math.round(player.position.x + player.facing.dx),
+    y: Math.round(player.position.y + player.facing.dy),
+  };
+  if (blocked(allPlayers, allBlocks, positionInFront)) {
+    throw new Error(`Position to place block is occupied!`);
+  }
+  block.metadata = {
+    state: 'placed',
+    position: positionInFront,
+  };
   return null;
 }
 

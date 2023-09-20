@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
-import { DatabaseWriter, mutation } from './_generated/server';
+import { DatabaseReader, DatabaseWriter, mutation } from './_generated/server';
 import { world } from './data/world';
 import { insertInput } from './engine';
-import { TableNames } from './_generated/dataModel';
+import { Id, TableNames } from './_generated/dataModel';
 import { GameState } from './game/state';
 import { blocked } from './game/movement';
 
@@ -21,6 +21,35 @@ export const addManyPlayers = mutation({
   },
 });
 
+export const addManyBlocks = mutation({
+  handler: async (ctx) => {
+    for (let j = 0; j < 10; j++) {
+      await insertInput(ctx.db, Date.now(), {
+        kind: 'addBlock',
+        args: {},
+      });
+    }
+  },
+});
+
+const getRandomEmptyPosition = async (db: DatabaseReader, playerId?: Id<'players'>) => {
+  const allPlayers = await db.query('players').collect();
+  const allBlocks = await db.query('blocks').collect();
+  for (let i = 0; i < 10; i++) {
+    const candidate = {
+      x: Math.floor(Math.random() * world.width),
+      y: Math.floor(Math.random() * world.height),
+    };
+    const collision = blocked(allPlayers, allBlocks, candidate);
+    if (collision !== null) {
+      console.warn(`Candidate ${JSON.stringify(candidate)} failed: ${collision}`);
+      continue;
+    }
+    return candidate;
+  }
+  return null;
+};
+
 export const randomPositions = mutation({
   args: {
     max: v.optional(v.number()),
@@ -28,7 +57,6 @@ export const randomPositions = mutation({
   handler: async (ctx, args) => {
     const gameState = await GameState.load(Date.now(), ctx.db);
     let inserted = 0;
-    const allPlayers = await ctx.db.query('players').collect();
     for (const playerId of gameState.players.allIds()) {
       if (args.max && inserted >= args.max) {
         break;
@@ -37,22 +65,7 @@ export const randomPositions = mutation({
       if (player.human) {
         continue;
       }
-      let position;
-      for (let i = 0; i < 10; i++) {
-        const candidate = {
-          x: Math.floor(Math.random() * world.width),
-          y: Math.floor(Math.random() * world.height),
-        };
-        const collision = blocked(allPlayers, candidate, player);
-        if (collision !== null) {
-          console.warn(
-            `Candidate ${JSON.stringify(candidate)} failed for ${player.name}: ${collision}`,
-          );
-          continue;
-        }
-        position = candidate;
-        break;
-      }
+      const position = await getRandomEmptyPosition(ctx.db, playerId);
       if (!position) {
         console.error(`Failed to find a free position for ${player.name}!`);
         continue;
@@ -91,6 +104,7 @@ export const clear = mutation({
       'messageText',
       'players',
       'steps',
+      'blocks',
     ];
     const maxRows = 1024;
     let deleted = 0;

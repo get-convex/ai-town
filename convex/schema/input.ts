@@ -95,6 +95,26 @@ export const inputHandlers = {
     }),
     returnValue: v.null(),
   },
+  // Pick up block.
+  pickUpBlock: {
+    args: v.object({
+      playerId: v.id('players'),
+      blockId: v.id('blocks'),
+    }),
+    returnValue: v.null(),
+  },
+  // Set down block.
+  setDownBlock: {
+    args: v.object({
+      playerId: v.id('players'),
+      blockId: v.id('blocks'),
+    }),
+    returnValue: v.null(),
+  },
+  addBlock: {
+    args: v.object({}),
+    returnValue: v.null(),
+  },
 };
 
 // TODO: Ideally everything below this point would be handled by codegen.
@@ -143,6 +163,18 @@ export const args = v.union(
   v.object({
     kind: v.literal('leaveConversation'),
     args: inputHandlers['leaveConversation'].args,
+  }),
+  v.object({
+    kind: v.literal('pickUpBlock'),
+    args: inputHandlers['pickUpBlock'].args,
+  }),
+  v.object({
+    kind: v.literal('setDownBlock'),
+    args: inputHandlers['setDownBlock'].args,
+  }),
+  v.object({
+    kind: v.literal('addBlock'),
+    args: inputHandlers['addBlock'].args,
   }),
 );
 export const returnValue = v.union(
@@ -213,6 +245,27 @@ export const returnValue = v.union(
     kind: v.literal('leaveConversation'),
     returnValue: v.union(
       v.object({ ok: inputHandlers['leaveConversation'].returnValue }),
+      v.object({ err: v.string() }),
+    ),
+  }),
+  v.object({
+    kind: v.literal('pickUpBlock'),
+    returnValue: v.union(
+      v.object({ ok: inputHandlers['pickUpBlock'].returnValue }),
+      v.object({ err: v.string() }),
+    ),
+  }),
+  v.object({
+    kind: v.literal('setDownBlock'),
+    returnValue: v.union(
+      v.object({ ok: inputHandlers['setDownBlock'].returnValue }),
+      v.object({ err: v.string() }),
+    ),
+  }),
+  v.object({
+    kind: v.literal('addBlock'),
+    returnValue: v.union(
+      v.object({ ok: inputHandlers['addBlock'].returnValue }),
       v.object({ err: v.string() }),
     ),
   }),

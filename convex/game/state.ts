@@ -14,6 +14,7 @@ export class GameState {
     public conversations: MappedTable<'conversations'>,
     public conversationMembers: MappedTable<'conversationMembers'>,
     public messages: MappedTable<'messages'>,
+    public blocks: MappedTable<'blocks'>,
   ) {}
 
   static async load(startTs: number, db: DatabaseWriter) {
@@ -31,12 +32,15 @@ export class GameState {
     // TODO: Only load messages for active conversations.
     const messages = await db.query('messages').collect();
 
+    const blocks = await db.query('blocks').collect();
+
     return new GameState(
       startTs,
       new MappedTable('players', db, players),
       new MappedTable('conversations', db, conversations),
       new MappedTable('conversationMembers', db, conversationMembers),
       new MappedTable('messages', db, messages),
+      new MappedTable('blocks', db, blocks),
     );
   }
 
@@ -45,6 +49,13 @@ export class GameState {
       .allIds()
       .map((id) => this.players.lookup(id))
       .filter((p) => p.enabled);
+  }
+
+  freeBlocks() {
+    return this.blocks
+      .allIds()
+      .map((id) => this.blocks.lookup(id))
+      .filter((b) => b.metadata.state !== 'carried');
   }
 
   activeConversations() {
@@ -105,5 +116,6 @@ export class GameState {
     this.conversations.save();
     this.conversationMembers.save();
     this.messages.save();
+    this.blocks.save();
   }
 }

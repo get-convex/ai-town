@@ -5,7 +5,15 @@ import {
   PATHFINDING_TIMEOUT,
   TYPING_TIMEOUT,
 } from '../constants';
-import { EPSILON, distance, normalize, pathPosition, pointsEqual, vector } from '../util/geometry';
+import {
+  EPSILON,
+  distance,
+  manhattanDistance,
+  normalize,
+  pathPosition,
+  pointsEqual,
+  vector,
+} from '../util/geometry';
 import { blocked, findRoute } from './movement';
 import { GameState } from './state';
 
@@ -18,6 +26,9 @@ export function tick(game: GameState, now: number) {
   }
   for (const conversation of game.activeConversations()) {
     tickConversation(game, now, conversation);
+  }
+  for (const block of game.freeBlocks()) {
+    tickBlock(game, now, block);
   }
 }
 
@@ -74,7 +85,8 @@ function tickPosition(game: GameState, now: number, player: Doc<'players'>) {
   }
   const { position, facing } = candidate;
   const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
-  const collisionReason = blocked(allPlayers, position, player);
+  const allBlocks = game.freeBlocks();
+  const collisionReason = blocked(allPlayers, allBlocks, position, player._id);
   if (collisionReason !== null) {
     const backoff = Math.random() * PATHFINDING_BACKOFF;
     console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);
@@ -133,5 +145,19 @@ function tickConversation(game: GameState, now: number, conversation: Doc<'conve
   if (conversation.typing && conversation.typing.started + TYPING_TIMEOUT < now) {
     console.log(`Expiring player ${conversation.typing.playerId}'s typing indicator.`);
     delete conversation.typing;
+  }
+}
+
+function tickBlock(game: GameState, now: number, block: Doc<'blocks'>) {
+  if (block.metadata.state !== 'waitingForNearby') {
+    return;
+  }
+  const playerId = block.metadata.player;
+  const player = game.players.lookup(playerId);
+  if (manhattanDistance(player.position, block.metadata.position) <= 1) {
+    block.metadata = {
+      state: 'carried',
+      player: playerId,
+    };
   }
 }

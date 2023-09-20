@@ -6,6 +6,7 @@ import { PositionBuffer } from '../convex/util/positionBuffer.ts';
 import { STEP_INTERVAL } from '../convex/constants.ts';
 import { InputArgs, InputReturnValue, inputHandlers } from '../convex/schema/input.ts';
 import { ConvexReactClient } from 'convex/react';
+import { v } from 'convex/values';
 
 const LOGGING_INTERVAL = 1736;
 export const DEBUG_POSITIONS = true;
@@ -19,6 +20,7 @@ const SOFT_MIN_SERVER_BUFFER_AGE = 100;
 export type GameState = {
   serverTimestamp: number;
   players: Record<Id<'players'>, InterpolatedPlayer>;
+  blocks: Array<Doc<'blocks'>>;
   inflightInputs: Array<{ name: string; args: any }>;
 };
 
@@ -26,6 +28,7 @@ export type InterpolatedPlayer = {
   position: Point;
   facing: Vector;
   isMoving: boolean;
+  hasBlock: boolean;
 
   player: Doc<'players'>;
   positionBuffers?: PositionBuffer[];
@@ -33,6 +36,7 @@ export type InterpolatedPlayer = {
 
 type ServerSnapshot = {
   players: { player: Doc<'players'>; previousPositions?: PositionBuffer }[];
+  blocks: Array<Doc<'blocks'>>;
   serverStartTs: number;
   serverEndTs: number;
 };
@@ -99,6 +103,7 @@ export class ServerState {
           player.previousPositions && PositionBuffer.unpack(player.previousPositions);
         return { player, previousPositions };
       }),
+      blocks: gameState.blocks,
       serverStartTs: gameState.startTs,
       serverEndTs: gameState.endTs,
     };
@@ -160,6 +165,11 @@ export class ServerState {
     }
 
     const snapshot = this.snapshots[chosen];
+    const playersWithBlock = new Set(
+      snapshot.blocks.map((b) => {
+        return b.metadata.state === 'carried' ? b.metadata.player : null;
+      }),
+    );
 
     const players: Record<Id<'players'>, InterpolatedPlayer> = {};
     for (const { player, previousPositions } of snapshot.players) {
@@ -167,6 +177,7 @@ export class ServerState {
         position: player.position,
         facing: player.facing,
         isMoving: false,
+        hasBlock: playersWithBlock.has(player._id),
         player,
       };
       if (previousPositions) {
@@ -211,6 +222,7 @@ export class ServerState {
     return {
       serverTimestamp: serverTs,
       players,
+      blocks: snapshot.blocks,
       inflightInputs,
     };
   }

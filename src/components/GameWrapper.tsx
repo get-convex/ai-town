@@ -9,12 +9,15 @@ import PlayerDetails from './PlayerDetails.tsx';
 import { api } from '../../convex/_generated/api';
 import { GameState, ServerState } from '../serverState.ts';
 import { DebugPlot } from './DebugPlot.tsx';
+import BlockDetails from './BlockDetails.tsx';
 
 const SHOW_DEBUG_PLOT = true;
 
 export default function GameWrapper() {
   const convex = useConvex();
-  const [selectedPlayer, setSelectedPlayer] = useState<Id<'players'>>();
+  const [selectedElement, setSelectedElement] = useState<
+    { kind: 'player'; id: Id<'players'> } | { kind: 'block'; id: Id<'blocks'> }
+  >();
   const [gameWrapperRef, { width, height }] = useElementSize();
   const humanPlayerId = useQuery(api.humans.humanStatus) ?? null;
 
@@ -43,7 +46,7 @@ export default function GameWrapper() {
                   humanPlayerId={humanPlayerId}
                   width={width}
                   height={height}
-                  setSelectedPlayer={setSelectedPlayer}
+                  setSelectedElement={setSelectedElement}
                 />
               </Stage>
             </div>
@@ -51,12 +54,20 @@ export default function GameWrapper() {
         </div>
         {/* Right column area */}
         <div className="flex flex-col overflow-y-auto shrink-0 px-4 py-6 sm:px-6 lg:w-96 xl:pr-6 bg-brown-800 text-brown-100">
-          <PlayerDetails
-            serverState={serverState}
-            humanPlayerId={humanPlayerId}
-            playerId={selectedPlayer}
-            setSelectedPlayer={setSelectedPlayer}
-          />
+          {selectedElement?.kind === 'block' ? (
+            <BlockDetails
+              serverState={serverState}
+              blockId={selectedElement.id}
+              setSelectedElement={setSelectedElement}
+            />
+          ) : (
+            <PlayerDetails
+              serverState={serverState}
+              humanPlayerId={humanPlayerId}
+              playerId={selectedElement?.id}
+              setSelectedElement={setSelectedElement}
+            />
+          )}
         </div>
       </div>
     </>
