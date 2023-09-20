@@ -9,6 +9,7 @@ import { point } from '../util/types';
 // positions over the last step. Eventually we can pull this
 // out into something engine managed.
 const blocks = defineTable({
+  emoji: v.string(),
   metadata: v.union(
     v.object({
       state: v.literal('waitingForNearby'),

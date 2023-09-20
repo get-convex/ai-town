@@ -61,12 +61,15 @@ function tickPathfinding(game: GameState, now: number, player: Doc<'players'>) {
   // Perform pathfinding if needed.
   if (pathfinding.state.kind === 'needsPath') {
     const path = findRoute(game, now, player, pathfinding.destination);
-    if (typeof path === 'string') {
+    if (path.length === 1) {
       console.log(`Failed to route: ${path}`);
       delete player.pathfinding;
-    } else {
-      pathfinding.state = { kind: 'moving', path };
     }
+    pathfinding.state = {
+      kind: 'moving',
+      path: path,
+    };
+    pathfinding.destination = path.at(-1)!.position;
   }
 }
 

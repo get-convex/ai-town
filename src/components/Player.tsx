@@ -17,7 +17,7 @@ export type SelectElement = (
 ) => void;
 
 export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectElement }) => {
-  const { player, positionBuffers, position, facing, isMoving, hasBlock } = props.interpolated;
+  const { player, positionBuffers, position, facing, isMoving, block } = props.interpolated;
   const tileDim = map.tileDim;
   const character = characters[player.character];
   const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
@@ -34,7 +34,7 @@ export const Player = (props: { interpolated: InterpolatedPlayer; onClick: Selec
         isMoving={isMoving}
         isThinking={false}
         isSpeaking={false}
-        hasBlock={hasBlock}
+        blockEmoji={block?.emoji}
         textureUrl={character.textureUrl}
         spritesheetData={character.spritesheetData}
         speed={character.speed}

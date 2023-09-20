@@ -5,7 +5,17 @@ import * as PIXI from 'pixi.js';
 import { data as f1SpritesheetData } from '../../convex/data/spritesheets/f1';
 import { map } from '../../convex/data/world';
 
-export const Block = ({ x, y, onClick }: { x: number; y: number; onClick: () => void }) => {
+export const Block = ({
+  x,
+  y,
+  emoji,
+  onClick,
+}: {
+  x: number;
+  y: number;
+  emoji: string;
+  onClick: () => void;
+}) => {
   // The first "left" is "right" but reflected.
   const tileDim = map.tileDim;
 
@@ -21,7 +31,7 @@ export const Block = ({ x, y, onClick }: { x: number; y: number; onClick: () => 
       pointerdown={onClick}
       cursor="pointer"
     >
-      <Text text={'📦'} scale={{ x: 1, y: 1 }} anchor={{ x: 0.5, y: 0.5 }} />
+      <Text text={emoji} scale={{ x: 1, y: 1 }} anchor={{ x: 0.5, y: 0.5 }} />
     </Container>
   );
 };

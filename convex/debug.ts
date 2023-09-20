@@ -82,6 +82,81 @@ export const randomPositions = mutation({
   },
 });
 
+export const randomBlockActions = mutation({
+  args: {},
+  handler: async (ctx, args) => {
+    const gameState = await GameState.load(Date.now(), ctx.db);
+    const players = gameState.enabledPlayers();
+    for (const player of players) {
+      const carriedBlock = gameState.blocks.filter(
+        (b) => b.metadata.state === 'carried' && b.metadata.player === player._id,
+      )[0];
+
+      // If we're carrying a block, find somewhere to set it down
+      if (carriedBlock) {
+        if (Math.random() < 0.25) {
+          const destination = await getRandomEmptyPosition(ctx.db, player._id);
+          await insertInput(ctx.db, Date.now(), {
+            kind: 'moveTo',
+            args: {
+              playerId: player._id,
+              destination,
+            },
+          });
+          break;
+        }
+        await insertInput(ctx.db, Date.now(), {
+          kind: 'setDownBlock',
+          args: {
+            playerId: player._id,
+            blockId: carriedBlock._id,
+          },
+        });
+
+        const destination = await getRandomEmptyPosition(ctx.db, player._id);
+        await insertInput(ctx.db, Date.now(), {
+          kind: 'moveTo',
+          args: {
+            playerId: player._id,
+            destination,
+          },
+        });
+        break;
+      }
+
+      const freeBlocks = gameState.freeBlocks();
+      if (freeBlocks.length === 0) {
+        const destination = await getRandomEmptyPosition(ctx.db, player._id);
+        await insertInput(ctx.db, Date.now(), {
+          kind: 'moveTo',
+          args: {
+            playerId: player._id,
+            destination,
+          },
+        });
+        break;
+      }
+      const block = freeBlocks[Math.floor(Math.random() * freeBlocks.length)];
+      await insertInput(ctx.db, Date.now(), {
+        kind: 'moveTo',
+        args: {
+          playerId: player._id,
+          // @ts-expect-error ugh
+          destination: block.metadata.position,
+        },
+      });
+
+      await insertInput(ctx.db, Date.now(), {
+        kind: 'pickUpBlock',
+        args: {
+          playerId: player._id,
+          blockId: block._id,
+        },
+      });
+    }
+  },
+});
+
 export const acceptAllInvites = mutation({
   handler: async (ctx) => {
     const members = await ctx.db.query('conversationMembers').collect();

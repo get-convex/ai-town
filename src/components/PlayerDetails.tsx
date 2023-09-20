@@ -62,7 +62,6 @@ export default function PlayerDetails(props: {
     humanPlayer.member?.status === 'participating';
 
   const canSetDownBlock = humanPlayer && humanPlayer.block !== null;
-  console.log('#### canSetDownBlock', canSetDownBlock);
 
   const startConversation = async () => {
     if (!props.humanPlayerId || !props.playerId) {

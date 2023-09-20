@@ -359,7 +359,9 @@ async function addBlock(game: GameState, now: number, _args: InputArgs<'addBlock
   if (!position) {
     throw new Error(`Failed to find a free position!`);
   }
+  const allEmojis = ['🌹', '💐', '🌸', '🌻', '🍔', '🍕', '🍣', '🔪', '🐍'];
   const blockId = await game.blocks.insert({
+    emoji: allEmojis[Math.floor(Math.random() * allEmojis.length)],
     metadata: {
       state: 'placed',
       position,
@@ -430,18 +432,26 @@ async function setDownBlock(
   if (block.metadata.player !== playerId) {
     throw new Error(`Block ${blockId} is not carried by player ${playerId}`);
   }
-  const positionInFront = {
-    x: Math.round(player.position.x + player.facing.dx),
-    y: Math.round(player.position.y + player.facing.dy),
+  const roundedPosition = {
+    x: Math.round(player.position.x),
+    y: Math.round(player.position.y),
   };
-  if (blocked(allPlayers, allBlocks, positionInFront)) {
-    throw new Error(`Position to place block is occupied!`);
+  const candidatePositions = [
+    { x: roundedPosition.x + 1, y: roundedPosition.y },
+    { x: roundedPosition.x - 1, y: roundedPosition.y },
+    { x: roundedPosition.x, y: roundedPosition.y + 1 },
+    { x: roundedPosition.x, y: roundedPosition.y - 1 },
+  ];
+  for (const position of candidatePositions) {
+    if (!blocked(allPlayers, allBlocks, position)) {
+      block.metadata = {
+        state: 'placed',
+        position,
+      };
+      return null;
+    }
   }
-  block.metadata = {
-    state: 'placed',
-    position: positionInFront,
-  };
-  return null;
+  throw new Error(`Position to place block is occupied!`);
 }
 
 function stopConversation(game: GameState, now: number, conversation: Doc<'conversations'>) {

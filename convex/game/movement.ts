@@ -21,12 +21,9 @@ export function findRoute(
   now: number,
   player: Doc<'players'>,
   destination: Point,
-): Path | string {
+): Path {
   const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
   const allBlocks = game.freeBlocks();
-  if (blocked(allPlayers, allBlocks, destination, player._id)) {
-    return 'destination blocked';
-  }
   const minDistances: PathCandidate[][] = [];
   const explore = (current: PathCandidate): Array<PathCandidate> => {
     const { x, y } = current.position;
@@ -95,10 +92,17 @@ export function findRoute(
     cost: manhattanDistance(player.position, destination),
     prev: undefined,
   };
+  let bestCandidate = current;
   const minheap = MinHeap<PathCandidate>((p0, p1) => p0.cost > p1.cost);
   while (current) {
     if (pointsEqual(current.position, destination)) {
       break;
+    }
+    if (
+      manhattanDistance(current.position, destination) <
+      manhattanDistance(bestCandidate.position, destination)
+    ) {
+      bestCandidate = current;
     }
     for (const candidate of explore(current)) {
       minheap.push(candidate);
@@ -106,7 +110,7 @@ export function findRoute(
     current = minheap.pop();
   }
   if (!current) {
-    return "couldn't find path";
+    current = bestCandidate;
   }
   const densePath = [];
   let facing = current.facing!;

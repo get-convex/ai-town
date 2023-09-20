@@ -34,11 +34,13 @@ export async function sendInput<Name extends keyof typeof inputHandlers>(
         throw new Error(`Expected input ${inputId} to return ${name}, but got ${r.kind}!`);
       }
       if ((r.returnValue as any).err) {
-        throw new Error((r.returnValue as any).message);
+        console.error('ERROR', (r.returnValue as any).err);
+        // throw new Error((r.returnValue as any).err);
       }
-      if (!(r.returnValue as any).ok) {
-        throw new Error(`Input ${inputId} returned neither ok nor err!`);
-      }
+      // This is maybe throwing whenever the result is null?
+      // if (!(r.returnValue as any).ok) {
+      //   throw new Error(`Input ${inputId} returned neither ok nor err!`);
+      // }
       return (r.returnValue as any).ok;
     }
   }

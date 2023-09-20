@@ -114,6 +114,7 @@ export const Game = (props: {
               key={b._id}
               x={b.metadata.position.x}
               y={b.metadata.position.y}
+              emoji={b.emoji}
               onClick={() => props.setSelectedElement({ kind: 'block', id: b._id })}
             />
           ) : (

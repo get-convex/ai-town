@@ -78,7 +78,7 @@ export default function BlockDetails(props: {
     await toastOnError(
       props.serverState.sendInput('moveTo', {
         playerId: humanPlayer._id,
-        destination: { x: block.metadata.position.x - 1, y: block.metadata.position.y },
+        destination: block.metadata.position,
       }),
     );
   };

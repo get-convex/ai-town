@@ -36,86 +36,63 @@ export const simpleAgent = action({
   },
   handler: async (ctx, args) => {
     const { player, otherPlayers, blocks } = await ctx.runQuery(api.agent.simple.queryState, args);
-    const conversation = player.conversation;
+    // const conversation = player.conversation;
 
-    const isWalking = player.pathfinding !== undefined;
+    const carriedBlock = blocks.filter(
+      (b) => b.metadata.state === 'carried' && b.metadata.player === player._id,
+    )[0];
 
-    // If we're not in a conversation, try to start one.
-    if (!conversation) {
-      const candidate = await conversationCandidate(player, otherPlayers);
-      if (candidate) {
-        console.log(`Starting conversation with ${candidate.name}`);
-        await sendInput(ctx, 'startConversation', {
+    // If we're carrying a block, find somewhere to set it down
+    if (carriedBlock) {
+      if (Math.random() < 0.5) {
+        const destination = {
+          x: Math.floor(Math.random() * world.width),
+          y: Math.floor(Math.random() * world.height),
+        };
+        await sendInput(ctx, 'moveTo', {
           playerId: player._id,
-          invitee: candidate._id,
+          destination,
         });
+        return;
       }
+      await sendInput(ctx, 'setDownBlock', {
+        playerId: player._id,
+        blockId: carriedBlock._id,
+      });
+      const destination = {
+        x: Math.floor(Math.random() * world.width),
+        y: Math.floor(Math.random() * world.height),
+      };
+      await sendInput(ctx, 'moveTo', {
+        playerId: player._id,
+        destination,
+      });
+      return;
     }
-    // If we are in a conversation...
-    if (conversation) {
-      // ...and currently invited, say yes with probability 75%!
-      if (conversation.membership.status === 'invited') {
-        if (Math.random() < 0.75) {
-          console.log(`Accepting invitation for ${conversation._id}`);
-          await sendInput(ctx, 'acceptInvite', {
-            playerId: player._id,
-            conversationId: conversation._id,
-          });
-        } else {
-          console.log(`Declining invitation for ${conversation._id}`);
-          await sendInput(ctx, 'rejectInvite', {
-            playerId: player._id,
-            conversationId: conversation._id,
-          });
-        }
-      }
-      // If we're walking over, try to walk towards our conversation partner.
-      if (conversation.membership.status === 'walkingOver' && !isWalking) {
-        // Find a free spot somewhere near our midpoint.
-        const destination = await conversationDestination(
-          conversation._id,
-          player,
-          otherPlayers,
-          blocks,
-        );
-        if (destination) {
-          console.log(`Walking to conversation buddy at ${JSON.stringify(destination)}`);
-          await sendInput(ctx, 'moveTo', {
-            playerId: player._id,
-            destination,
-          });
-        }
-      }
-      // Otherwise, we're in a conversation.
-      if (conversation.membership.status === 'participating') {
-        // Try to "grab the lock" if no one is typing.
-        if (!conversation.typing) {
-          console.log(`Starting typing for ${conversation._id}`);
-          await sendInput(ctx, 'startTyping', {
-            playerId: player._id,
-            conversationId: conversation._id,
-          });
-        }
-        // Say a message if we're the ones typing.
-        if (conversation.typing && conversation.typing.playerId === player._id) {
-          console.log(`Sending message for ${conversation._id}`);
-          await sendInput(ctx, 'writeMessage', {
-            playerId: player._id,
-            conversationId: conversation._id,
-            doneWriting: true,
-            message: 'hello world!',
-          });
-        }
-        // If it's been at least a minute since the conversation started, leave with 50% probability.
-        if (conversation._creationTime + 60_000 < Date.now() && Math.random() < 0.5) {
-          console.log(`Leaving conversation ${conversation._id}`);
-          await sendInput(ctx, 'leaveConversation', {
-            playerId: player._id,
-            conversationId: conversation._id,
-          });
-        }
-      }
+
+    const freeBlocks = blocks.filter((b) => b.metadata.state !== 'carried');
+    if (freeBlocks.length === 0) {
+      const destination = {
+        x: Math.floor(Math.random() * world.width),
+        y: Math.floor(Math.random() * world.height),
+      };
+      await sendInput(ctx, 'moveTo', {
+        playerId: player._id,
+        destination,
+      });
+      return;
     }
+    const block = freeBlocks[Math.floor(Math.random() * freeBlocks.length)];
+    await sendInput(ctx, 'moveTo', {
+      playerId: player._id,
+      // @ts-expect-error ugh
+      destination: block.metadata.position,
+    });
+    await sendInput(ctx, 'pickUpBlock', {
+      playerId: player._id,
+      blockId: block._id,
+    });
+    return;
   },
 });
 

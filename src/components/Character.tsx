@@ -12,7 +12,7 @@ export const Character = ({
   isMoving = false,
   isThinking = false,
   isSpeaking = false,
-  hasBlock = false,
+  blockEmoji = null,
   speed = 0.1,
   onClick,
 }: {
@@ -29,7 +29,7 @@ export const Character = ({
   isThinking?: boolean;
   // Shows a speech bubble if true.
   isSpeaking?: boolean;
-  hasBlock?: boolean;
+  blockEmoji?: string;
   // The speed of the animation. Can be tuned depending on the side and speed of the NPC.
   speed?: number;
   onClick: () => void;
@@ -90,12 +90,12 @@ export const Character = ({
         // TODO: We'll eventually have separate assets for thinking and speech animations.
         <Text x={18} y={-10} scale={0.8} text={'💬'} anchor={{ x: 0.5, y: 0.5 }} />
       )}
-      {hasBlock && (
+      {blockEmoji !== null && (
         <Text
           x={blockOffset.x}
           y={blockOffset.y}
           scale={0.8}
-          text={'📦'}
+          text={blockEmoji}
           anchor={{ x: 0.5, y: 0.5 }}
         />
       )}

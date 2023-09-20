@@ -28,7 +28,7 @@ export type InterpolatedPlayer = {
   position: Point;
   facing: Vector;
   isMoving: boolean;
-  hasBlock: boolean;
+  block: Doc<'blocks'> | null;
 
   player: Doc<'players'>;
   positionBuffers?: PositionBuffer[];
@@ -165,11 +165,12 @@ export class ServerState {
     }
 
     const snapshot = this.snapshots[chosen];
-    const playersWithBlock = new Set(
-      snapshot.blocks.map((b) => {
-        return b.metadata.state === 'carried' ? b.metadata.player : null;
-      }),
-    );
+    const playersToBlock: Record<Id<'players'>, Doc<'blocks'>> = {};
+    snapshot.blocks.forEach((b) => {
+      if (b.metadata.state === 'carried') {
+        playersToBlock[b.metadata.player] = b;
+      }
+    });
 
     const players: Record<Id<'players'>, InterpolatedPlayer> = {};
     for (const { player, previousPositions } of snapshot.players) {
@@ -177,7 +178,7 @@ export class ServerState {
         position: player.position,
         facing: player.facing,
         isMoving: false,
-        hasBlock: playersWithBlock.has(player._id),
+        block: playersToBlock[player._id] ?? null,
         player,
       };
       if (previousPositions) {
