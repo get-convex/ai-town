@@ -1,18 +1,12 @@
 import { v } from 'convex/values';
 import { Doc, Id } from '../../_generated/dataModel';
-import {
-  ActionCtx,
-  internalAction,
-  internalMutation,
-  internalQuery,
-} from '../../_generated/server';
+import { ActionCtx, internalQuery } from '../../_generated/server';
 import { LLMMessage, chatCompletion } from '../lib/openai';
 import * as memory from './memory';
 import { api, internal } from '../../_generated/api';
-import { defineTable } from 'convex/server';
+import { debugPrompt } from './debug';
 
 const selfInternal = internal.agent.classic.conversation;
-const DEBUG_PROMPTS = false;
 
 export async function startConversation(
   ctx: ActionCtx,
@@ -20,7 +14,7 @@ export async function startConversation(
   player: Doc<'players'>,
   otherPlayer: Doc<'players'>,
 ) {
-  const { identity, otherIdentity, previousConversation, previousSummaries } = await loadPromptData(
+  const { agent, otherAgent, previousConversation, previousSummaries } = await loadPromptData(
     ctx,
     conversation,
     player,
@@ -29,7 +23,7 @@ export async function startConversation(
   const prompt = [
     `You are ${player.name}, and you just started a conversation with ${otherPlayer.name}.`,
   ];
-  prompt.push(...identityPrompt(otherPlayer, identity, otherIdentity));
+  prompt.push(...identityPrompt(otherPlayer, agent, otherAgent));
   prompt.push(...previousConversationPrompt(otherPlayer, previousConversation));
   prompt.push(...conversationMemoriesPrompt(otherPlayer, previousSummaries));
   if (previousSummaries.length > 0) {
@@ -59,7 +53,7 @@ export async function continueConversation(
   player: Doc<'players'>,
   otherPlayer: Doc<'players'>,
 ) {
-  const { identity, otherIdentity, previousSummaries } = await loadPromptData(
+  const { agent, otherAgent, previousSummaries } = await loadPromptData(
     ctx,
     conversation,
     player,
@@ -71,7 +65,7 @@ export async function continueConversation(
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
     `The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`,
   ];
-  prompt.push(...identityPrompt(otherPlayer, identity, otherIdentity));
+  prompt.push(...identityPrompt(otherPlayer, agent, otherAgent));
   prompt.push(...conversationMemoriesPrompt(otherPlayer, previousSummaries));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
@@ -101,19 +95,14 @@ export async function leaveConversation(
   player: Doc<'players'>,
   otherPlayer: Doc<'players'>,
 ) {
-  const { identity, otherIdentity, previousSummaries } = await loadPromptData(
-    ctx,
-    conversation,
-    player,
-    otherPlayer,
-  );
+  const { agent, otherAgent } = await loadPromptData(ctx, conversation, player, otherPlayer);
   const now = Date.now();
   const started = new Date(conversation._creationTime);
   const prompt = [
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
     `You've decided to leave the question and would like to politely tell them you're leaving the conversation.`,
   ];
-  prompt.push(...identityPrompt(otherPlayer, identity, otherIdentity));
+  prompt.push(...identityPrompt(otherPlayer, agent, otherAgent));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
     `How would you like to tell them that you're leaving? Your response should be brief and within 200 characters.`,
@@ -141,8 +130,8 @@ async function loadPromptData(
   player: Doc<'players'>,
   otherPlayer: Doc<'players'>,
 ) {
-  const identity = await ctx.runQuery(selfInternal.loadIdentity, { playerId: player._id });
-  const otherIdentity = await ctx.runQuery(selfInternal.loadIdentity, {
+  const agent = await ctx.runQuery(selfInternal.loadAgent, { playerId: player._id });
+  const otherAgent = await ctx.runQuery(selfInternal.loadAgent, {
     playerId: otherPlayer._id,
   });
   const previousConversation = await ctx.runQuery(selfInternal.previousConversation, {
@@ -151,20 +140,20 @@ async function loadPromptData(
     otherPlayerId: otherPlayer._id,
   });
   const previousSummaries = await memory.queryOpinionAboutPlayer(ctx, player, otherPlayer);
-  return { identity, otherIdentity, previousConversation, previousSummaries };
+  return { agent, otherAgent, previousConversation, previousSummaries };
 }
 
 function identityPrompt(
   otherPlayer: Doc<'players'>,
-  identity: string | null,
-  otherIdentity: string | null,
+  agent: Doc<'classicAgents'> | null,
+  otherAgent: Doc<'classicAgents'> | null,
 ): string[] {
   const prompt = [];
-  if (identity) {
-    prompt.push(`About you: ${identity}`);
+  if (agent) {
+    prompt.push(`About you: ${agent.identity}`);
   }
-  if (otherIdentity) {
-    prompt.push(`About ${otherPlayer.name}: ${otherIdentity}`);
+  if (otherAgent) {
+    prompt.push(`About ${otherPlayer.name}: ${otherAgent}`);
   }
   return prompt;
 }
@@ -219,16 +208,16 @@ async function previousMessages(
   return llmMessages;
 }
 
-export const loadIdentity = internalQuery({
+export const loadAgent = internalQuery({
   args: {
     playerId: v.id('players'),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.db
-      .query('agentIdentity')
+    const agent = await ctx.db
+      .query('classicAgents')
       .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
       .first();
-    return identity?.description ?? null;
+    return agent;
   },
 });
 
@@ -271,117 +260,3 @@ function stopWords(otherPlayer: Doc<'players'>) {
   // These are the words we ask the LLM to stop on. OpenAI only supports 4.
   return [otherPlayer.name + ':', otherPlayer.name.toLowerCase() + ':'];
 }
-
-const agentIdentity = v.object({
-  playerId: v.id('players'),
-  description: v.optional(v.string()),
-});
-export const conversationTables = {
-  agentIdentity: defineTable(agentIdentity).index('playerId', ['playerId']),
-};
-
-function debugPrompt(prompt: string[]) {
-  if (!DEBUG_PROMPTS) {
-    return;
-  }
-  for (const line of prompt) {
-    console.log(`Prompt: ${line}`);
-  }
-}
-
-export const debugRun = internalAction({
-  args: {
-    playerId: v.id('players'),
-    doOther: v.boolean(),
-    leave: v.boolean(),
-  },
-  handler: async (ctx, args): Promise<string> => {
-    const { player, otherPlayer, conversation, empty } = await ctx.runQuery(
-      selfInternal.debugRunLoad,
-      { playerId: args.playerId },
-    );
-    const a = args.doOther ? otherPlayer : player;
-    const b = args.doOther ? player : otherPlayer;
-    let content;
-    if (empty) {
-      content = await startConversation(ctx, conversation, a, b);
-    } else if (!args.leave) {
-      content = await continueConversation(ctx, conversation, a, b);
-    } else {
-      content = await leaveConversation(ctx, conversation, a, b);
-    }
-    const message = await content.readAll();
-    await ctx.runMutation(selfInternal.debugSendMessage, {
-      conversationId: conversation._id,
-      playerId: player._id,
-      message,
-    });
-    return message;
-  },
-});
-
-export const debugSendMessage = internalMutation({
-  args: {
-    conversationId: v.id('conversations'),
-    playerId: v.id('players'),
-    message: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const messageId = await ctx.db.insert('messages', {
-      conversationId: args.conversationId,
-      author: args.playerId,
-      streamed: false,
-      doneWriting: true,
-    });
-    await ctx.db.insert('messageText', {
-      messageId,
-      text: args.message,
-    });
-  },
-});
-
-export const debugRunLoad = internalQuery({
-  args: {
-    playerId: v.id('players'),
-  },
-  handler: async (ctx, args) => {
-    const player = await ctx.db.get(args.playerId);
-    if (!player) {
-      throw new Error(`Player ${args.playerId} not found`);
-    }
-    // if (player.human) {
-    //   throw new Error(`Player ${args.playerId} is human`);
-    // }
-    const member = await ctx.db
-      .query('conversationMembers')
-      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
-      .filter((q) => q.eq(q.field('status'), 'participating'))
-      .first();
-    if (!member) {
-      throw new Error(`Player ${args.playerId} is not in a conversation`);
-    }
-    const conversation = await ctx.db.get(member.conversationId);
-    if (!conversation) {
-      throw new Error(`Conversation ${member.conversationId} not found`);
-    }
-    const otherPlayerMember = await ctx.db
-      .query('conversationMembers')
-      .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
-      .filter((q) => q.neq(q.field('playerId'), args.playerId))
-      .first();
-    if (!otherPlayerMember) {
-      throw new Error(`Conversation ${conversation._id} has no other player`);
-    }
-    const otherPlayer = await ctx.db.get(otherPlayerMember.playerId);
-    if (!otherPlayer) {
-      throw new Error(`Player ${otherPlayerMember.playerId} not found`);
-    }
-    const lastMessage = await ctx.db
-      .query('messages')
-      .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
-      .order('desc')
-      .first();
-    const empty = lastMessage === null;
-    return { player, otherPlayer, conversation, empty };
-  },
-});

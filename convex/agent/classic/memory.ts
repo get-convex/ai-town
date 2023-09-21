@@ -1,15 +1,10 @@
 import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import {
-  ActionCtx,
-  internalAction,
-  internalMutation,
-  internalQuery,
-} from '../../_generated/server';
+import { ActionCtx, internalMutation, internalQuery } from '../../_generated/server';
 import { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import { LLMMessage, chatCompletion } from '../lib/openai';
-import * as embeddings from './embeddings';
+import * as embeddingsCache from '../lib/embeddingsCache';
 
 const selfInternal = internal.agent.classic.memory;
 
@@ -53,17 +48,13 @@ export async function rememberConversation(
     max_tokens: 500,
   });
   const summary = await description.readAll();
-  const embeddingId = await embeddings.insert(
-    ctx,
-    summary,
-    tag1(player._id),
-    tag2(player._id, otherPlayer._id),
-  );
+  const embedding = await embeddingsCache.fetch(ctx, summary);
   await ctx.runMutation(selfInternal.insertMemory, {
     owner: player._id,
     conversation: conversationId,
+    summary,
     talkingTo: otherPlayer._id,
-    embedding: embeddingId,
+    embedding,
   });
   return summary;
 }
@@ -116,21 +107,37 @@ export async function queryOpinionAboutPlayer(
   player: Doc<'players'>,
   otherPlayer: Doc<'players'>,
 ) {
-  // Store our cached embedding under tag1 (i.e. for just our player).
-  const { embedding } = await embeddings.fetch(
+  const embedding = await embeddingsCache.fetch(
     ctx,
     `What do you think about ${otherPlayer.name}?`,
-    { tag1: tag1(player._id) },
   );
-  const results = await embeddings.query(ctx, embedding, 10, {
-    // Only query for memories that have tag2 set (i.e. are for our player and conversation).
-    tag2: tag2(player._id, otherPlayer._id),
+  const results = await ctx.vectorSearch('conversationMemories', 'embedding', {
+    vector: embedding,
+    filter: (q) => q.eq('conversationTag', conversationTag(player._id, otherPlayer._id)),
+    limit: 10,
   });
-  const summaries = await ctx.runQuery(selfInternal.loadTexts, {
-    embeddingIds: results.map((r) => r._id),
+  const summaries = await ctx.runQuery(selfInternal.loadMemories, {
+    memoryIds: results.map((r) => r._id),
   });
   return summaries;
 }
+
+export const loadMemories = internalQuery({
+  args: {
+    memoryIds: v.array(v.id('conversationMemories')),
+  },
+  handler: async (ctx, args) => {
+    const out = [];
+    for (const memoryId of args.memoryIds) {
+      const memory = await ctx.db.get(memoryId);
+      if (!memory) {
+        throw new Error(`Memory ${memoryId} not found`);
+      }
+      out.push(memory.summary);
+    }
+    return out;
+  },
+});
 
 export const loadMessages = internalQuery({
   args: {
@@ -154,40 +161,27 @@ export const loadMessages = internalQuery({
   },
 });
 
-export const loadTexts = internalQuery({
-  args: {
-    embeddingIds: v.array(v.id('embeddings')),
-  },
-  handler: async (ctx, args) => {
-    const out = [];
-    for (const embeddingId of args.embeddingIds) {
-      const embedding = await ctx.db.get(embeddingId);
-      if (!embedding) {
-        throw new Error(`Embedding ${embeddingId} not found`);
-      }
-      out.push(embedding.text);
-    }
-    return out;
-  },
-});
-
 export const insertMemory = internalMutation({
   args: {
     owner: v.id('players'),
     conversation: v.id('conversations'),
     talkingTo: v.id('players'),
-    embedding: v.id('embeddings'),
+    summary: v.string(),
+    embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert('conversationMemories', args);
+    await ctx.db.insert('conversationMemories', {
+      owner: args.owner,
+      conversation: args.conversation,
+      talkingTo: args.talkingTo,
+      conversationTag: conversationTag(args.owner, args.talkingTo),
+      summary: args.summary,
+      embedding: args.embedding,
+    });
   },
 });
 
-export function tag1(playerId: Id<'players'>) {
-  return playerId;
-}
-
-export function tag2(playerId: Id<'players'>, otherPlayerId: Id<'players'>) {
+export function conversationTag(playerId: Id<'players'>, otherPlayerId: Id<'players'>) {
   return `${playerId}:${otherPlayerId}`;
 }
 
@@ -195,19 +189,23 @@ const conversationMemories = v.object({
   owner: v.id('players'),
   conversation: v.id('conversations'),
   talkingTo: v.id('players'),
-  embedding: v.id('embeddings'),
+
+  summary: v.string(),
+
+  // Computed embedding of `summary`
+  embedding: v.array(v.float64()),
+
+  // Concatenation of `${owner}-${talkingTo}` to work around not having `.and()`
+  // for vector indexes.
+  conversationTag: v.string(),
 });
 
 export const memoryTables = {
-  conversationMemories: defineTable(conversationMemories).index('owner', ['owner', 'conversation']),
+  conversationMemories: defineTable(conversationMemories)
+    .index('owner', ['owner', 'conversation'])
+    .vectorIndex('embedding', {
+      vectorField: 'embedding',
+      filterFields: ['conversationTag'],
+      dimensions: 1536,
+    }),
 };
-
-export const debugRememberConversation = internalAction({
-  args: {
-    playerId: v.id('players'),
-    conversationId: v.id('conversations'),
-  },
-  handler: async (ctx, args) => {
-    return await rememberConversation(ctx, args.playerId, args.conversationId);
-  },
-});

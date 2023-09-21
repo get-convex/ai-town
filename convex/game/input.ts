@@ -3,10 +3,10 @@ import { GameState } from './state';
 import { pointsEqual } from '../util/geometry';
 import { Infer } from 'convex/values';
 import { InputArgs, InputReturnValue, args } from '../schema/input';
-import { characters } from '../data/characters';
 import { world } from '../data/world';
 import { blocked } from './movement';
-import { Doc, Id } from '../_generated/dataModel';
+import { Doc } from '../_generated/dataModel';
+import { characters } from '../data/characters';
 
 export async function handleInput(game: GameState, now: number, input: Infer<typeof args>) {
   switch (input.kind) {
@@ -38,7 +38,7 @@ export async function handleInput(game: GameState, now: number, input: Infer<typ
 async function handleJoin(
   game: GameState,
   _now: number,
-  { name, description, tokenIdentifier }: InputArgs<'join'>,
+  { name, character, description, tokenIdentifier }: InputArgs<'join'>,
 ): Promise<InputReturnValue<'join'>> {
   const allPlayers = game.enabledPlayers();
   let position;
@@ -63,12 +63,15 @@ async function handleJoin(
     { dx: 0, dy: -1 },
   ];
   const facing = facingOptions[Math.floor(Math.random() * facingOptions.length)];
+  if (!characters.find((c) => c.name === character)) {
+    throw new Error(`Invalid character: ${character}`);
+  }
   const playerId = await game.players.insert({
     name,
     description,
     enabled: true,
     human: tokenIdentifier,
-    character: Math.floor(Math.random() * characters.length),
+    character,
     position,
     facing,
   });

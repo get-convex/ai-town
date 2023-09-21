@@ -1,4 +1,5 @@
 import { mutation, query } from './_generated/server';
+import { characters } from './data/characters';
 import { insertInput } from './engine';
 
 export const humanStatus = query({
@@ -36,6 +37,7 @@ export const join = mutation({
       kind: 'join',
       args: {
         name: identity.givenName,
+        character: characters[Math.floor(Math.random() * characters.length)].name,
         description: `${identity.givenName} is a human player`,
         tokenIdentifier,
       },

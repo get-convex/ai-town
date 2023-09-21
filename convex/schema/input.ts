@@ -6,6 +6,7 @@ export const inputHandlers = {
   join: {
     args: v.object({
       name: v.string(),
+      character: v.string(),
       description: v.string(),
       tokenIdentifier: v.optional(v.string()),
     }),

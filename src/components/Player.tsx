@@ -9,15 +9,23 @@ import { Graphics as PixiGraphics } from 'pixi.js';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { Path } from '../../convex/util/types.ts';
 import { characters } from '../../convex/data/characters.ts';
+import { toast } from 'react-toastify';
 
-const SpeechDurationMs = 2000;
-const SpokeRecentlyMs = 5_000;
 export type SelectPlayer = (playerId?: Id<'players'>) => void;
+
+const logged = new Set<string>();
 
 export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectPlayer }) => {
   const { player, positionBuffers, position, facing, isMoving } = props.interpolated;
   const tileDim = map.tileDim;
-  const character = characters[player.character];
+  const character = characters.find((c) => c.name === player.character);
+  if (!character) {
+    if (!logged.has(player.character)) {
+      logged.add(player.character);
+      toast.error(`Unknown character ${player.character}`);
+    }
+    return;
+  }
   const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
   return (
     <>
@@ -91,8 +99,6 @@ function DebugBuffer({ id, buffers }: { id: string; buffers: PositionBuffer[] })
   );
   return <Graphics draw={draw} />;
 }
-
-const logged = new Set();
 
 function debugColor(_id: string) {
   return { h: 0, s: 50, l: 90 };

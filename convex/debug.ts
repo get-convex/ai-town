@@ -84,14 +84,16 @@ export const clear = mutation({
   handler: async (ctx, args) => {
     const tables: Array<TableNames> = [
       'conversationMembers',
+      'conversationMemories',
       'conversations',
-      'embeddings',
+      'embeddingsCache',
       'inputs',
       'messages',
       'messageText',
       'players',
       'steps',
-      'conversationMemories',
+      'agentIdentity',
+      'agentLeases',
     ];
     const maxRows = 1024;
     let deleted = 0;

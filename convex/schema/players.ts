@@ -31,7 +31,7 @@ export type Pathfinding = Infer<typeof pathfinding>;
 const players = defineTable({
   name: v.string(),
   description: v.string(),
-  character: v.number(),
+  character: v.string(),
 
   // If present, it's the auth tokenIdentifier of the owning player.
   human: v.optional(v.string()),

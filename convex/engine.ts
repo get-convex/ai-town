@@ -5,6 +5,7 @@ import { handleInput } from './game/input';
 import { GameState } from './game/state';
 import { tick } from './game/tick';
 import { args } from './schema/input';
+import { api } from './_generated/api';
 
 export const sendInput = mutation({
   args: {
@@ -46,7 +47,15 @@ export const inputStatus = query({
 });
 
 export const step = mutation({
-  handler: async (ctx) => {
+  args: {
+    reschedule: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const engine = await ctx.db.query('engine').first();
+    if (engine && engine.stopped) {
+      console.warn(`Engine stopped, returning immediately.`);
+      return;
+    }
     const now = Date.now();
 
     const lastStep = await ctx.db.query('steps').withIndex('endTs').order('desc').first();
@@ -91,5 +100,9 @@ export const step = mutation({
     // "Commit" the update by writing back the game state and a new steps checkpoint.
     await gameState.save(currentTs);
     await ctx.db.insert('steps', { startTs, endTs: currentTs });
+
+    if (args.reschedule !== undefined) {
+      ctx.scheduler.runAfter(args.reschedule, api.engine.step, { reschedule: args.reschedule });
+    }
   },
 });

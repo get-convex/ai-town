@@ -14,12 +14,17 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as agent_classic_agent from "../agent/classic/agent";
 import type * as agent_classic_conversation from "../agent/classic/conversation";
-import type * as agent_classic_embeddings from "../agent/classic/embeddings";
+import type * as agent_classic_debug from "../agent/classic/debug";
+import type * as agent_classic_init from "../agent/classic/init";
+import type * as agent_classic_lease from "../agent/classic/lease";
 import type * as agent_classic_main from "../agent/classic/main";
 import type * as agent_classic_memory from "../agent/classic/memory";
 import type * as agent_lib_actions from "../agent/lib/actions";
+import type * as agent_lib_embeddingsCache from "../agent/lib/embeddingsCache";
 import type * as agent_lib_openai from "../agent/lib/openai";
+import type * as agent_lib_streamChat from "../agent/lib/streamChat";
 import type * as agent_simple from "../agent/simple";
 import type * as constants from "../constants";
 import type * as crons from "../crons";
@@ -68,12 +73,17 @@ import type * as util_types from "../util/types";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "agent/classic/agent": typeof agent_classic_agent;
   "agent/classic/conversation": typeof agent_classic_conversation;
-  "agent/classic/embeddings": typeof agent_classic_embeddings;
+  "agent/classic/debug": typeof agent_classic_debug;
+  "agent/classic/init": typeof agent_classic_init;
+  "agent/classic/lease": typeof agent_classic_lease;
   "agent/classic/main": typeof agent_classic_main;
   "agent/classic/memory": typeof agent_classic_memory;
   "agent/lib/actions": typeof agent_lib_actions;
+  "agent/lib/embeddingsCache": typeof agent_lib_embeddingsCache;
   "agent/lib/openai": typeof agent_lib_openai;
+  "agent/lib/streamChat": typeof agent_lib_streamChat;
   "agent/simple": typeof agent_simple;
   constants: typeof constants;
   crons: typeof crons;

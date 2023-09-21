@@ -48,8 +48,8 @@ export const Character = ({
   }, []);
 
   // The first "left" is "right" but reflected.
-  const roundedOrientation = Math.round(orientation / 90);
-  const direction = ['left', 'down', 'left', 'up'][roundedOrientation];
+  const roundedOrientation = Math.floor(orientation / 90);
+  const direction = ['right', 'down', 'left', 'up'][roundedOrientation];
 
   // Prevents the animation from stopping when the texture changes
   // (see https://github.com/pixijs/pixi-react/issues/359)
@@ -77,8 +77,6 @@ export const Character = ({
         isPlaying={isMoving}
         textures={spriteSheet.animations[direction]}
         animationSpeed={speed}
-        // If the orientation is 90 (facing right), we need to flip the sprite.
-        scale={roundedOrientation === 0 ? { x: -1, y: 1 } : { x: 1, y: 1 }}
         anchor={{ x: 0.5, y: 0.5 }}
       />
     </Container>

@@ -14,7 +14,7 @@ export async function sendInput<Name extends keyof typeof inputHandlers>(
     },
   });
   // TODO: Would love to have a way to subscribe on the input result.
-  let backoff = 128;
+  let backoff = 512;
   for (let i = 0; i < 8; i++) {
     const queryResult = await ctx.runQuery(api.engine.inputStatus, { inputId });
     if (queryResult.status === 'notFound') {
@@ -34,7 +34,7 @@ export async function sendInput<Name extends keyof typeof inputHandlers>(
         throw new Error(`Expected input ${inputId} to return ${name}, but got ${r.kind}!`);
       }
       if ((r.returnValue as any).err !== undefined) {
-        throw new Error((r.returnValue as any).message);
+        throw new Error((r.returnValue as any).err);
       }
       if ((r.returnValue as any).ok === undefined) {
         throw new Error(`Input ${inputId} returned neither ok nor err!`);
