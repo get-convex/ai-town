@@ -40,18 +40,20 @@ export async function tickAgent(
     return agentContinue;
   }
 
-  if (carriedBlock && player.pathfinding) {
-    if (Math.random() < 0.1) {
-      await sendInput(ctx, 'setDownBlock', {
-        playerId,
-        blockId: carriedBlock._id,
-      });
-    }
-    return agentContinue;
-  }
-  if (waitingBlock && player.pathfinding) {
-    return agentContinue;
-  }
+  // if (carriedBlock && player.pathfinding) {
+  //   console.log('Carrying block...');
+  //   if (Math.random() < 0.1) {
+  //     await sendInput(ctx, 'setDownBlock', {
+  //       playerId,
+  //       blockId: carriedBlock._id,
+  //     });
+  //   }
+  //   return agentContinue;
+  // }
+  // if (waitingBlock && player.pathfinding) {
+  //   console.log('Waiting on a block...');
+  //   return agentContinue;
+  // }
 
   // If we're not in a conversation, wander around to somewhere.
   if (!conversation) {
@@ -81,7 +83,7 @@ export async function tickAgent(
       }
       const { position } = block.metadata;
       const dist = distance(position, player.position);
-      if (dist <= 2 && 6 <= dist) {
+      if (dist <= 4) {
         continue;
       }
       freeBlocks.push({ block, dist });
@@ -120,15 +122,15 @@ export async function tickAgent(
       nearbyFreePlayers.sort(
         (a, b) => distance(player.position, a.position) - distance(player.position, b.position),
       );
-      if (freeBlocks.length > 0) {
-        const block = freeBlocks[0].block;
-        console.log(`Picking up block ${block._id}...`);
-        await sendInput(ctx, 'pickUpBlock', {
-          playerId,
-          blockId: block._id,
-        });
-        return agentContinue;
-      }
+      // if (freeBlocks.length > 0) {
+      //   const block = freeBlocks[0].block;
+      //   console.log(`Picking up block ${block._id}...`);
+      //   await sendInput(ctx, 'pickUpBlock', {
+      //     playerId,
+      //     blockId: block._id,
+      //   });
+      //   return agentContinue;
+      // }
       if (nearbyFreePlayers.length > 0) {
         const otherPlayer = nearbyFreePlayers[0];
         console.log(`Starting conversation with ${otherPlayer.name}`);
