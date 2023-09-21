@@ -40,21 +40,6 @@ export async function tickAgent(
     return agentContinue;
   }
 
-  // if (carriedBlock && player.pathfinding) {
-  //   console.log('Carrying block...');
-  //   if (Math.random() < 0.1) {
-  //     await sendInput(ctx, 'setDownBlock', {
-  //       playerId,
-  //       blockId: carriedBlock._id,
-  //     });
-  //   }
-  //   return agentContinue;
-  // }
-  // if (waitingBlock && player.pathfinding) {
-  //   console.log('Waiting on a block...');
-  //   return agentContinue;
-  // }
-
   // If we're not in a conversation, wander around to somewhere.
   if (!conversation) {
     if (!player.pathfinding) {

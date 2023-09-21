@@ -10,24 +10,11 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-react';
  * We use localStorage so that individual users stay on the same instance.
  */
 function convexUrl(): string {
-  const urlsString = import.meta.env.VITE_CONVEX_URLS as string;
-  if (!urlsString) {
-    const url = import.meta.env.VITE_CONVEX_URL as string;
-    if (!url) {
-      throw new Error('Couldn’t find the Convex deployment URL.');
-    }
-    return url;
+  const url = import.meta.env.VITE_CONVEX_URL as string;
+  if (!url) {
+    throw new Error('Couldn’t find the Convex deployment URL.');
   }
-
-  const urls = urlsString.split('\n');
-  const activeUrl = window.localStorage?.getItem('convexDeploymentUrl');
-  if (activeUrl && urls.includes(activeUrl)) {
-    return activeUrl;
-  }
-
-  const newUrl = urls[Math.floor(Math.random() * urls.length)].trim();
-  window.localStorage?.setItem('convexDeploymentUrl', newUrl);
-  return newUrl;
+  return url;
 }
 
 const convex = new ConvexReactClient(convexUrl(), { unsavedChangesWarning: false });
