@@ -13,6 +13,7 @@ import { rememberConversation } from './memory';
 import { sleep } from '../../util/sleep';
 import { TickOutcome, agentContinue, agentError } from './main';
 import { streamChat } from '../lib/streamChat';
+import { CONVERSATION_DISTANCE } from '../../constants';
 
 const selfInternal = internal.agent.classic.agent;
 
@@ -55,61 +56,51 @@ export async function tickAgent(
 
     // If we're walking somewhere and there's a player close by,
     // try to start a new conversation.
-    const nearbyFreePlayers = otherPlayers.filter(
-      (p) => !p.conversation && distance(player.position, p.position) < 3,
-    );
+    let lastConversation: null | number = null;
+    for (const otherPlayer of otherPlayers) {
+      if (!otherPlayer.lastChatted) {
+        continue;
+      }
+      lastConversation = Math.max(
+        lastConversation ?? otherPlayer.lastChatted,
+        otherPlayer.lastChatted,
+      );
+    }
+
+    // Wait for at least 20s before starting a new conversation.
+    if (!lastConversation || lastConversation + 20000 < now) {
+      const nearbyFreePlayers = [];
+      for (const otherPlayer of otherPlayers) {
+        if (otherPlayer.conversation) {
+          continue;
+        }
+        if (distance(player.position, otherPlayer.position) > 3) {
+          continue;
+        }
+        // Don't chat with someone within 30s of last chatting with them.
+        if (otherPlayer.lastChatted && now < otherPlayer.lastChatted + 30000) {
+          continue;
+        }
+        nearbyFreePlayers.push(otherPlayer);
+      }
+      nearbyFreePlayers.sort(
+        (a, b) => distance(player.position, a.position) - distance(player.position, b.position),
+      );
+      if (nearbyFreePlayers.length > 0) {
+        const otherPlayer = nearbyFreePlayers[0];
+        console.log(`Starting conversation with ${otherPlayer.name}`);
+        await sendInput(ctx, 'startConversation', {
+          playerId: player._id,
+          invitee: otherPlayer._id,
+        });
+        return agentContinue;
+      }
+    }
   }
 
-  // We're idle if we're not in a conversation and not moving.
-  if (!conversation && !player.pathfinding) {
-    // Wander to a random point with 50% probability.
-    if (Math.random() < 0.5) {
-      const candidate = {
-        x: 1 + Math.random() * (world.width - 2),
-        y: 1 + Math.random() * (world.height - 2),
-      };
-      const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
-      if (!destination) {
-        console.warn("Couldn't find a free destination to wander to");
-        return agentError;
-      }
-      console.log(`Wandering to ${JSON.stringify(destination)}...`);
-      await sendInput(ctx, 'moveTo', {
-        playerId,
-        destination,
-      });
-      return agentContinue;
-    }
-    // Otherwise, try to start a conversation with someone.
-    else {
-      const candidate = conversationCandidate(player, otherPlayers);
-      if (!candidate) {
-        console.warn(`No one to talk to... :(`);
-        return agentError;
-      }
-      console.log(`Starting conversation with ${candidate.name}`);
-      await sendInput(ctx, 'startConversation', {
-        playerId: player._id,
-        invitee: candidate._id,
-      });
-      return agentContinue;
-    }
-  }
-  // If we're currrently moving and not in a conversation, stop moving with 10% probability.
-  if (!conversation && player.pathfinding) {
-    console.log(`Currently moving!`);
-    if (Math.random() < 0.1) {
-      console.log(`Stopping movement...`);
-      await sendInput(ctx, 'moveTo', {
-        playerId,
-        destination: null,
-      });
-    }
-    return agentContinue;
-  }
-  // If we're in a conversation and currently invited, say yes with probability 75%!
+  // If we're in a conversation and currently invited, say yes with probability 80%!
   if (conversation && conversation.membership.status === 'invited') {
-    if (Math.random() < 0.75) {
+    if (Math.random() < 0.8) {
       console.log(`Accepting invitation for ${conversation._id}`);
       await sendInput(ctx, 'acceptInvite', {
         playerId: player._id,
@@ -132,20 +123,22 @@ export async function tickAgent(
     if (!otherPlayer) {
       throw new Error(`Couldn't find other participant in ${conversation._id}`);
     }
-    const candidate = {
-      x: (player.position.x + otherPlayer.position.x) / 2,
-      y: (player.position.y + otherPlayer.position.y) / 2,
-    };
-    const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
-    if (!destination) {
-      console.warn(`Couldn't find a free destination near ${JSON.stringify(otherPlayer)}`);
-      return agentError;
+    if (distance(player.position, otherPlayer.position) > CONVERSATION_DISTANCE) {
+      const candidate = {
+        x: (player.position.x + otherPlayer.position.x) / 2,
+        y: (player.position.y + otherPlayer.position.y) / 2,
+      };
+      const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
+      if (!destination) {
+        console.warn(`Couldn't find a free destination near ${JSON.stringify(otherPlayer)}`);
+        return agentError;
+      }
+      console.log(`Moving to ${JSON.stringify(destination)} to start conversation...`);
+      await sendInput(ctx, 'moveTo', {
+        playerId,
+        destination,
+      });
     }
-    console.log(`Moving to ${JSON.stringify(destination)} to start conversation...`);
-    await sendInput(ctx, 'moveTo', {
-      playerId,
-      destination,
-    });
     return agentContinue;
   }
   // If we're participating in the conversation, start driving it forward.
@@ -170,7 +163,7 @@ async function tickConversation(
 ): Promise<TickOutcome> {
   // If someone else is typing, wait for them to finish.
   if (conversation.typing && conversation.typing.playerId !== player._id) {
-    const toWait = Math.max(1000, Math.random() * 5000);
+    const toWait = Math.max(500, Math.random() * 2000);
     console.warn(`Other player is typing, waiting for ${toWait}ms...`);
     return { kind: 'sleep', duration: toWait };
   }
@@ -229,7 +222,7 @@ async function tickConversation(
       const otherPlayerDeadline = lastMessage._creationTime + 20000;
       if (now < otherPlayerDeadline) {
         console.log(`Waiting for other player to respond...`);
-        return { kind: 'sleep', duration: Math.random() * 20000 };
+        return agentContinue;
       }
     }
     const toSleep = Math.random() * 1000;
@@ -256,6 +249,10 @@ export const queryState = internalQuery({
       throw new Error(`Player ${args.playerId} not found!`);
     }
     const conversation = await activeConversation(ctx.db, args.playerId);
+    const playerConversations = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .collect();
 
     const otherPlayers = [];
     for (const otherPlayer of await ctx.db.query('players').collect()) {
@@ -266,7 +263,29 @@ export const queryState = internalQuery({
         continue;
       }
       const conversation = await activeConversation(ctx.db, otherPlayer._id);
-      otherPlayers.push({ ...otherPlayer, conversation });
+      let lastChatted: number | null = null;
+      for (const member of playerConversations) {
+        const otherMember = await ctx.db
+          .query('conversationMembers')
+          .withIndex('conversationId', (q) =>
+            q.eq('conversationId', member.conversationId).eq('playerId', otherPlayer._id),
+          )
+          .first();
+        if (otherMember) {
+          const conversation = await ctx.db.get(member.conversationId);
+          if (!conversation) {
+            throw new Error(`Conversation ${member.conversationId} not found`);
+          }
+          if (conversation.finished) {
+            lastChatted = !lastChatted
+              ? conversation.finished
+              : Math.max(conversation.finished, lastChatted);
+          }
+          break;
+        }
+      }
+
+      otherPlayers.push({ ...otherPlayer, conversation, lastChatted });
     }
 
     let toRemember: Id<'conversations'> | null = null;

@@ -24,6 +24,10 @@ export default function PlayerDetails(props: {
     api.queryGameState.playerMetadata,
     humanPlayerId ? { playerId: humanPlayerId } : 'skip',
   );
+  const previousConversation = useQuery(
+    api.queryGameState.previousConversation,
+    props.playerId ? { playerId: props.playerId } : 'skip',
+  );
 
   if (!props.playerId) {
     return (
@@ -222,6 +226,19 @@ export default function PlayerDetails(props: {
             inConversationWithMe={inConversationWithMe ?? false}
             conversation={player.conversation}
           />
+        )}
+        {!player.conversation && previousConversation && (
+          <>
+            <div className="box flex-grow">
+              <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
+            </div>
+
+            <Messages
+              serverState={props.serverState}
+              inConversationWithMe={false}
+              conversation={previousConversation}
+            />
+          </>
         )}
       </SignedIn>
     </>

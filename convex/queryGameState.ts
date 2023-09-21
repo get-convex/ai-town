@@ -5,7 +5,6 @@ import { query } from './_generated/server';
 export default query({
   handler: async (ctx) => {
     const lastStep = await ctx.db.query('steps').withIndex('endTs').order('desc').first();
-    const identity = await ctx.auth.getUserIdentity();
 
     // Query the active conversations and all their members as game state.
     // The client can load the messages and their content on demand.
@@ -23,19 +22,45 @@ export default query({
       const members = await ctx.db
         .query('conversationMembers')
         .withIndex('conversationId', (q) => q.eq('conversationId', row._id))
+        .filter((q) => q.neq(q.field('status'), 'left'))
         .collect();
       conversations.push({ members, typingName, ...row });
     }
+
+    const players = await ctx.db
+      .query('players')
+      .withIndex('enabled', (q) => q.eq('enabled', true))
+      .collect();
+
     return {
       startTs: lastStep?.startTs ?? Date.now(),
       endTs: lastStep?.endTs ?? Date.now(),
 
-      players: await ctx.db
-        .query('players')
-        .withIndex('enabled', (q) => q.eq('enabled', true))
-        .collect(),
+      players,
       conversations,
     };
+  },
+});
+
+export const previousConversation = query({
+  args: {
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    const member = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .filter((q) => q.eq(q.field('status'), 'left'))
+      .order('desc')
+      .first();
+    if (!member) {
+      return null;
+    }
+    const conversation = await ctx.db.get(member.conversationId);
+    if (!conversation) {
+      throw new Error(`Conversation ${member.conversationId} not found`);
+    }
+    return conversation;
   },
 });
 
