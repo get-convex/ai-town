@@ -1,12 +1,37 @@
 import { v } from 'convex/values';
 import { Doc, Id } from '../../_generated/dataModel';
-import { ActionCtx, internalQuery } from '../../_generated/server';
+import { ActionCtx, internalAction, internalQuery } from '../../_generated/server';
 import { LLMMessage, chatCompletion } from '../lib/openai';
 import * as memory from './memory';
 import { api, internal } from '../../_generated/api';
 import { debugPrompt } from './debug';
 
 const selfInternal = internal.agent.classic.conversation;
+
+export const debugStartConversation = internalAction({
+  handler: async (ctx, args) => {
+    const { conversation, player, otherPlayer } = await ctx.runQuery(selfInternal.debugSCQuery, {});
+    const content = await startConversation(
+      ctx,
+      conversation as any,
+      player as any,
+      otherPlayer as any,
+    );
+    return await content.readAll();
+  },
+});
+
+export const debugSCQuery = internalQuery({
+  handler: async (ctx, args) => {
+    const conversationId = '63v102xkzgrhqs9adjemjcqc9jjtrqr';
+    const playerId = '5jxs85qnhcmqssazhp70zdpc9jjse10'; // lucky
+    const otherPlayerId = '5ha0e7p9taqtxkptvw3vrk249jjphk8'; // bob
+    const conversation = await ctx.db.get(conversationId as any);
+    const player = await ctx.db.get(playerId as any);
+    const otherPlayer = await ctx.db.get(otherPlayerId as any);
+    return { conversation, player, otherPlayer };
+  },
+});
 
 export async function startConversation(
   ctx: ActionCtx,
@@ -23,7 +48,7 @@ export async function startConversation(
   const prompt = [
     `You are ${player.name}, and you just started a conversation with ${otherPlayer.name}.`,
   ];
-  prompt.push(...identityPrompt(otherPlayer, agent, otherAgent));
+  prompt.push(...agentPrompts(otherPlayer, agent, otherAgent));
   prompt.push(...previousConversationPrompt(otherPlayer, previousConversation));
   prompt.push(...conversationMemoriesPrompt(otherPlayer, previousSummaries));
   if (previousSummaries.length > 0) {
@@ -65,7 +90,7 @@ export async function continueConversation(
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
     `The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`,
   ];
-  prompt.push(...identityPrompt(otherPlayer, agent, otherAgent));
+  prompt.push(...agentPrompts(otherPlayer, agent, otherAgent));
   prompt.push(...conversationMemoriesPrompt(otherPlayer, previousSummaries));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
@@ -102,7 +127,7 @@ export async function leaveConversation(
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
     `You've decided to leave the question and would like to politely tell them you're leaving the conversation.`,
   ];
-  prompt.push(...identityPrompt(otherPlayer, agent, otherAgent));
+  prompt.push(...agentPrompts(otherPlayer, agent, otherAgent));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
     `How would you like to tell them that you're leaving? Your response should be brief and within 200 characters.`,
@@ -143,7 +168,7 @@ async function loadPromptData(
   return { agent, otherAgent, previousConversation, previousSummaries };
 }
 
-function identityPrompt(
+function agentPrompts(
   otherPlayer: Doc<'players'>,
   agent: Doc<'classicAgents'> | null,
   otherAgent: Doc<'classicAgents'> | null,
@@ -151,9 +176,10 @@ function identityPrompt(
   const prompt = [];
   if (agent) {
     prompt.push(`About you: ${agent.identity}`);
+    prompt.push(`Your goals for the conversation: ${agent.plan}`);
   }
   if (otherAgent) {
-    prompt.push(`About ${otherPlayer.name}: ${otherAgent}`);
+    prompt.push(`About ${otherPlayer.name}: ${otherAgent.identity}`);
   }
   return prompt;
 }

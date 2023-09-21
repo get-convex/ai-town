@@ -6,20 +6,20 @@ import { TableNames } from './_generated/dataModel';
 import { GameState } from './game/state';
 import { blocked } from './game/movement';
 
-export const addManyPlayers = mutation({
-  handler: async (ctx) => {
-    const orig = await ctx.db.query('players').collect();
-    for (let j = 0; j < 10; j++) {
-      await insertInput(ctx.db, Date.now(), {
-        kind: 'join',
-        args: {
-          name: `robot${orig.length + j}`,
-          description: "Hi! I'm a robot 🤖",
-        },
-      });
-    }
-  },
-});
+// export const addManyPlayers = mutation({
+//   handler: async (ctx) => {
+//     const orig = await ctx.db.query('players').collect();
+//     for (let j = 0; j < 10; j++) {
+//       await insertInput(ctx.db, Date.now(), {
+//         kind: 'join',
+//         args: {
+//           name: `robot${orig.length + j}`,
+//           description: "Hi! I'm a robot 🤖",
+//         },
+//       });
+//     }
+//   },
+// });
 
 export const randomPositions = mutation({
   args: {
@@ -92,8 +92,8 @@ export const clear = mutation({
       'messageText',
       'players',
       'steps',
-      'agentIdentity',
       'agentLeases',
+      'classicAgents',
     ];
     const maxRows = 1024;
     let deleted = 0;

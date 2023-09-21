@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from '../../_generated/server';
 import { defineTable } from 'convex/server';
 import { api } from '../../_generated/api';
 
-export const SOFT_LEASE_EXPIRATION = 30 * 1000;
+export const SOFT_LEASE_EXPIRATION = 10 * 1000;
 export const HARD_LEASE_EXPIRATION = 90 * 1000;
 
 // Atomically acquire the lease and schedule a loop iteration

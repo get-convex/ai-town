@@ -7,7 +7,7 @@ import { rememberConversation } from './memory';
 
 const selfInternal = internal.agent.classic.debug;
 
-const DEBUG_PROMPTS = false;
+const DEBUG_PROMPTS = true;
 export function debugPrompt(prompt: string[]) {
   if (!DEBUG_PROMPTS) {
     return;

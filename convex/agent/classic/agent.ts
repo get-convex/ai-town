@@ -33,13 +33,40 @@ export async function tickAgent(
     return agentContinue;
   }
 
+  // If we're not in a conversation, wander around to somewhere.
+  if (!conversation) {
+    if (!player.pathfinding) {
+      const candidate = {
+        x: 1 + Math.random() * (world.width - 2),
+        y: 1 + Math.random() * (world.height - 2),
+      };
+      const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
+      if (!destination) {
+        console.warn("Couldn't find a free destination to wander to");
+        return agentError;
+      }
+      console.log(`Wandering to ${JSON.stringify(destination)}...`);
+      await sendInput(ctx, 'moveTo', {
+        playerId,
+        destination,
+      });
+      return agentContinue;
+    }
+
+    // If we're walking somewhere and there's a player close by,
+    // try to start a new conversation.
+    const nearbyFreePlayers = otherPlayers.filter(
+      (p) => !p.conversation && distance(player.position, p.position) < 3,
+    );
+  }
+
   // We're idle if we're not in a conversation and not moving.
   if (!conversation && !player.pathfinding) {
     // Wander to a random point with 50% probability.
     if (Math.random() < 0.5) {
       const candidate = {
-        x: Math.random() * world.width,
-        y: Math.random() * world.height,
+        x: 1 + Math.random() * (world.width - 2),
+        y: 1 + Math.random() * (world.height - 2),
       };
       const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
       if (!destination) {
@@ -147,7 +174,7 @@ async function tickConversation(
     console.warn(`Other player is typing, waiting for ${toWait}ms...`);
     return { kind: 'sleep', duration: toWait };
   }
-  const lastMessage = await ctx.runQuery(selfInternal.latestMessage, {
+  const { lastMessage, messageCount } = await ctx.runQuery(selfInternal.messageStatus, {
     conversationId: conversation._id,
   });
   const conversationEmpty = lastMessage === null;
@@ -174,7 +201,7 @@ async function tickConversation(
   }
 
   // Consider a conversation too long if it's been going on for over a minute.
-  if (conversation._creationTime + 60000 <= now) {
+  if (conversation._creationTime + 60000 <= now || messageCount >= 8) {
     // Leave with probability 50%.
     if (Math.random() < 0.5) {
       console.log(`Leaving conversation...`);
@@ -238,7 +265,7 @@ export const queryState = internalQuery({
       if (otherPlayer._id === player._id) {
         continue;
       }
-      const conversation = await activeConversation(ctx.db, args.playerId);
+      const conversation = await activeConversation(ctx.db, otherPlayer._id);
       otherPlayers.push({ ...otherPlayer, conversation });
     }
 
@@ -278,16 +305,21 @@ export const queryState = internalQuery({
 
 type OtherPlayers = FunctionReturnType<typeof selfInternal.queryState>['otherPlayers'];
 
-export const latestMessage = internalQuery({
+export const messageStatus = internalQuery({
   args: {
     conversationId: v.id('conversations'),
   },
   handler: async (ctx, args) => {
-    return ctx.db
+    const lastMessage = await ctx.db
       .query('messages')
       .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
       .order('desc')
       .first();
+    const messages = await ctx.db
+      .query('messages')
+      .withIndex('conversationId', (q) => q.eq('conversationId', args.conversationId))
+      .collect();
+    return { messageCount: messages.length, lastMessage };
   },
 });
 
