@@ -50,7 +50,7 @@ export async function startConversation(
     max_tokens: 300,
     stop: stopWords(otherPlayer),
   });
-  return await content.readAll();
+  return content;
 }
 
 export async function continueConversation(
@@ -92,7 +92,7 @@ export async function continueConversation(
     max_tokens: 300,
     stop: stopWords(otherPlayer),
   });
-  return await content.readAll();
+  return content;
 }
 
 export async function leaveConversation(
@@ -132,7 +132,7 @@ export async function leaveConversation(
     max_tokens: 300,
     stop: stopWords(otherPlayer),
   });
-  return await content.readAll();
+  return content;
 }
 
 async function loadPromptData(
@@ -302,14 +302,15 @@ export const debugRun = internalAction({
     );
     const a = args.doOther ? otherPlayer : player;
     const b = args.doOther ? player : otherPlayer;
-    let message;
+    let content;
     if (empty) {
-      message = await startConversation(ctx, conversation, a, b);
+      content = await startConversation(ctx, conversation, a, b);
     } else if (!args.leave) {
-      message = await continueConversation(ctx, conversation, a, b);
+      content = await continueConversation(ctx, conversation, a, b);
     } else {
-      message = await leaveConversation(ctx, conversation, a, b);
+      content = await leaveConversation(ctx, conversation, a, b);
     }
+    const message = await content.readAll();
     await ctx.runMutation(selfInternal.debugSendMessage, {
       conversationId: conversation._id,
       playerId: player._id,

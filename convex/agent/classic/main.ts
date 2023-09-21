@@ -1,8 +1,13 @@
 import { v } from 'convex/values';
-import { ActionCtx, DatabaseReader, action, internalQuery } from '../../_generated/server';
+import {
+  ActionCtx,
+  DatabaseReader,
+  action,
+  internalMutation,
+  internalQuery,
+} from '../../_generated/server';
 import { Doc, Id } from '../../_generated/dataModel';
 import { api, internal } from '../../_generated/api';
-import { assertNever } from '../../util/assertNever';
 import { world } from '../../data/world';
 import { Point } from '../../util/types';
 import { blocked } from '../../game/movement';
@@ -11,6 +16,8 @@ import { sendInput } from '../lib/actions';
 import { FunctionReturnType } from 'convex/server';
 import { continueConversation, leaveConversation, startConversation } from './conversation';
 import { rememberConversation } from './memory';
+import { ChatCompletionContent } from '../lib/openai';
+import { sleep } from '../../util/sleep';
 
 export const agent = action({
   args: {
@@ -166,7 +173,7 @@ async function participateInConversation(
     if (conversation.typing && conversation.typing.playerId !== player._id) {
       const toWait = Math.max(1000, Math.random() * 5000);
       console.warn(`Other player is typing, waiting for ${toWait}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, toWait));
+      await sleep(toWait);
       continue;
     }
     const messages = await ctx.runQuery(api.queryGameState.listConversation, {
@@ -178,31 +185,19 @@ async function participateInConversation(
       if (conversation.creator !== player._id) {
         if (Date.now() < conversation._creationTime + 20000) {
           console.log(`Waiting for other player to start conversation...`);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await sleep(1000);
           continue;
         }
       }
       console.log(`Starting conversation...`);
       if (conversation.typing?.playerId !== player._id) {
-        try {
-          await sendInput(ctx, 'startTyping', {
-            playerId: player._id,
-            conversationId: conversation._id,
-          });
-        } catch (error: any) {
-          const toWait = Math.max(Math.random() * 1000, 500);
-          console.error(`Failed to start typing, sleeping for ${toWait}ms: ${error.message}`);
-          await new Promise((resolve) => setTimeout(resolve, toWait));
+        const acquiredLock = await startTyping(ctx, player._id, conversation._id);
+        if (!acquiredLock) {
           continue;
         }
       }
-      const message = await startConversation(ctx, conversation, player, otherPlayer);
-      await sendInput(ctx, 'writeMessage', {
-        conversationId: conversation._id,
-        playerId: player._id,
-        message,
-        doneWriting: true,
-      });
+      const content = await startConversation(ctx, conversation, player, otherPlayer);
+      await streamChat(ctx, player._id, conversation._id, content);
       continue;
     }
 
@@ -210,25 +205,13 @@ async function participateInConversation(
     if ((messages.length > 8 || Date.now() - start > 60000) && Math.random() < 0.5) {
       console.log(`Leaving conversation...`);
       if (conversation.typing?.playerId !== player._id) {
-        try {
-          await sendInput(ctx, 'startTyping', {
-            playerId: player._id,
-            conversationId: conversation._id,
-          });
-        } catch (error: any) {
-          const toWait = Math.max(Math.random() * 1000, 500);
-          console.error(`Failed to start typing, sleeping for ${toWait}ms: ${error.message}`);
-          await new Promise((resolve) => setTimeout(resolve, toWait));
+        const acquiredLock = await startTyping(ctx, player._id, conversation._id);
+        if (!acquiredLock) {
           continue;
         }
       }
-      const message = await leaveConversation(ctx, conversation, player, otherPlayer);
-      await sendInput(ctx, 'writeMessage', {
-        conversationId: conversation._id,
-        playerId: player._id,
-        message,
-        doneWriting: true,
-      });
+      const content = await leaveConversation(ctx, conversation, player, otherPlayer);
+      await streamChat(ctx, player._id, conversation._id, content);
       await sendInput(ctx, 'leaveConversation', {
         playerId: player._id,
         conversationId: conversation._id,
@@ -242,32 +225,20 @@ async function participateInConversation(
       if (lastMessage.author === playerId) {
         if (lastMessage._creationTime + 20000 > Date.now()) {
           console.log(`Waiting for other player to respond...`);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await sleep(1000);
           continue;
         }
       }
       const toSleep = Math.random() * 1000;
       console.log(`Waiting for ${toSleep}ms before starting to type...`);
-      await new Promise((resolve) => setTimeout(resolve, toSleep));
-      try {
-        await sendInput(ctx, 'startTyping', {
-          playerId: player._id,
-          conversationId: conversation._id,
-        });
-      } catch (error: any) {
-        const toWait = Math.max(Math.random() * 1000, 500);
-        console.error(`Failed to start typing, sleeping for ${toWait}ms: ${error.message}`);
-        await new Promise((resolve) => setTimeout(resolve, toWait));
+      await sleep(toSleep);
+      const acquiredLock = await startTyping(ctx, player._id, conversation._id);
+      if (!acquiredLock) {
         continue;
       }
     }
-    const message = await continueConversation(ctx, conversation, player, otherPlayer);
-    await sendInput(ctx, 'writeMessage', {
-      conversationId: conversation._id,
-      playerId: player._id,
-      message,
-      doneWriting: true,
-    });
+    const content = await continueConversation(ctx, conversation, player, otherPlayer);
+    await streamChat(ctx, player._id, conversation._id, content);
   }
   const summary = await rememberConversation(ctx, playerId, conversationId);
   if (summary) {
@@ -349,3 +320,93 @@ function conversationCandidate(player: Doc<'players'>, otherPlayers: OtherPlayer
   );
   return candidates.length > 0 ? candidates[0] : null;
 }
+
+async function startTyping(
+  ctx: ActionCtx,
+  playerId: Id<'players'>,
+  conversationId: Id<'conversations'>,
+) {
+  try {
+    await sendInput(ctx, 'startTyping', {
+      playerId,
+      conversationId,
+    });
+    return true;
+  } catch (error: any) {
+    const toWait = Math.max(Math.random() * 1000, 500);
+    console.error(`Failed to start typing, sleeping for ${toWait}ms: ${error.message}`);
+    await sleep(toWait);
+    return false;
+  }
+}
+
+async function streamChat(
+  ctx: ActionCtx,
+  playerId: Id<'players'>,
+  conversationId: Id<'conversations'>,
+  content: ChatCompletionContent,
+  chunkSize: number = 4,
+  chunksPerSec: number = 12,
+) {
+  async function* streamChunks() {
+    let fragments = [];
+    let fragmentsLen = 0;
+    let lastEmitted = null;
+    for await (const fragment of content.read()) {
+      fragments.push(fragment);
+      fragmentsLen += fragment.length;
+      if (fragmentsLen >= chunkSize) {
+        const now = Date.now();
+        if (lastEmitted) {
+          const deadline = lastEmitted + 1000 / chunksPerSec;
+          if (now < deadline) {
+            const toSleep = deadline - now;
+            await sleep(toSleep);
+          }
+        }
+        yield fragments.join('');
+        fragments = [];
+        fragmentsLen = 0;
+        lastEmitted = now;
+      }
+    }
+    if (fragmentsLen > 0) {
+      yield fragments.join('');
+    }
+  }
+  let messageId: Id<'messages'> | undefined;
+  try {
+    for await (const chunk of streamChunks()) {
+      if (!messageId) {
+        messageId = await sendInput(ctx, 'writeMessage', {
+          conversationId,
+          playerId,
+          message: chunk,
+          doneWriting: false,
+        });
+        continue;
+      }
+      await ctx.runMutation(internal.agent.classic.main.writeFragment, {
+        messageId,
+        text: chunk,
+      });
+    }
+  } finally {
+    if (messageId) {
+      await sendInput(ctx, 'finishWriting', {
+        playerId,
+        messageId,
+      });
+    }
+  }
+}
+
+export const writeFragment = internalMutation({
+  args: {
+    messageId: v.id('messages'),
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert('messageText', args);
+  },
+});

@@ -56,6 +56,7 @@ import type * as util_geometry from "../util/geometry";
 import type * as util_mappedTable from "../util/mappedTable";
 import type * as util_minheap from "../util/minheap";
 import type * as util_positionBuffer from "../util/positionBuffer";
+import type * as util_sleep from "../util/sleep";
 import type * as util_types from "../util/types";
 
 /**
@@ -109,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   "util/mappedTable": typeof util_mappedTable;
   "util/minheap": typeof util_minheap;
   "util/positionBuffer": typeof util_positionBuffer;
+  "util/sleep": typeof util_sleep;
   "util/types": typeof util_types;
 }>;
 export declare const api: FilterApi<
