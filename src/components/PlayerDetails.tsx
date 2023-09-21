@@ -234,39 +234,39 @@ export default function PlayerDetails(props: {
             </div>
           </a>
         )}
-        <div className="desc my-6">
-          <p className="leading-tight -m-4 bg-brown-700 text-lg">
-            {!isMe && player.description}
-            {isMe && <i>This is you!</i>}
-            {!isMe && inConversationWithMe && (
-              <>
-                <br />
-                <br />(<i>Conversing with you!</i>)
-              </>
-            )}
-          </p>
-        </div>
-        {!isMe && player.conversation && (
+      </SignedIn>
+      <div className="desc my-6">
+        <p className="leading-tight -m-4 bg-brown-700 text-lg">
+          {!isMe && player.description}
+          {isMe && <i>This is you!</i>}
+          {!isMe && inConversationWithMe && (
+            <>
+              <br />
+              <br />(<i>Conversing with you!</i>)
+            </>
+          )}
+        </p>
+      </div>
+      {!isMe && player.conversation && (
+        <Messages
+          serverState={props.serverState}
+          inConversationWithMe={inConversationWithMe ?? false}
+          conversation={player.conversation}
+        />
+      )}
+      {(!player.member || player.member.status !== 'participating') && previousConversation && (
+        <>
+          <div className="box flex-grow">
+            <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
+          </div>
+
           <Messages
             serverState={props.serverState}
-            inConversationWithMe={inConversationWithMe ?? false}
-            conversation={player.conversation}
+            inConversationWithMe={false}
+            conversation={previousConversation}
           />
-        )}
-        {!player.conversation && previousConversation && (
-          <>
-            <div className="box flex-grow">
-              <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
-            </div>
-
-            <Messages
-              serverState={props.serverState}
-              inConversationWithMe={false}
-              conversation={previousConversation}
-            />
-          </>
-        )}
-      </SignedIn>
+        </>
+      )}
     </>
   );
 }
