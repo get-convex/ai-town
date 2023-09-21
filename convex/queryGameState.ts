@@ -6,6 +6,8 @@ export default query({
   handler: async (ctx) => {
     const lastStep = await ctx.db.query('steps').withIndex('endTs').order('desc').first();
 
+    const blocks = await ctx.db.query('blocks').collect();
+
     // Query the active conversations and all their members as game state.
     // The client can load the messages and their content on demand.
     const conversationRows = await ctx.db
@@ -37,6 +39,7 @@ export default query({
       endTs: lastStep?.endTs ?? Date.now(),
 
       players,
+      blocks,
       conversations,
     };
   },
@@ -78,6 +81,15 @@ export const playerMetadata = query({
       console.warn(`Player ${args.playerId} is not enabled!`);
       return null;
     }
+    const block = await ctx.db
+      .query('blocks')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('metadata.state'), 'carried'),
+          q.eq(q.field('metadata.player'), player._id),
+        ),
+      )
+      .unique();
     // Check if the player is a conversation.
     const member = await ctx.db
       .query('conversationMembers')
@@ -102,7 +114,17 @@ export const playerMetadata = query({
       description: player.description,
       member,
       conversation,
+      block,
     };
+  },
+});
+
+export const blockMetadata = query({
+  args: {
+    blockId: v.id('blocks'),
+  },
+  handler: async (ctx, args) => {
+    return ctx.db.get(args.blockId);
   },
 });
 

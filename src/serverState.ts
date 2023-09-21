@@ -19,6 +19,7 @@ const SOFT_MIN_SERVER_BUFFER_AGE = 100;
 export type GameState = {
   serverTimestamp: number;
   players: Record<Id<'players'>, InterpolatedPlayer>;
+  blocks: Array<Doc<'blocks'>>;
   inflightInputs: Array<{ name: string; args: any }>;
 };
 
@@ -26,6 +27,7 @@ export type InterpolatedPlayer = {
   position: Point;
   facing: Vector;
   isMoving: boolean;
+  block: Doc<'blocks'> | null;
 
   player: Doc<'players'>;
   positionBuffers?: PositionBuffer[];
@@ -33,6 +35,7 @@ export type InterpolatedPlayer = {
 
 type ServerSnapshot = {
   players: { player: Doc<'players'>; previousPositions?: PositionBuffer }[];
+  blocks: Array<Doc<'blocks'>>;
   serverStartTs: number;
   serverEndTs: number;
 };
@@ -99,6 +102,7 @@ export class ServerState {
           player.previousPositions && PositionBuffer.unpack(player.previousPositions);
         return { player, previousPositions };
       }),
+      blocks: gameState.blocks,
       serverStartTs: gameState.startTs,
       serverEndTs: gameState.endTs,
     };
@@ -162,11 +166,18 @@ export class ServerState {
     const snapshot = this.snapshots[chosen];
 
     const players: Record<Id<'players'>, InterpolatedPlayer> = {};
+    const playersToBlock: Record<Id<'players'>, Doc<'blocks'>> = {};
+    snapshot.blocks.forEach((b) => {
+      if (b.metadata.state === 'carried') {
+        playersToBlock[b.metadata.player] = b;
+      }
+    });
     for (const { player, previousPositions } of snapshot.players) {
       const interpolatedPlayer: InterpolatedPlayer = {
         position: player.position,
         facing: player.facing,
         isMoving: false,
+        block: playersToBlock[player._id] ?? null,
         player,
       };
       if (previousPositions) {
@@ -211,6 +222,7 @@ export class ServerState {
     return {
       serverTimestamp: serverTs,
       players,
+      blocks: snapshot.blocks,
       inflightInputs,
     };
   }

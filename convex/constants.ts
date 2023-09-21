@@ -1,6 +1,6 @@
 export const MAX_STEP = 10 * 60 * 1000;
 export const TICK = 16;
-export const STEP_INTERVAL = 2000;
+export const STEP_INTERVAL = 1000;
 
 export const PATHFINDING_TIMEOUT = 60 * 1000;
 export const PATHFINDING_BACKOFF = 1000;

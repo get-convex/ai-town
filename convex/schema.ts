@@ -5,6 +5,7 @@ import { conversationsTables } from './schema/conversations';
 import { classicAgentTables } from './agent/classic/schema';
 import { embeddingsCacheTables } from './agent/lib/embeddingsCache';
 import { v } from 'convex/values';
+import { blocksTable } from './schema/blocks';
 
 export default defineSchema({
   engine: defineTable({
@@ -15,4 +16,5 @@ export default defineSchema({
   ...conversationsTables,
   ...classicAgentTables,
   ...embeddingsCacheTables,
+  ...blocksTable,
 });

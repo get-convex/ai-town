@@ -3,7 +3,7 @@ import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { useEffect, useState } from 'react';
 import closeImg from '../../assets/close.svg';
-import { SelectPlayer } from './Player';
+import { SelectElement } from './Player';
 import { SignedIn } from '@clerk/clerk-react';
 import { Messages } from './Messages';
 import { ServerState } from '../serverState';
@@ -13,7 +13,7 @@ export default function PlayerDetails(props: {
   serverState: ServerState;
   humanPlayerId: Id<'players'> | null;
   playerId?: Id<'players'>;
-  setSelectedPlayer: SelectPlayer;
+  setSelectedElement: SelectElement;
 }) {
   const humanPlayerId = useQuery(api.humans.humanStatus);
   const player = useQuery(
@@ -64,6 +64,8 @@ export default function PlayerDetails(props: {
     sameConversation &&
     player.member?.status === 'participating' &&
     humanPlayer.member?.status === 'participating';
+
+  const canSetDownBlock = humanPlayer && humanPlayer.block !== null;
 
   const startConversation = async () => {
     if (!props.humanPlayerId || !props.playerId) {
@@ -119,6 +121,17 @@ export default function PlayerDetails(props: {
       }),
     );
   };
+  const setDownBlock = async () => {
+    if (!props.humanPlayerId || !humanPlayerId || !humanPlayer || !humanPlayer.block) {
+      return;
+    }
+    await toastOnError(
+      props.serverState.sendInput('setDownBlock', {
+        playerId: props.humanPlayerId,
+        blockId: humanPlayer.block._id,
+      }),
+    );
+  };
   // const pendingSuffix = (inputName: string) =>
   //   [...inflightInputs.values()].find((i) => i.name === inputName) ? ' opacity-50' : '';
   const pendingSuffix = (s: string) => '';
@@ -133,7 +146,7 @@ export default function PlayerDetails(props: {
         <a
           className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
           onClick={() => {
-            props.setSelectedPlayer(undefined);
+            props.setSelectedElement(undefined);
           }}
         >
           <h2 className="h-full bg-clay-700">
@@ -207,6 +220,19 @@ export default function PlayerDetails(props: {
               </div>
             </a>
           </>
+        )}
+        {canSetDownBlock && (
+          <a
+            className={
+              'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+              pendingSuffix('setDownBlock')
+            }
+            onClick={setDownBlock}
+          >
+            <div className="h-full bg-clay-700 text-center">
+              <span>Set down block</span>
+            </div>
+          </a>
         )}
         <div className="desc my-6">
           <p className="leading-tight -m-4 bg-brown-700 text-lg">

@@ -11,12 +11,14 @@ import { Path } from '../../convex/util/types.ts';
 import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';
 
-export type SelectPlayer = (playerId?: Id<'players'>) => void;
+export type SelectElement = (
+  element?: { kind: 'player'; id: Id<'players'> } | { kind: 'block'; id: Id<'blocks'> },
+) => void;
 
 const logged = new Set<string>();
 
-export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectPlayer }) => {
-  const { player, positionBuffers, position, facing, isMoving } = props.interpolated;
+export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectElement }) => {
+  const { player, positionBuffers, position, facing, isMoving, block } = props.interpolated;
   const tileDim = map.tileDim;
   const character = characters.find((c) => c.name === player.character);
   if (!character) {
@@ -40,11 +42,12 @@ export const Player = (props: { interpolated: InterpolatedPlayer; onClick: Selec
         isMoving={isMoving}
         isThinking={false}
         isSpeaking={false}
+        blockEmoji={block?.emoji}
         textureUrl={character.textureUrl}
         spritesheetData={character.spritesheetData}
         speed={character.speed}
         onClick={() => {
-          props.onClick(player._id);
+          props.onClick({ kind: 'player', id: player._id });
         }}
       />
     </>

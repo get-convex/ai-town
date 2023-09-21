@@ -1,4 +1,4 @@
-import { Doc } from '../_generated/dataModel';
+import { Doc, Id } from '../_generated/dataModel';
 import { movementSpeed } from '../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
 import { map, world } from '../data/world';
@@ -21,11 +21,9 @@ export function findRoute(
   now: number,
   player: Doc<'players'>,
   destination: Point,
-): Path | string {
+) {
   const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
-  if (blocked(allPlayers, destination, player)) {
-    return 'destination blocked';
-  }
+  const allBlocks = game.freeBlocks();
   const minDistances: PathCandidate[][] = [];
   const explore = (current: PathCandidate): Array<PathCandidate> => {
     const { x, y } = current.position;
@@ -61,7 +59,7 @@ export function findRoute(
     for (const { position, facing } of neighbors) {
       const segmentLength = distance(current.position, position);
       const length = current.length + segmentLength;
-      if (blocked(allPlayers, position, player)) {
+      if (blocked(allPlayers, allBlocks, position, player._id)) {
         continue;
       }
       const remaining = manhattanDistance(position, destination);
@@ -94,18 +92,30 @@ export function findRoute(
     cost: manhattanDistance(player.position, destination),
     prev: undefined,
   };
+  let bestCandidate = current;
   const minheap = MinHeap<PathCandidate>((p0, p1) => p0.cost > p1.cost);
   while (current) {
     if (pointsEqual(current.position, destination)) {
       break;
+    }
+    if (
+      manhattanDistance(current.position, destination) <
+      manhattanDistance(bestCandidate.position, destination)
+    ) {
+      bestCandidate = current;
     }
     for (const candidate of explore(current)) {
       minheap.push(candidate);
     }
     current = minheap.pop();
   }
+  let newDestination = null;
   if (!current) {
-    return "couldn't find path";
+    if (bestCandidate.length === 0) {
+      return null;
+    }
+    current = bestCandidate;
+    newDestination = current.position;
   }
   const densePath = [];
   let facing = current.facing!;
@@ -122,10 +132,15 @@ export function findRoute(
       destination,
     )}: ${pathStr}`,
   );
-  return densePath;
+  return { path: densePath, newDestination };
 }
 
-export function blocked(allPlayers: Doc<'players'>[], pos: Point, player?: Doc<'players'>) {
+export function blocked(
+  allPlayers: Doc<'players'>[],
+  allBlocks: Doc<'blocks'>[],
+  pos: Point,
+  playerId?: Id<'players'>,
+) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
@@ -135,8 +150,16 @@ export function blocked(allPlayers: Doc<'players'>[], pos: Point, player?: Doc<'
   if (map.objectTiles[Math.floor(pos.y)][Math.floor(pos.x)] !== -1) {
     return 'world blocked';
   }
+  for (const block of allBlocks) {
+    if (
+      block.metadata.state !== 'carried' &&
+      distance(block.metadata.position, pos) < COLLISION_THRESHOLD
+    ) {
+      return 'block collision';
+    }
+  }
   for (const otherPlayer of allPlayers) {
-    if (player && otherPlayer._id === player._id) {
+    if (otherPlayer._id === playerId) {
       continue;
     }
     if (distance(otherPlayer.position, pos) < COLLISION_THRESHOLD) {
