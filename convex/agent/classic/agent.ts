@@ -22,15 +22,34 @@ export async function tickAgent(
   now: number,
   playerId: Id<'players'>,
 ): Promise<TickOutcome> {
-  const { player, otherPlayers, toRemember } = await ctx.runQuery(selfInternal.queryState, {
+  const { player, blocks, otherPlayers, toRemember } = await ctx.runQuery(selfInternal.queryState, {
     playerId,
   });
   const conversation = player.conversation;
+  const carriedBlock = blocks.find(
+    (b) => b.metadata.state === 'carried' && b.metadata.player === playerId,
+  );
+  const waitingBlock = blocks.find(
+    (b) => b.metadata.state === 'waitingForNearby' && b.metadata.player === playerId,
+  );
 
   // If we have a conversation to remember, do that before anything else!
   if (toRemember) {
     console.log(`Remembering conversation ${toRemember}...`);
     await rememberConversation(ctx, playerId, toRemember);
+    return agentContinue;
+  }
+
+  if (carriedBlock && player.pathfinding) {
+    if (Math.random() < 0.1) {
+      await sendInput(ctx, 'setDownBlock', {
+        playerId,
+        blockId: carriedBlock._id,
+      });
+    }
+    return agentContinue;
+  }
+  if (waitingBlock && player.pathfinding) {
     return agentContinue;
   }
 
@@ -41,7 +60,7 @@ export async function tickAgent(
         x: 1 + Math.random() * (world.width - 2),
         y: 1 + Math.random() * (world.height - 2),
       };
-      const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
+      const destination = findUnoccupied(candidate, [player, ...otherPlayers], blocks);
       if (!destination) {
         console.warn("Couldn't find a free destination to wander to");
         return agentError;
@@ -53,6 +72,21 @@ export async function tickAgent(
       });
       return agentContinue;
     }
+
+    // If there's a block nearby and we're not carrying one, pick it up.
+    const freeBlocks = [];
+    for (const block of blocks) {
+      if (block.metadata.state !== 'placed') {
+        continue;
+      }
+      const { position } = block.metadata;
+      const dist = distance(position, player.position);
+      if (dist <= 2 && 6 <= dist) {
+        continue;
+      }
+      freeBlocks.push({ block, dist });
+    }
+    freeBlocks.sort((a, b) => a.dist - b.dist);
 
     // If we're walking somewhere and there's a player close by,
     // try to start a new conversation.
@@ -86,6 +120,15 @@ export async function tickAgent(
       nearbyFreePlayers.sort(
         (a, b) => distance(player.position, a.position) - distance(player.position, b.position),
       );
+      if (freeBlocks.length > 0) {
+        const block = freeBlocks[0].block;
+        console.log(`Picking up block ${block._id}...`);
+        await sendInput(ctx, 'pickUpBlock', {
+          playerId,
+          blockId: block._id,
+        });
+        return agentContinue;
+      }
       if (nearbyFreePlayers.length > 0) {
         const otherPlayer = nearbyFreePlayers[0];
         console.log(`Starting conversation with ${otherPlayer.name}`);
@@ -100,7 +143,7 @@ export async function tickAgent(
 
   // If we're in a conversation and currently invited, say yes with probability 80%!
   if (conversation && conversation.membership.status === 'invited') {
-    if (Math.random() < 0.8) {
+    if (!carriedBlock && Math.random() < 0.8) {
       console.log(`Accepting invitation for ${conversation._id}`);
       await sendInput(ctx, 'acceptInvite', {
         playerId: player._id,
@@ -128,7 +171,7 @@ export async function tickAgent(
         x: (player.position.x + otherPlayer.position.x) / 2,
         y: (player.position.y + otherPlayer.position.y) / 2,
       };
-      const destination = findUnoccupied(candidate, [player, ...otherPlayers]);
+      const destination = findUnoccupied(candidate, [player, ...otherPlayers], blocks);
       if (!destination) {
         console.warn(`Couldn't find a free destination near ${JSON.stringify(otherPlayer)}`);
         return agentError;
@@ -248,6 +291,8 @@ export const queryState = internalQuery({
     if (!player) {
       throw new Error(`Player ${args.playerId} not found!`);
     }
+    const blocks = await ctx.db.query('blocks').collect();
+
     const conversation = await activeConversation(ctx.db, args.playerId);
     const playerConversations = await ctx.db
       .query('conversationMembers')
@@ -316,6 +361,7 @@ export const queryState = internalQuery({
     }
     return {
       player: { conversation, ...player },
+      blocks,
       otherPlayers,
       toRemember,
     };
@@ -358,12 +404,16 @@ async function activeConversation(db: DatabaseReader, playerId: Id<'players'>) {
   return { membership, ...conversation };
 }
 
-function findUnoccupied(destination: Point, allPlayers: Array<Doc<'players'>>) {
+function findUnoccupied(
+  destination: Point,
+  allPlayers: Array<Doc<'players'>>,
+  allBlocks: Array<Doc<'blocks'>>,
+) {
   const candidates = [];
   for (let x = 0; x < world.width; x++) {
     for (let y = 0; y < world.height; y++) {
       const candidate = { x, y };
-      if (blocked(allPlayers, candidate)) {
+      if (blocked(allPlayers, allBlocks, candidate)) {
         continue;
       }
       candidates.push(candidate);
