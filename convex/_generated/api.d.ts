@@ -25,7 +25,6 @@ import type * as agent_lib_actions from "../agent/lib/actions";
 import type * as agent_lib_embeddingsCache from "../agent/lib/embeddingsCache";
 import type * as agent_lib_openai from "../agent/lib/openai";
 import type * as agent_lib_streamChat from "../agent/lib/streamChat";
-import type * as agent_simple from "../agent/simple";
 import type * as constants from "../constants";
 import type * as crons from "../crons";
 import type * as data_characters from "../data/characters";
@@ -85,7 +84,6 @@ declare const fullApi: ApiFromModules<{
   "agent/lib/embeddingsCache": typeof agent_lib_embeddingsCache;
   "agent/lib/openai": typeof agent_lib_openai;
   "agent/lib/streamChat": typeof agent_lib_streamChat;
-  "agent/simple": typeof agent_simple;
   constants: typeof constants;
   crons: typeof crons;
   "data/characters": typeof data_characters;

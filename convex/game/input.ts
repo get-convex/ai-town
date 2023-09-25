@@ -103,6 +103,14 @@ async function handleLeave(
     }
     stopConversation(game, now, conversation);
   }
+  // Drop our block if we're carrying one.
+  const block = game.blocks.find(
+    (b) => b.metadata.state === 'carried' && b.metadata.player === playerId,
+  );
+  if (block) {
+    await setDownBlock(game, now, { playerId, blockId: block._id });
+  }
+
   player.enabled = false;
   return null;
 }

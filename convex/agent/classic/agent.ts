@@ -35,6 +35,21 @@ export async function tickAgent(
 
   // If we have a conversation to remember, do that before anything else!
   if (toRemember) {
+    // Start wandering if we're not already.
+    if (!player.pathfinding) {
+      const candidate = {
+        x: 1 + Math.random() * (world.width - 2),
+        y: 1 + Math.random() * (world.height - 2),
+      };
+      const destination = findUnoccupied(candidate, [player, ...otherPlayers], blocks);
+      if (destination) {
+        console.log(`Wandering to ${JSON.stringify(destination)}...`);
+        await sendInput(ctx, 'moveTo', {
+          playerId,
+          destination,
+        });
+      }
+    }
     console.log(`Remembering conversation ${toRemember}...`);
     await rememberConversation(ctx, playerId, toRemember);
     return agentContinue;
@@ -88,8 +103,8 @@ export async function tickAgent(
       );
     }
 
-    // Wait for at least 20s before starting a new conversation.
-    if (!lastConversation || lastConversation + 20000 < now) {
+    // Wait for at least 30s before starting a new conversation.
+    if (!lastConversation || lastConversation + 30000 < now) {
       const nearbyFreePlayers = [];
       for (const otherPlayer of otherPlayers) {
         if (otherPlayer.conversation) {
@@ -98,8 +113,8 @@ export async function tickAgent(
         if (distance(player.position, otherPlayer.position) > 3) {
           continue;
         }
-        // Don't chat with someone within 30s of last chatting with them.
-        if (otherPlayer.lastChatted && now < otherPlayer.lastChatted + 30000) {
+        // Don't chat with someone within 60s of last chatting with them.
+        if (otherPlayer.lastChatted && now < otherPlayer.lastChatted + 60000) {
           continue;
         }
         nearbyFreePlayers.push(otherPlayer);
@@ -107,15 +122,6 @@ export async function tickAgent(
       nearbyFreePlayers.sort(
         (a, b) => distance(player.position, a.position) - distance(player.position, b.position),
       );
-      // if (freeBlocks.length > 0) {
-      //   const block = freeBlocks[0].block;
-      //   console.log(`Picking up block ${block._id}...`);
-      //   await sendInput(ctx, 'pickUpBlock', {
-      //     playerId,
-      //     blockId: block._id,
-      //   });
-      //   return agentContinue;
-      // }
       if (nearbyFreePlayers.length > 0) {
         const otherPlayer = nearbyFreePlayers[0];
         console.log(`Starting conversation with ${otherPlayer.name}`);
@@ -128,32 +134,34 @@ export async function tickAgent(
     }
   }
 
-  // If we're in a conversation and currently invited, say yes with probability 80%!
-  if (conversation && conversation.membership.status === 'invited') {
-    if (!carriedBlock && Math.random() < 0.8) {
-      console.log(`Accepting invitation for ${conversation._id}`);
-      await sendInput(ctx, 'acceptInvite', {
-        playerId: player._id,
-        conversationId: conversation._id,
-      });
-    } else {
-      console.log(`Declining invitation for ${conversation._id}`);
-      await sendInput(ctx, 'rejectInvite', {
-        playerId: player._id,
-        conversationId: conversation._id,
-      });
-    }
-    return agentContinue;
-  }
-  // If we're walking over, try to walk towards our conversation partner.
-  if (conversation && conversation.membership.status === 'walkingOver') {
+  if (conversation) {
     const otherPlayer = otherPlayers.find(
       (p) => p.conversation && p.conversation._id == conversation._id,
     );
     if (!otherPlayer) {
       throw new Error(`Couldn't find other participant in ${conversation._id}`);
     }
-    if (distance(player.position, otherPlayer.position) > CONVERSATION_DISTANCE) {
+    // If we're in a conversation and currently invited, say yes with probability 80%!
+    if (conversation.membership.status === 'invited') {
+      if (otherPlayer.human || Math.random() < 0.8) {
+        console.log(`Accepting invitation for ${conversation._id}`);
+        await sendInput(ctx, 'acceptInvite', {
+          playerId: player._id,
+          conversationId: conversation._id,
+        });
+      } else {
+        console.log(`Declining invitation for ${conversation._id}`);
+        await sendInput(ctx, 'rejectInvite', {
+          playerId: player._id,
+          conversationId: conversation._id,
+        });
+      }
+      return agentContinue;
+    }
+    if (conversation.membership.status === 'walkingOver') {
+      if (distance(player.position, otherPlayer.position) <= CONVERSATION_DISTANCE) {
+        return agentContinue;
+      }
       const candidate = {
         x: (player.position.x + otherPlayer.position.x) / 2,
         y: (player.position.y + otherPlayer.position.y) / 2,
@@ -168,18 +176,11 @@ export async function tickAgent(
         playerId,
         destination,
       });
+      return agentContinue;
     }
-    return agentContinue;
-  }
-  // If we're participating in the conversation, start driving it forward.
-  if (conversation && conversation.membership.status === 'participating') {
-    const otherPlayer = otherPlayers.find(
-      (p) => p.conversation && p.conversation._id == conversation._id,
-    );
-    if (!otherPlayer) {
-      throw new Error(`Couldn't find other participant in ${conversation._id}`);
+    if (conversation.membership.status === 'participating') {
+      return await tickConversation(ctx, now, player, otherPlayer, conversation);
     }
-    return await tickConversation(ctx, now, player, otherPlayer, conversation);
   }
   return agentContinue;
 }

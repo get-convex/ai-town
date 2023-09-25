@@ -5,6 +5,7 @@ import { insertInput } from './engine';
 import { Id, TableNames } from './_generated/dataModel';
 import { GameState } from './game/state';
 import { blocked } from './game/movement';
+import { api } from './_generated/api';
 
 // export const addManyPlayers = mutation({
 //   handler: async (ctx) => {
@@ -108,8 +109,10 @@ export const clear = mutation({
       'steps',
       'agentLeases',
       'classicAgents',
+      'blocks',
+      'steps',
     ];
-    const maxRows = 1024;
+    const maxRows = 512;
     let deleted = 0;
     try {
       for (const table of tables) {
@@ -117,6 +120,7 @@ export const clear = mutation({
       }
     } catch (e: unknown) {
       if (e instanceof HasMoreError) {
+        ctx.scheduler.runAfter(0, api.debug.clear, {});
         return 'hasMore';
       }
       throw e;

@@ -1,9 +1,13 @@
-import { DatabaseWriter } from '../_generated/server';
+import { DatabaseWriter, internalQuery } from '../_generated/server';
 import { Point, Vector } from '../util/types';
 import { Id } from '../_generated/dataModel';
 import { PositionBuffer } from '../util/positionBuffer';
 import { TICK } from '../constants';
 import { MappedTable } from '../util/mappedTable';
+
+export const debugPrune = internalQuery({
+  handler: async (ctx, args) => {},
+});
 
 export class GameState {
   playersMoved: Map<Id<'players'>, PositionBuffer> = new Map();

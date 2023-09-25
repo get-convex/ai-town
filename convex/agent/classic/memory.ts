@@ -114,7 +114,7 @@ export async function queryOpinionAboutPlayer(
   const results = await ctx.vectorSearch('conversationMemories', 'embedding', {
     vector: embedding,
     filter: (q) => q.eq('conversationTag', conversationTag(player._id, otherPlayer._id)),
-    limit: 10,
+    limit: 3,
   });
   const summaries = await ctx.runQuery(selfInternal.loadMemories, {
     memoryIds: results.map((r) => r._id),
