@@ -10,12 +10,12 @@ export const inputs = {
       description: v.string(),
       tokenIdentifier: v.optional(v.string()),
     }),
-    returnValue: v.id('game2_players'),
+    returnValue: v.id('players'),
   },
   // ...or leave, disabling the specified player.
   leave: {
     args: v.object({
-      playerId: v.id('game2_players'),
+      playerId: v.id('players'),
     }),
     returnValue: v.null(),
   },
@@ -23,7 +23,7 @@ export const inputs = {
   // Move the player to a specified location.
   moveTo: {
     args: v.object({
-      playerId: v.id('game2_players'),
+      playerId: v.id('players'),
       destination: v.union(point, v.null()),
     }),
     returnValue: v.null(),
@@ -33,18 +33,18 @@ export const inputs = {
   // so we don't have a separate "invite" input.
   startConversation: {
     args: v.object({
-      playerId: v.id('game2_players'),
-      invitee: v.id('game2_players'),
+      playerId: v.id('players'),
+      invitee: v.id('players'),
     }),
-    returnValue: v.id('game2_conversations'),
+    returnValue: v.id('conversations'),
   },
   // Accept an invite to a conversation, which puts the
   // player in the "walkingOver" state until they're close
   // enough to the other participant.
   acceptInvite: {
     args: v.object({
-      playerId: v.id('game2_players'),
-      conversationId: v.id('game2_conversations'),
+      playerId: v.id('players'),
+      conversationId: v.id('conversations'),
     }),
     returnValue: v.null(),
   },
@@ -52,16 +52,16 @@ export const inputs = {
   // that explains why!
   rejectInvite: {
     args: v.object({
-      playerId: v.id('game2_players'),
-      conversationId: v.id('game2_conversations'),
+      playerId: v.id('players'),
+      conversationId: v.id('conversations'),
     }),
     returnValue: v.null(),
   },
   // Leave a conversation.
   leaveConversation: {
     args: v.object({
-      playerId: v.id('game2_players'),
-      conversationId: v.id('game2_conversations'),
+      playerId: v.id('players'),
+      conversationId: v.id('conversations'),
     }),
     returnValue: v.null(),
   },

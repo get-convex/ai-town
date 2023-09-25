@@ -11,9 +11,7 @@ import { Path } from '../../convex/util/types.ts';
 import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';
 
-export type SelectElement = (
-  element?: { kind: 'player'; id: Id<'players'> } | { kind: 'block'; id: Id<'blocks'> },
-) => void;
+export type SelectElement = (element?: { kind: 'player'; id: Id<'players'> }) => void;
 
 const logged = new Set<string>();
 
@@ -42,7 +40,6 @@ export const Player = (props: { interpolated: InterpolatedPlayer; onClick: Selec
         isMoving={isMoving}
         isThinking={false}
         isSpeaking={false}
-        blockEmoji={block?.emoji}
         textureUrl={character.textureUrl}
         spritesheetData={character.spritesheetData}
         speed={character.speed}

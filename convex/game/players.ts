@@ -31,7 +31,7 @@ export type Pathfinding = Infer<typeof pathfinding>;
 // positions over the last step. Eventually we can pull this
 // out into something engine managed.
 export const players = defineTable({
-  worldId: v.id('worlds'),
+  engineId: v.id('engines'),
   // Is the player active?
   active: v.boolean(),
 
@@ -45,29 +45,29 @@ export const players = defineTable({
   pathfinding: v.optional(pathfinding),
 
   // Pointer to the locations table for the player's current position.
-  locationId: v.id('game2_locations'),
-}).index('active', ['worldId', 'active', 'human']);
+  locationId: v.id('locations'),
+}).index('active', ['engineId', 'active', 'human']);
 
-export class Players extends GameTable<'game2_players'> {
-  table = 'game2_players' as const;
+export class Players extends GameTable<'players'> {
+  table = 'players' as const;
 
-  static async load(db: DatabaseWriter, worldId: Id<'worlds'>): Promise<Players> {
+  static async load(db: DatabaseWriter, engineId: Id<'engines'>): Promise<Players> {
     const rows = await db
-      .query('game2_players')
-      .withIndex('active', (q) => q.eq('worldId', worldId).eq('active', true))
+      .query('players')
+      .withIndex('active', (q) => q.eq('engineId', engineId).eq('active', true))
       .collect();
-    return new Players(db, worldId, rows);
+    return new Players(db, engineId, rows);
   }
 
   constructor(
     public db: DatabaseWriter,
-    public worldId: Id<'worlds'>,
-    rows: Doc<'game2_players'>[],
+    public engineId: Id<'engines'>,
+    rows: Doc<'players'>[],
   ) {
     super(rows);
   }
 
-  isActive(doc: Doc<'game2_players'>): boolean {
+  isActive(doc: Doc<'players'>): boolean {
     return doc.active;
   }
 }

@@ -14,19 +14,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as agent_classic_agent from "../agent/classic/agent";
-import type * as agent_classic_conversation from "../agent/classic/conversation";
-import type * as agent_classic_debug from "../agent/classic/debug";
-import type * as agent_classic_init from "../agent/classic/init";
-import type * as agent_classic_lease from "../agent/classic/lease";
-import type * as agent_classic_main from "../agent/classic/main";
-import type * as agent_classic_memory from "../agent/classic/memory";
-import type * as agent_lib_actions from "../agent/lib/actions";
-import type * as agent_lib_embeddingsCache from "../agent/lib/embeddingsCache";
-import type * as agent_lib_openai from "../agent/lib/openai";
-import type * as agent_lib_streamChat from "../agent/lib/streamChat";
 import type * as constants from "../constants";
-import type * as crons from "../crons";
 import type * as data_characters from "../data/characters";
 import type * as data_map from "../data/map";
 import type * as data_spritesheets_f1 from "../data/spritesheets/f1";
@@ -43,10 +31,8 @@ import type * as data_spritesheets_p3 from "../data/spritesheets/p3";
 import type * as data_spritesheets_player from "../data/spritesheets/player";
 import type * as data_spritesheets_types from "../data/spritesheets/types";
 import type * as data_world from "../data/world";
-import type * as debug from "../debug";
 import type * as engine_game from "../engine/game";
 import type * as engine_gameTable from "../engine/gameTable";
-import type * as engine from "../engine";
 import type * as game_aiTown from "../game/aiTown";
 import type * as game_conversationMembers from "../game/conversationMembers";
 import type * as game_conversations from "../game/conversations";
@@ -55,8 +41,6 @@ import type * as game_location from "../game/location";
 import type * as game_main from "../game/main";
 import type * as game_movement from "../game/movement";
 import type * as game_players from "../game/players";
-import type * as humans from "../humans";
-import type * as queryGameState from "../queryGameState";
 import type * as util_assertNever from "../util/assertNever";
 import type * as util_geometry from "../util/geometry";
 import type * as util_mappedTable from "../util/mappedTable";
@@ -64,6 +48,7 @@ import type * as util_minheap from "../util/minheap";
 import type * as util_positionBuffer from "../util/positionBuffer";
 import type * as util_sleep from "../util/sleep";
 import type * as util_types from "../util/types";
+import type * as world from "../world";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -74,19 +59,7 @@ import type * as util_types from "../util/types";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  "agent/classic/agent": typeof agent_classic_agent;
-  "agent/classic/conversation": typeof agent_classic_conversation;
-  "agent/classic/debug": typeof agent_classic_debug;
-  "agent/classic/init": typeof agent_classic_init;
-  "agent/classic/lease": typeof agent_classic_lease;
-  "agent/classic/main": typeof agent_classic_main;
-  "agent/classic/memory": typeof agent_classic_memory;
-  "agent/lib/actions": typeof agent_lib_actions;
-  "agent/lib/embeddingsCache": typeof agent_lib_embeddingsCache;
-  "agent/lib/openai": typeof agent_lib_openai;
-  "agent/lib/streamChat": typeof agent_lib_streamChat;
   constants: typeof constants;
-  crons: typeof crons;
   "data/characters": typeof data_characters;
   "data/map": typeof data_map;
   "data/spritesheets/f1": typeof data_spritesheets_f1;
@@ -103,10 +76,8 @@ declare const fullApi: ApiFromModules<{
   "data/spritesheets/player": typeof data_spritesheets_player;
   "data/spritesheets/types": typeof data_spritesheets_types;
   "data/world": typeof data_world;
-  debug: typeof debug;
   "engine/game": typeof engine_game;
   "engine/gameTable": typeof engine_gameTable;
-  engine: typeof engine;
   "game/aiTown": typeof game_aiTown;
   "game/conversationMembers": typeof game_conversationMembers;
   "game/conversations": typeof game_conversations;
@@ -115,8 +86,6 @@ declare const fullApi: ApiFromModules<{
   "game/main": typeof game_main;
   "game/movement": typeof game_movement;
   "game/players": typeof game_players;
-  humans: typeof humans;
-  queryGameState: typeof queryGameState;
   "util/assertNever": typeof util_assertNever;
   "util/geometry": typeof util_geometry;
   "util/mappedTable": typeof util_mappedTable;
@@ -124,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   "util/positionBuffer": typeof util_positionBuffer;
   "util/sleep": typeof util_sleep;
   "util/types": typeof util_types;
+  world: typeof world;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

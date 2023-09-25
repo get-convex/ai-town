@@ -5,31 +5,31 @@ import { DatabaseWriter } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
 
 export const conversations = defineTable({
-  worldId: v.id('worlds'),
-  creator: v.id('game2_players'),
+  engineId: v.id('engines'),
+  creator: v.id('players'),
   finished: v.optional(v.number()),
-}).index('worldId', ['worldId', 'finished']);
+}).index('engineId', ['engineId', 'finished']);
 
-export class Conversations extends GameTable<'game2_conversations'> {
-  table = 'game2_conversations' as const;
+export class Conversations extends GameTable<'conversations'> {
+  table = 'conversations' as const;
 
-  static async load(db: DatabaseWriter, worldId: Id<'worlds'>): Promise<Conversations> {
+  static async load(db: DatabaseWriter, engineId: Id<'engines'>): Promise<Conversations> {
     const rows = await db
-      .query('game2_conversations')
-      .withIndex('worldId', (q) => q.eq('worldId', worldId).eq('finished', undefined))
+      .query('conversations')
+      .withIndex('engineId', (q) => q.eq('engineId', engineId).eq('finished', undefined))
       .collect();
-    return new Conversations(db, worldId, rows);
+    return new Conversations(db, engineId, rows);
   }
 
   constructor(
     public db: DatabaseWriter,
-    public worldId: Id<'worlds'>,
-    rows: Doc<'game2_conversations'>[],
+    public engineId: Id<'engines'>,
+    rows: Doc<'conversations'>[],
   ) {
     super(rows);
   }
 
-  isActive(doc: Doc<'game2_conversations'>): boolean {
+  isActive(doc: Doc<'conversations'>): boolean {
     return doc.finished === undefined;
   }
 }

@@ -11,7 +11,7 @@ export type InputHandler<Args extends any, ReturnValue extends any> = {
 export type InputHandlers = Record<string, InputHandler<any, any>>;
 
 export abstract class Game<Handlers extends InputHandlers> {
-  abstract worldId: Id<'worlds'>;
+  abstract engineId: Id<'engines'>;
 
   abstract tickDuration: number;
   abstract stepDuration: number;
@@ -31,36 +31,36 @@ export abstract class Game<Handlers extends InputHandlers> {
   }
 
   async runStep(ctx: MutationCtx, generationNumber: number) {
-    const world = await ctx.db.get(this.worldId);
-    if (!world) {
-      throw new Error(`Invalid world ID: ${this.worldId}`);
+    const now = Date.now();
+    const engine = await ctx.db.get(this.engineId);
+    if (!engine) {
+      throw new Error(`Invalid engine ID: ${this.engineId}`);
     }
-    if (!world.active) {
-      throw new Error(`World ${this.worldId} is not active, returning immediately.`);
+    if (!engine.active) {
+      throw new Error(`engine ${this.engineId} is not active, returning immediately.`);
     }
-    if (world.generationNumber !== generationNumber) {
+    if (engine.generationNumber !== generationNumber) {
       throw new Error(
-        `Generation mismatch (${generationNumber} vs. ${world.generationNumber}), returning`,
+        `Generation mismatch (${generationNumber} vs. ${engine.generationNumber}), returning`,
       );
     }
-    const now = Date.now();
-    if (world.currentTime && now < world.currentTime) {
-      throw new Error(`Server time moving backwards: ${now} < ${world.currentTime}`);
+    if (engine.currentTime && now < engine.currentTime) {
+      throw new Error(`Server time moving backwards: ${now} < ${engine.currentTime}`);
     }
 
     // Collect the inputs for our step, sorting them by receipt time.
     const inputs = await ctx.db
-      .query('inputs2')
+      .query('inputs')
       .withIndex('byInputNumber', (q) =>
-        q.eq('worldId', this.worldId).gt('number', world.processedInputNumber ?? -1),
+        q.eq('engineId', this.engineId).gt('number', engine.processedInputNumber ?? -1),
       )
       .take(this.maxInputsPerStep);
 
-    const startTs = world.currentTime ? world.currentTime + this.tickDuration : now;
+    const startTs = engine.currentTime ? engine.currentTime + this.tickDuration : now;
     let currentTs = startTs;
     let inputIndex = 0;
     let numTicks = 0;
-    let processedInputNumber = world.processedInputNumber;
+    let processedInputNumber = engine.processedInputNumber;
     while (true) {
       if (numTicks > this.maxTicksPerStep) {
         break;
@@ -111,10 +111,6 @@ export abstract class Game<Handlers extends InputHandlers> {
       currentTs = candidateTs;
     }
 
-    // Commit the step by moving time forward, consuming our inputs, and saving the game's state.
-    await ctx.db.patch(world._id, { currentTime: currentTs, processedInputNumber });
-    await this.save();
-
     let idleUntil = this.idleUntil();
 
     // Force an immediate wakeup if we have more inputs to process or more time to simulate.
@@ -126,30 +122,34 @@ export abstract class Game<Handlers extends InputHandlers> {
       console.warn(`Only simulating ${currentTs - startTs}ms due to max ticks per step limit.`);
       idleUntil = null;
     }
-    const toSleep = idleUntil ? idleUntil - now : this.stepDuration;
+    idleUntil = idleUntil ?? now + this.stepDuration;
+
+    // Commit the step by moving time forward, consuming our inputs, and saving the game's state.
+    await ctx.db.patch(engine._id, { currentTime: currentTs, processedInputNumber, idleUntil });
+    await this.save();
 
     // Let the caller reschedule us since we don't have a reference to ourself in `api`.
     return {
       generationNumber,
-      toSleep,
+      idleUntil,
     };
   }
 }
 
 export async function insertInput(
   ctx: MutationCtx,
-  worldId: Id<'worlds'>,
+  engineId: Id<'engines'>,
   name: string,
   args: any,
-): Promise<Id<'inputs2'>> {
+): Promise<Id<'inputs'>> {
   const prevInput = await ctx.db
-    .query('inputs2')
-    .withIndex('byInputNumber', (q) => q.eq('worldId', worldId))
+    .query('inputs')
+    .withIndex('byInputNumber', (q) => q.eq('engineId', engineId))
     .order('desc')
     .first();
   const number = prevInput ? prevInput.number + 1 : 0;
-  const inputId = await ctx.db.insert('inputs2', {
-    worldId,
+  const inputId = await ctx.db.insert('inputs', {
+    engineId,
     number,
     name,
     args,

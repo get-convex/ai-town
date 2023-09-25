@@ -7,8 +7,5 @@ export const map = {
   bgTiles: bgtiles,
   objectTiles: objmap,
 };
-
-export const world = {
-  width: bgtiles[0][0].length,
-  height: bgtiles[0].length,
-};
+export const mapWidth = bgtiles[0][0].length;
+export const mapHeight = bgtiles[0].length;

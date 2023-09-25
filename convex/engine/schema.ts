@@ -2,8 +2,8 @@ import { defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 const inputs = v.object({
-  // Inputs are scoped to a single world.
-  worldId: v.id('worlds'),
+  // Inputs are scoped to a single engine.
+  engineId: v.id('engines'),
 
   // Monotonically increasing input number within a world starting at 0.
   number: v.number(),
@@ -32,7 +32,7 @@ const inputs = v.object({
   received: v.number(),
 });
 
-const worlds = v.object({
+const engines = v.object({
   // What is the current simulation time for the engine? Monotonically increasing.
   currentTime: v.optional(v.number()),
 
@@ -46,12 +46,13 @@ const worlds = v.object({
   // atomically cancel that future execution. This provides mutual exclusion
   // for our core event loop.
   generationNumber: v.number(),
+  idleUntil: v.optional(v.number()),
 
   // How far has the engine processed in the input queue?
   processedInputNumber: v.optional(v.number()),
 });
 
 export const engineTables = {
-  inputs2: defineTable(inputs).index('byInputNumber', ['worldId', 'number']),
-  worlds: defineTable(worlds),
+  inputs: defineTable(inputs).index('byInputNumber', ['engineId', 'number']),
+  engines: defineTable(engines),
 };

@@ -1,14 +1,8 @@
-import { defineSchema, defineTable } from 'convex/server';
-import { classicAgentTables } from './agent/classic/schema';
-import { embeddingsCacheTables } from './agent/lib/embeddingsCache';
-import { v } from 'convex/values';
+import { defineSchema } from 'convex/server';
 import { gameTables } from './game/schema';
+import { worlds } from './world';
 
 export default defineSchema({
-  engine: defineTable({
-    stopped: v.boolean(),
-  }),
-  ...classicAgentTables,
-  ...embeddingsCacheTables,
+  worlds,
   ...gameTables,
 });

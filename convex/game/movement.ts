@@ -1,7 +1,7 @@
 import { Doc, Id } from '../_generated/dataModel';
 import { movementSpeed } from '../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
-import { map, world } from '../data/world';
+import { map, mapHeight, mapWidth } from '../data/world';
 import { Point, Vector } from '../util/types';
 import { distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';
@@ -16,12 +16,7 @@ type PathCandidate = {
   prev?: PathCandidate;
 };
 
-export function findRoute(
-  game: AiTown,
-  now: number,
-  player: Doc<'game2_players'>,
-  destination: Point,
-) {
+export function findRoute(game: AiTown, now: number, player: Doc<'players'>, destination: Point) {
   const minDistances: PathCandidate[][] = [];
   const explore = (current: PathCandidate): Array<PathCandidate> => {
     const { x, y } = current.position;
@@ -129,11 +124,11 @@ export function findRoute(
   return { path: densePath, newDestination };
 }
 
-export function blocked(game: AiTown, pos: Point, playerId?: Id<'game2_players'>) {
+export function blocked(game: AiTown, pos: Point, playerId?: Id<'players'>) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
-  if (pos.x < 0 || pos.y < 0 || pos.x >= world.width || pos.y >= world.height) {
+  if (pos.x < 0 || pos.y < 0 || pos.x >= mapWidth || pos.y >= mapHeight) {
     return 'out of bounds';
   }
   if (map.objectTiles[Math.floor(pos.y)][Math.floor(pos.x)] !== -1) {

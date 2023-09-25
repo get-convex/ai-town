@@ -5,13 +5,13 @@ import { assertNever } from '../util/assertNever';
 import { Players } from './players';
 import { DatabaseWriter } from '../_generated/server';
 import { Locations } from './location';
-import { world } from '../data/world';
 import { blocked, findRoute } from './movement';
 import { characters } from '../data/characters';
 import { EPSILON, distance, normalize, pathPosition, pointsEqual, vector } from '../util/geometry';
 import { CONVERSATION_DISTANCE, PATHFINDING_BACKOFF, PATHFINDING_TIMEOUT } from '../constants';
 import { Conversations } from './conversations';
 import { ConversationMembers } from './conversationMembers';
+import { mapHeight, mapWidth } from '../data/world';
 
 export class AiTown extends Game<Inputs> {
   tickDuration = 16;
@@ -20,7 +20,7 @@ export class AiTown extends Game<Inputs> {
   maxInputsPerStep = 32;
 
   constructor(
-    public worldId: Id<'worlds'>,
+    public engineId: Id<'engines'>,
     public players: Players,
     public locations: Locations,
     public conversations: Conversations,
@@ -29,12 +29,12 @@ export class AiTown extends Game<Inputs> {
     super();
   }
 
-  static async load(db: DatabaseWriter, worldId: Id<'worlds'>) {
-    const players = await Players.load(db, worldId);
-    const locations = await Locations.load(db, worldId, players);
-    const conversations = await Conversations.load(db, worldId);
-    const conversationMembers = await ConversationMembers.load(db, worldId, conversations);
-    return new AiTown(worldId, players, locations, conversations, conversationMembers);
+  static async load(db: DatabaseWriter, engineId: Id<'engines'>) {
+    const players = await Players.load(db, engineId);
+    const locations = await Locations.load(db, engineId, players);
+    const conversations = await Conversations.load(db, engineId);
+    const conversationMembers = await ConversationMembers.load(db, engineId, conversations);
+    return new AiTown(engineId, players, locations, conversations, conversationMembers);
   }
 
   async handleInput(
@@ -70,8 +70,8 @@ export class AiTown extends Game<Inputs> {
     let position;
     for (let attempt = 0; attempt < 10; attempt++) {
       const candidate = {
-        x: Math.floor(Math.random() * world.width),
-        y: Math.floor(Math.random() * world.height),
+        x: Math.floor(Math.random() * mapWidth),
+        y: Math.floor(Math.random() * mapHeight),
       };
       if (blocked(this, candidate)) {
         continue;
@@ -98,7 +98,7 @@ export class AiTown extends Game<Inputs> {
       velocity: 0,
     });
     const playerId = await this.players.insert({
-      worldId: this.worldId,
+      engineId: this.engineId,
       name,
       description,
       active: true,
@@ -183,7 +183,7 @@ export class AiTown extends Game<Inputs> {
     }
     const conversationId = await this.conversations.insert({
       creator: playerId,
-      worldId: this.worldId,
+      engineId: this.engineId,
     });
     console.log(`Creating conversation ${conversationId}`);
     await this.conversationMembers.insert({
@@ -265,7 +265,7 @@ export class AiTown extends Game<Inputs> {
     return null;
   }
 
-  stopConversation(now: number, conversation: Doc<'game2_conversations'>) {
+  stopConversation(now: number, conversation: Doc<'conversations'>) {
     conversation.finished = now;
     const members = this.conversationMembers.filter((m) => m.conversationId === conversation._id);
     for (const member of members) {
@@ -285,7 +285,7 @@ export class AiTown extends Game<Inputs> {
     }
   }
 
-  tickPathfinding(now: number, player: Doc<'game2_players'>) {
+  tickPathfinding(now: number, player: Doc<'players'>) {
     // There's nothing to do if we're not moving.
     const { pathfinding, locationId } = player;
     if (!pathfinding) {
@@ -329,7 +329,7 @@ export class AiTown extends Game<Inputs> {
     }
   }
 
-  tickPosition(now: number, player: Doc<'game2_players'>) {
+  tickPosition(now: number, player: Doc<'players'>) {
     // There's nothing to do if we're not moving.
     if (!player.pathfinding || player.pathfinding.state.kind !== 'moving') {
       return;
@@ -360,7 +360,7 @@ export class AiTown extends Game<Inputs> {
     location.velocity = velocity;
   }
 
-  tickConversation(now: number, conversation: Doc<'game2_conversations'>) {
+  tickConversation(now: number, conversation: Doc<'conversations'>) {
     const members = this.conversationMembers.filter((m) => m.conversationId === conversation._id);
     if (members.length !== 2) {
       return;

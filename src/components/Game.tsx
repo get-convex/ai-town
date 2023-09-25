@@ -9,7 +9,6 @@ import { Viewport } from 'pixi-viewport';
 import DestinationMarker from './DestinationMarker.tsx';
 import { Id } from '../../convex/_generated/dataModel';
 import { toastOnError } from '../toasts.ts';
-import { Block } from './Block.tsx';
 
 export const Game = (props: {
   serverState: ServerState;
@@ -89,8 +88,6 @@ export const Game = (props: {
   }
   humanDestination = inflightDestination ?? humanDestination;
 
-  const blocks = state.blocks;
-
   return (
     <PixiViewport
       app={pixiApp}
@@ -109,20 +106,6 @@ export const Game = (props: {
             onClick={props.setSelectedElement}
           />
         ))}
-      {blocks &&
-        blocks.map((b) => {
-          return b.metadata.state !== 'carried' ? (
-            <Block
-              key={b._id}
-              x={b.metadata.position.x}
-              y={b.metadata.position.y}
-              emoji={b.emoji}
-              onClick={() => props.setSelectedElement({ kind: 'block', id: b._id })}
-            />
-          ) : (
-            ''
-          );
-        })}
       {DEBUG_POSITIONS && humanDestination && <DestinationMarker destination={humanDestination} />}
     </PixiViewport>
   );

@@ -13,12 +13,12 @@ export const locations = defineTable({
   velocity: v.number(),
 });
 
-export class Locations extends GameTable<'game2_locations'> {
-  table = 'game2_locations' as const;
+export class Locations extends GameTable<'locations'> {
+  table = 'locations' as const;
 
   static async load(
     db: DatabaseWriter,
-    worldId: Id<'worlds'>,
+    engineId: Id<'engines'>,
     players: Players,
   ): Promise<Locations> {
     const rows = [];
@@ -30,18 +30,18 @@ export class Locations extends GameTable<'game2_locations'> {
       }
       rows.push(row);
     }
-    return new Locations(db, worldId, rows);
+    return new Locations(db, engineId, rows);
   }
 
   constructor(
     public db: DatabaseWriter,
-    public worldId: Id<'worlds'>,
-    rows: Doc<'game2_locations'>[],
+    public engineId: Id<'engines'>,
+    rows: Doc<'locations'>[],
   ) {
     super(rows);
   }
 
-  isActive(_doc: Doc<'game2_locations'>): boolean {
+  isActive(_doc: Doc<'locations'>): boolean {
     return true;
   }
 }

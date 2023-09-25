@@ -10,8 +10,8 @@ import { Conversations } from './conversations';
 // At most two players are in one conversation.
 // Two players in a conversation are close together if they're both participating.
 export const conversationMembers = defineTable({
-  conversationId: v.id('game2_conversations'),
-  playerId: v.id('game2_players'),
+  conversationId: v.id('conversations'),
+  playerId: v.id('players'),
   status: v.union(
     v.object({ kind: v.literal('invited') }),
     v.object({ kind: v.literal('walkingOver') }),
@@ -20,35 +20,35 @@ export const conversationMembers = defineTable({
   ),
 }).index('conversationId', ['conversationId', 'playerId']);
 
-export class ConversationMembers extends GameTable<'game2_conversationMembers'> {
-  table = 'game2_conversationMembers' as const;
+export class ConversationMembers extends GameTable<'conversationMembers'> {
+  table = 'conversationMembers' as const;
 
   static async load(
     db: DatabaseWriter,
-    worldId: Id<'worlds'>,
+    engineId: Id<'engines'>,
     conversations: Conversations,
   ): Promise<ConversationMembers> {
     const rows = [];
     for (const conversation of conversations.allDocuments()) {
       const conversationRows = await db
-        .query('game2_conversationMembers')
+        .query('conversationMembers')
         .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
         .filter((q) => q.neq(q.field('status.kind'), 'left'))
         .collect();
       rows.push(...conversationRows);
     }
-    return new ConversationMembers(db, worldId, rows);
+    return new ConversationMembers(db, engineId, rows);
   }
 
   constructor(
     public db: DatabaseWriter,
-    public worldId: Id<'worlds'>,
-    rows: Doc<'game2_conversationMembers'>[],
+    public engineId: Id<'engines'>,
+    rows: Doc<'conversationMembers'>[],
   ) {
     super(rows);
   }
 
-  isActive(doc: Doc<'game2_conversationMembers'>): boolean {
+  isActive(doc: Doc<'conversationMembers'>): boolean {
     return doc.status.kind !== 'left';
   }
 }
