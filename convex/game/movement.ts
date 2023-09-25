@@ -2,10 +2,10 @@ import { Doc, Id } from '../_generated/dataModel';
 import { movementSpeed } from '../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
 import { map, world } from '../data/world';
-import { Path, Point, Vector } from '../util/types';
+import { Point, Vector } from '../util/types';
 import { distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';
-import { GameState } from './state';
+import { AiTown } from './aiTown';
 
 type PathCandidate = {
   position: Point;
@@ -17,13 +17,11 @@ type PathCandidate = {
 };
 
 export function findRoute(
-  game: GameState,
+  game: AiTown,
   now: number,
-  player: Doc<'players'>,
+  player: Doc<'game2_players'>,
   destination: Point,
 ) {
-  const allPlayers = game.players.allIds().map((id) => game.players.lookup(id));
-  const allBlocks = game.freeBlocks();
   const minDistances: PathCandidate[][] = [];
   const explore = (current: PathCandidate): Array<PathCandidate> => {
     const { x, y } = current.position;
@@ -59,7 +57,7 @@ export function findRoute(
     for (const { position, facing } of neighbors) {
       const segmentLength = distance(current.position, position);
       const length = current.length + segmentLength;
-      if (blocked(allPlayers, allBlocks, position, player._id)) {
+      if (blocked(game, position, player._id)) {
         continue;
       }
       const remaining = manhattanDistance(position, destination);
@@ -83,13 +81,15 @@ export function findRoute(
     return next;
   };
 
+  const { position: startingPosition, facing: startingFacing } = game.locations.lookup(
+    player.locationId,
+  );
   let current: PathCandidate | undefined = {
-    position: { ...player.position },
-    // We'll set the facing vector based on where we go to next.
-    facing: undefined,
+    position: startingPosition,
+    facing: startingFacing,
     t: now,
     length: 0,
-    cost: manhattanDistance(player.position, destination),
+    cost: manhattanDistance(startingPosition, destination),
     prev: undefined,
   };
   let bestCandidate = current;
@@ -126,21 +126,10 @@ export function findRoute(
   }
   densePath.reverse();
 
-  const pathStr = densePath.map((p) => JSON.stringify(p.position)).join(', ');
-  console.log(
-    `Routing between ${JSON.stringify(player.position)} and ${JSON.stringify(
-      destination,
-    )}: ${pathStr}`,
-  );
   return { path: densePath, newDestination };
 }
 
-export function blocked(
-  allPlayers: Doc<'players'>[],
-  allBlocks: Doc<'blocks'>[],
-  pos: Point,
-  playerId?: Id<'players'>,
-) {
+export function blocked(game: AiTown, pos: Point, playerId?: Id<'game2_players'>) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
@@ -150,19 +139,12 @@ export function blocked(
   if (map.objectTiles[Math.floor(pos.y)][Math.floor(pos.x)] !== -1) {
     return 'world blocked';
   }
-  for (const block of allBlocks) {
-    if (
-      block.metadata.state !== 'carried' &&
-      distance(block.metadata.position, pos) < COLLISION_THRESHOLD
-    ) {
-      return 'block collision';
-    }
-  }
-  for (const otherPlayer of allPlayers) {
+  for (const otherPlayer of game.players.allDocuments()) {
     if (otherPlayer._id === playerId) {
       continue;
     }
-    if (distance(otherPlayer.position, pos) < COLLISION_THRESHOLD) {
+    const { position: otherPos } = game.locations.lookup(otherPlayer.locationId);
+    if (distance(otherPos, pos) < COLLISION_THRESHOLD) {
       return 'player collision';
     }
   }

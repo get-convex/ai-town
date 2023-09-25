@@ -21,17 +21,20 @@ export function pathOverlaps(path: Path, time: number): boolean {
   return path.at(0)!.t <= time && time <= path.at(-1)!.t;
 }
 
-export function pathPosition(path: Path, time: number): { position: Point; facing: Vector } | null {
+export function pathPosition(
+  path: Path,
+  time: number,
+): { position: Point; facing: Vector; velocity: number } {
   if (path.length < 2) {
     throw new Error(`Invalid path: ${JSON.stringify(path)}`);
   }
   const first = path[0];
   if (time < first.t) {
-    return { position: first.position, facing: first.facing };
+    return { position: first.position, facing: first.facing, velocity: 0 };
   }
   const last = path[path.length - 1];
   if (last.t < time) {
-    return { position: last.position, facing: last.facing };
+    return { position: last.position, facing: last.facing, velocity: 0 };
   }
   for (let i = 0; i < path.length - 1; i++) {
     const segmentStart = path[i];
@@ -44,6 +47,8 @@ export function pathPosition(path: Path, time: number): { position: Point; facin
           y: segmentStart.position.y + interp * (segmentEnd.position.y - segmentStart.position.y),
         },
         facing: segmentStart.facing,
+        velocity:
+          distance(segmentStart.position, segmentEnd.position) / (segmentEnd.t - segmentStart.t),
       };
     }
   }
