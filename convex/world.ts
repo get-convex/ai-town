@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { characters } from './data/characters';
 import { defineTable } from 'convex/server';
 import { sendInput } from './game/main';
@@ -56,7 +56,7 @@ export const heartbeatWorld = mutation({
   },
 });
 
-export const stopInactiveWorlds = mutation({
+export const stopInactiveWorlds = internalMutation({
   handler: async (ctx) => {
     const cutoff = Date.now() - IDLE_WORLD_TIMEOUT;
     const worlds = await ctx.db.query('worlds').collect();
@@ -70,7 +70,6 @@ export const stopInactiveWorlds = mutation({
         throw new Error(`Invalid engine ID: ${world.engineId}`);
       }
       if (!engine.active) {
-        console.warn('Engine is already inactive?');
         continue;
       }
       // TODO: When we can cancel scheduled jobs, do that transactionally here. For now,

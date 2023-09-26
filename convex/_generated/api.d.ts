@@ -15,6 +15,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as constants from "../constants";
+import type * as crons from "../crons";
 import type * as data_characters from "../data/characters";
 import type * as data_map from "../data/map";
 import type * as data_spritesheets_f1 from "../data/spritesheets/f1";
@@ -63,6 +64,7 @@ import type * as world from "../world";
  */
 declare const fullApi: ApiFromModules<{
   constants: typeof constants;
+  crons: typeof crons;
   "data/characters": typeof data_characters;
   "data/map": typeof data_map;
   "data/spritesheets/f1": typeof data_spritesheets_f1;
