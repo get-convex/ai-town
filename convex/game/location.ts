@@ -5,15 +5,25 @@ import { DatabaseWriter } from '../_generated/server';
 import { Players } from './players';
 import { Doc, Id } from '../_generated/dataModel';
 import { point, vector } from '../util/types';
+import { HistoricalTable } from '../engine/historicalTable';
 
 export const locations = defineTable({
   position: point,
   // Normalized orientation vector.
   facing: vector,
   velocity: v.number(),
+
+  history: v.optional(v.bytes()),
 });
 
-export class Locations extends GameTable<'locations'> {
+export const locationFieldPaths = [
+  'position.x',
+  'position.y',
+  'facing.dx',
+  'facing.dy',
+  'velocity',
+];
+export class Locations extends HistoricalTable<'locations'> {
   table = 'locations' as const;
 
   static async load(
@@ -38,10 +48,6 @@ export class Locations extends GameTable<'locations'> {
     public engineId: Id<'engines'>,
     rows: Doc<'locations'>[],
   ) {
-    super(rows);
-  }
-
-  isActive(_doc: Doc<'locations'>): boolean {
-    return true;
+    super(locationFieldPaths, rows);
   }
 }

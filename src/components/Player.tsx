@@ -1,7 +1,6 @@
 import { Doc, Id } from '../../convex/_generated/dataModel';
 import { Character } from './Character.tsx';
 import { map } from '../../convex/data/world.ts';
-import { PositionBuffer } from '../../convex/util/positionBuffer.ts';
 import { Graphics } from '@pixi/react';
 import { DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
 import { useCallback } from 'react';
@@ -12,6 +11,7 @@ import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { useContinuousQuery } from '@/hooks/useContinuousQuery.ts';
 
 export type SelectElement = (element?: { kind: 'player'; id: Id<'players'> }) => void;
 
@@ -27,7 +27,9 @@ export const Player = ({ player, onClick }: { player: Doc<'players'>; onClick: S
     }
     return;
   }
-  const location = useQuery(api.world.playerLocation, { playerId: player._id });
+  const location = useContinuousQuery<'locations'>(api.world.playerLocation, {
+    playerId: player._id,
+  });
 
   // const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
   if (!location) {

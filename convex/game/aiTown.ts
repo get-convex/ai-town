@@ -73,7 +73,7 @@ export class AiTown extends Game<Inputs> {
         x: Math.floor(Math.random() * mapWidth),
         y: Math.floor(Math.random() * mapHeight),
       };
-      if (blocked(this, candidate)) {
+      if (blocked(this, now, candidate)) {
         continue;
       }
       position = candidate;
@@ -92,7 +92,7 @@ export class AiTown extends Game<Inputs> {
     if (!characters.find((c) => c.name === character)) {
       throw new Error(`Invalid character: ${character}`);
     }
-    const locationId = await this.locations.insert({
+    const locationId = await this.locations.insert(now, {
       position,
       facing,
       velocity: 0,
@@ -143,7 +143,7 @@ export class AiTown extends Game<Inputs> {
     ) {
       throw new Error(`Non-integral destination: ${JSON.stringify(destination)}`);
     }
-    const { position } = this.locations.lookup(player.locationId);
+    const { position } = this.locations.lookup(now, player.locationId);
     // Close enough to current position or destination => no-op.
     if (pointsEqual(position, destination)) {
       return null;
@@ -283,6 +283,7 @@ export class AiTown extends Game<Inputs> {
     for (const conversation of this.conversations.allDocuments()) {
       this.tickConversation(now, conversation);
     }
+    this.locations.finishTick(now);
   }
 
   tickPathfinding(now: number, player: Doc<'players'>) {
@@ -291,7 +292,7 @@ export class AiTown extends Game<Inputs> {
     if (!pathfinding) {
       return;
     }
-    const { position } = this.locations.lookup(locationId);
+    const { position } = this.locations.lookup(now, locationId);
 
     // Stop pathfinding if we've reached our destination.
     if (pathfinding.state.kind === 'moving' && pointsEqual(pathfinding.destination, position)) {
@@ -343,7 +344,7 @@ export class AiTown extends Game<Inputs> {
       return;
     }
     const { position, facing, velocity } = candidate;
-    const collisionReason = blocked(this, position, player._id);
+    const collisionReason = blocked(this, now, position, player._id);
     if (collisionReason !== null) {
       const backoff = Math.random() * PATHFINDING_BACKOFF;
       console.warn(`Stopping path for ${player._id}, waiting for ${backoff}ms: ${collisionReason}`);
@@ -354,7 +355,7 @@ export class AiTown extends Game<Inputs> {
       return;
     }
     // Update the player's location.
-    const location = this.locations.lookup(player.locationId);
+    const location = this.locations.lookup(now, player.locationId);
     location.position = position;
     location.facing = facing;
     location.velocity = velocity;
@@ -370,9 +371,9 @@ export class AiTown extends Game<Inputs> {
     const [member1, member2] = members;
     if (member1.status.kind === 'walkingOver' && member2.status.kind === 'walkingOver') {
       const player1 = this.players.lookup(member1.playerId);
-      const location1 = this.locations.lookup(player1.locationId);
+      const location1 = this.locations.lookup(now, player1.locationId);
       const player2 = this.players.lookup(member2.playerId);
-      const location2 = this.locations.lookup(player2.locationId);
+      const location2 = this.locations.lookup(now, player2.locationId);
 
       const playerDistance = distance(location1.position, location2.position);
       if (playerDistance < CONVERSATION_DISTANCE) {
@@ -401,15 +402,18 @@ export class AiTown extends Game<Inputs> {
     }
   }
 
-  async save(): Promise<void> {
+  async save(startTs: number, endTs: number): Promise<void> {
     await this.players.save();
-    await this.locations.save();
+    await this.locations.save(startTs, endTs);
     await this.conversations.save();
     await this.conversationMembers.save();
   }
 
   idleUntil(now: number): number | null {
     if (this.players.allDocuments().some((p) => !!p.pathfinding)) {
+      return null;
+    }
+    if (this.locations.historyLength() > 0) {
       return null;
     }
     return now + 60 * 60 * 1000;

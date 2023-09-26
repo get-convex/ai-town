@@ -24,7 +24,7 @@ export abstract class Game<Handlers extends InputHandlers> {
   ): Promise<Infer<Handlers[typeof name]['returnValue']>>;
 
   abstract tick(now: number): void;
-  abstract save(): Promise<void>;
+  abstract save(startTs: number, endTs: number): Promise<void>;
   idleUntil(now: number): null | number {
     return null;
   }
@@ -126,7 +126,7 @@ export abstract class Game<Handlers extends InputHandlers> {
 
     // Commit the step by moving time forward, consuming our inputs, and saving the game's state.
     await ctx.db.patch(engine._id, { currentTime: currentTs, processedInputNumber, idleUntil });
-    await this.save();
+    await this.save(startTs, currentTs);
 
     // Let the caller reschedule us since we don't have a reference to ourself in `api`.
     return {

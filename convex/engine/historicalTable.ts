@@ -14,22 +14,36 @@ export abstract class HistoricalTable<T extends TableNames> {
   abstract table: T;
   abstract db: DatabaseWriter;
 
+  fields: FieldPath[];
+
   data: Map<Id<T>, Doc<T>> = new Map();
   modified: Set<Id<T>> = new Set();
   deleted: Set<Id<T>> = new Set();
 
-  history: Map<Id<T>, Map<FieldPath, Sample[]>> = new Map();
+  history: Map<Id<T>, Map<number, Sample[]>> = new Map();
 
-  constructor(rows: Doc<T>[]) {
+  constructor(fields: FieldPath[], rows: Doc<T>[]) {
+    this.fields = fields;
     for (const row of rows) {
+      if ('history' in row) {
+        delete row.history;
+        this.modified.add(row._id);
+      }
       this.checkNumeric(row);
       this.data.set(row._id, row);
     }
   }
 
+  historyLength() {
+    return [...this.history.values()]
+      .flatMap((sampleMap) => [...sampleMap.values()])
+      .map((b) => b.length)
+      .reduce((a, b) => a + b, 0);
+  }
+
   checkNumeric(obj: any) {
     for (const [key, value] of Object.entries(obj)) {
-      if (key.startsWith('_')) {
+      if (this.isReservedFieldName(key)) {
         continue;
       }
       if (typeof value === 'number') {
@@ -45,8 +59,15 @@ export abstract class HistoricalTable<T extends TableNames> {
     }
   }
 
-  async insert(row: WithoutSystemFields<Doc<T>>): Promise<Id<T>> {
+  isReservedFieldName(key: string) {
+    return key.startsWith('_') || key === 'history';
+  }
+
+  async insert(now: number, row: WithoutSystemFields<Doc<T>>): Promise<Id<T>> {
     this.checkNumeric(row);
+    if ('history' in row) {
+      throw new Error(`Cannot insert row with 'history' field`);
+    }
     const id = await this.db.insert(this.table, row);
     const withSystemFields = await this.db.get(id);
     if (!withSystemFields) {
@@ -56,7 +77,7 @@ export abstract class HistoricalTable<T extends TableNames> {
     return id;
   }
 
-  lookup(id: Id<T>, now: number): Doc<T> {
+  lookup(now: number, id: Id<T>): Doc<T> {
     const row = this.data.get(id);
     if (!row) {
       throw new Error(`Invalid ID: ${id}`);
@@ -76,9 +97,8 @@ export abstract class HistoricalTable<T extends TableNames> {
         },
         set: (obj: any, prop: any, value: any) => {
           this.checkNumeric(value);
-          this.markModified(id, now, `${path}.${prop}`, value);
-          if (typeof prop === 'string' && typeof value === 'number') {
-          }
+          const subPath = path.length > 0 ? `${path}.${prop}` : prop;
+          this.markModified(id, now, subPath, value);
           return Reflect.set(obj, prop, value);
         },
         deleteProperty: (target: any, prop: any) => {
@@ -90,6 +110,13 @@ export abstract class HistoricalTable<T extends TableNames> {
   }
 
   private markModified(id: Id<T>, now: number, fieldPath: FieldPath, value: any) {
+    if (logged < 10) {
+      console.log(`markModified`, id, now, fieldPath, value);
+      logged++;
+    }
+    if (fieldPath == 'history') {
+      throw new Error(`Cannot modify 'history' field`);
+    }
     this.modified.add(id);
     let sampleMap = this.history.get(id);
     if (!sampleMap) {
@@ -100,16 +127,33 @@ export abstract class HistoricalTable<T extends TableNames> {
   }
 
   private appendToBuffer(
-    sampleMap: Map<FieldPath, Sample[]>,
+    sampleMap: Map<number, Sample[]>,
     now: number,
-    fieldPath: FieldPath,
+    fieldPath: null | FieldPath,
     value: any,
   ) {
     if (typeof value === 'number') {
-      let samples = sampleMap.get(fieldPath);
+      if (!fieldPath) {
+        throw new Error(`Numeric value at document root`);
+      }
+      let fieldNumber = this.fields.indexOf(fieldPath);
+      if (fieldNumber === -1) {
+        return;
+      }
+      let samples = sampleMap.get(fieldNumber);
       if (!samples) {
         samples = [];
-        sampleMap.set(fieldPath, samples);
+        sampleMap.set(fieldNumber, samples);
+      }
+      if (samples.length > 0) {
+        const last = samples[samples.length - 1];
+        if (now < last.time) {
+          throw new Error(`Server time moving backwards: ${now} < ${last.time}`);
+        }
+        if (now === last.time) {
+          last.value = value;
+          return;
+        }
       }
       samples.push({ time: now, value });
       return;
@@ -120,7 +164,72 @@ export abstract class HistoricalTable<T extends TableNames> {
       );
     }
     for (const [key, objectValue] of Object.entries(value)) {
-      this.appendToBuffer(sampleMap, now, `${fieldPath}.${key}`, value);
+      if (this.isReservedFieldName(key)) {
+        continue;
+      }
+      this.appendToBuffer(sampleMap, now, `${fieldPath}.${key}`, objectValue);
     }
   }
+
+  finishTick(now: number) {
+    for (const [id, sampleMap] of this.history.entries()) {
+      const row = this.data.get(id);
+      if (!row) {
+        throw new Error(`Invalid ID: ${id}`);
+      }
+      this.appendToBuffer(sampleMap, now, null, row);
+    }
+  }
+
+  async save() {
+    for (const id of this.deleted) {
+      await this.db.delete(id);
+    }
+    for (const id of this.modified) {
+      const row = this.data.get(id);
+      if (!row) {
+        throw new Error(`Invalid modified id: ${id}`);
+      }
+      if ('history' in row) {
+        throw new Error(`Cannot save row with 'history' field`);
+      }
+      const sampleMap = this.history.get(id);
+      if (sampleMap && sampleMap.size > 0) {
+        (row as any).history = this.packSampleMap(sampleMap);
+      }
+      // Somehow TypeScript isn't able to figure out that our
+      // generic `Doc<T>` unifies with `replace()`'s type.
+      await this.db.replace(id, row as any);
+    }
+    this.modified.clear();
+    this.deleted.clear();
+  }
+
+  packSampleMap(sampleMap: Map<number, Sample[]>): ArrayBuffer {
+    const sampleArrays = [...sampleMap.entries()];
+    sampleArrays.sort(([a], [b]) => a - b);
+
+    const header = [];
+    const allFloats = [];
+    for (const [fieldPath, sampleBuffer] of sampleArrays) {
+      header.push([fieldPath, sampleBuffer.length]);
+      allFloats.push(...sampleBuffer.map((sample) => sample.time));
+      allFloats.push(...sampleBuffer.map((sample) => sample.value));
+    }
+    const headerLength = new Uint32Array([header.length]);
+    const textEncoder = new TextEncoder();
+    const headerJson = JSON.stringify(header);
+    const headerBytes = textEncoder.encode(headerJson);
+    const floatBuffer = new Float64Array(allFloats);
+
+    const out = new Uint8Array(
+      headerLength.byteLength + headerBytes.byteLength + floatBuffer.byteLength,
+    );
+    out.set(new Uint8Array(headerLength.buffer), 0);
+    out.set(new Uint8Array(headerBytes.buffer), headerLength.byteLength);
+    out.set(new Uint8Array(floatBuffer.buffer), headerLength.byteLength + headerBytes.byteLength);
+    return out.buffer;
+  }
 }
+
+let logged = 0;

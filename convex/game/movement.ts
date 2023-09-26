@@ -52,7 +52,7 @@ export function findRoute(game: AiTown, now: number, player: Doc<'players'>, des
     for (const { position, facing } of neighbors) {
       const segmentLength = distance(current.position, position);
       const length = current.length + segmentLength;
-      if (blocked(game, position, player._id)) {
+      if (blocked(game, now, position, player._id)) {
         continue;
       }
       const remaining = manhattanDistance(position, destination);
@@ -77,6 +77,7 @@ export function findRoute(game: AiTown, now: number, player: Doc<'players'>, des
   };
 
   const { position: startingPosition, facing: startingFacing } = game.locations.lookup(
+    now,
     player.locationId,
   );
   let current: PathCandidate | undefined = {
@@ -124,7 +125,7 @@ export function findRoute(game: AiTown, now: number, player: Doc<'players'>, des
   return { path: densePath, newDestination };
 }
 
-export function blocked(game: AiTown, pos: Point, playerId?: Id<'players'>) {
+export function blocked(game: AiTown, now: number, pos: Point, playerId?: Id<'players'>) {
   if (isNaN(pos.x) || isNaN(pos.y)) {
     throw new Error(`NaN position in ${JSON.stringify(pos)}`);
   }
@@ -138,7 +139,7 @@ export function blocked(game: AiTown, pos: Point, playerId?: Id<'players'>) {
     if (otherPlayer._id === playerId) {
       continue;
     }
-    const { position: otherPos } = game.locations.lookup(otherPlayer.locationId);
+    const { position: otherPos } = game.locations.lookup(now, otherPlayer.locationId);
     if (distance(otherPos, pos) < COLLISION_THRESHOLD) {
       return 'player collision';
     }
