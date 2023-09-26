@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { mutation, query } from '../_generated/server';
 import { AiTown } from './aiTown';
 import { api } from '../_generated/api';
 import { Id } from '../_generated/dataModel';
@@ -27,6 +27,34 @@ export const sendInput = mutation({
     args: v.any(),
   },
   handler: async (ctx, args) => {
-    return await insertInput(ctx, args.engineId, args.name, args.args);
+    const preempt = true;
+    const { inputId, preemption } = await insertInput(
+      ctx,
+      args.engineId,
+      args.name,
+      args.args,
+      preempt,
+    );
+    if (preemption) {
+      const { now, generationNumber } = preemption;
+      await ctx.scheduler.runAt(now, api.game.main.runStep, {
+        engineId: args.engineId,
+        generationNumber,
+      });
+    }
+    return inputId;
+  },
+});
+
+export const inputStatus = query({
+  args: {
+    inputId: v.id('inputs'),
+  },
+  handler: async (ctx, args) => {
+    const input = await ctx.db.get(args.inputId);
+    if (!input) {
+      throw new Error(`Invalid input ID: ${args.inputId}`);
+    }
+    return input.returnValue ?? null;
   },
 });

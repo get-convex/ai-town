@@ -10,13 +10,14 @@ import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { Path } from '../../convex/util/types.ts';
 import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export type SelectElement = (element?: { kind: 'player'; id: Id<'players'> }) => void;
 
 const logged = new Set<string>();
 
-export const Player = (props: { interpolated: InterpolatedPlayer; onClick: SelectElement }) => {
-  const { player, positionBuffers, position, facing, isMoving, block } = props.interpolated;
+export const Player = ({ player, onClick }: { player: Doc<'players'>; onClick: SelectElement }) => {
   const tileDim = map.tileDim;
   const character = characters.find((c) => c.name === player.character);
   if (!character) {
@@ -26,25 +27,30 @@ export const Player = (props: { interpolated: InterpolatedPlayer; onClick: Selec
     }
     return;
   }
-  const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
+  const location = useQuery(api.world.playerLocation, { playerId: player._id });
+
+  // const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
+  if (!location) {
+    return;
+  }
   return (
     <>
-      {DEBUG_POSITIONS && positionBuffers && (
+      {/* {DEBUG_POSITIONS && positionBuffers && (
         <DebugBuffer id={player._id} buffers={positionBuffers} />
       )}
-      {DEBUG_POSITIONS && path && <DebugPath id={player._id} path={path} />}
+      {DEBUG_POSITIONS && path && <DebugPath id={player._id} path={path} />} */}
       <Character
-        x={position.x * tileDim + tileDim / 2}
-        y={position.y * tileDim + tileDim / 2}
-        orientation={orientationDegrees(facing)}
-        isMoving={isMoving}
+        x={location.position.x * tileDim + tileDim / 2}
+        y={location.position.y * tileDim + tileDim / 2}
+        orientation={orientationDegrees(location.facing)}
+        isMoving={location.velocity > 0}
         isThinking={false}
         isSpeaking={false}
         textureUrl={character.textureUrl}
         spritesheetData={character.spritesheetData}
         speed={character.speed}
         onClick={() => {
-          props.onClick({ kind: 'player', id: player._id });
+          onClick({ kind: 'player', id: player._id });
         }}
       />
     </>

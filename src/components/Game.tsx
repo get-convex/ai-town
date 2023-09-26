@@ -1,18 +1,18 @@
-import { useApp, useTick } from '@pixi/react';
+import { useApp } from '@pixi/react';
 import { Player, SelectElement } from './Player.tsx';
-import { useRef, useState } from 'react';
-import { ServerState, GameState, DEBUG_POSITIONS, InterpolatedPlayer } from '../serverState.ts';
+import { useRef } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
 import { map } from '../../convex/data/world.ts';
 import { Viewport } from 'pixi-viewport';
-import DestinationMarker from './DestinationMarker.tsx';
 import { Id } from '../../convex/_generated/dataModel';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api.js';
+import { useSendInput } from '../hooks/sendInput.ts';
 import { toastOnError } from '../toasts.ts';
 
 export const Game = (props: {
-  serverState: ServerState;
-  humanPlayerId: Id<'players'> | null;
+  worldId: Id<'worlds'>;
   width: number;
   height: number;
   setSelectedElement: SelectElement;
@@ -21,15 +21,9 @@ export const Game = (props: {
   const pixiApp = useApp();
   const viewportRef = useRef<Viewport | undefined>();
 
-  // Server state management and updates.
-  const [state, setState] = useState<GameState | undefined>();
-  useTick(() => {
-    const currentState = props.serverState.currentState(Date.now());
-    if (!currentState) {
-      return;
-    }
-    setState(currentState);
-  });
+  const humanPlayerId = useQuery(api.world.userStatus, { worldId: props.worldId }) ?? null;
+  const players = useQuery(api.world.activePlayers, { worldId: props.worldId }) ?? [];
+  const moveTo = useSendInput(props.worldId, 'moveTo');
 
   // Interaction for clicking on the world to navigate.
   const dragStart = useRef<{ screenX: number; screenY: number } | null>(null);
@@ -48,7 +42,7 @@ export const Game = (props: {
         return;
       }
     }
-    if (!props.humanPlayerId) {
+    if (!humanPlayerId) {
       return;
     }
     const viewport = viewportRef.current;
@@ -60,33 +54,29 @@ export const Game = (props: {
       x: Math.floor(gameSpacePx.x / map.tileDim),
       y: Math.floor(gameSpacePx.y / map.tileDim),
     };
-    await toastOnError(
-      props.serverState.sendInput('moveTo', {
-        playerId: props.humanPlayerId,
-        destination: gameSpaceTiles,
-      }),
-    );
+    console.log(`Moving to ${JSON.stringify(gameSpaceTiles)}`);
+    await toastOnError(moveTo({ playerId: humanPlayerId, destination: gameSpaceTiles }));
   };
 
-  if (!state) {
-    return;
-  }
+  // if (!state) {
+  //   return;
+  // }
 
-  let players: InterpolatedPlayer[] = Object.values(state.players);
-  // Order the players by their y coordinates.
-  players.sort((a, b) => a.position.y - b.position.y);
+  // let players: InterpolatedPlayer[] = Object.values(state.players);
+  // // Order the players by their y coordinates.
+  // players.sort((a, b) => a.position.y - b.position.y);
 
-  const human = players.find((p) => p.player._id == props.humanPlayerId);
-  let humanDestination = human && human.player.pathfinding?.destination;
+  // const human = players.find((p) => p.player._id == humanPlayerId);
+  // let humanDestination = human && human.player.pathfinding?.destination;
 
-  let inflightDestination;
-  for (const input of state.inflightInputs) {
-    if (input.name !== 'moveTo' || input.args.playerId !== props.humanPlayerId) {
-      continue;
-    }
-    inflightDestination = input.args.destination;
-  }
-  humanDestination = inflightDestination ?? humanDestination;
+  // let inflightDestination;
+  // for (const input of state.inflightInputs) {
+  //   if (input.name !== 'moveTo' || input.args.playerId !== humanPlayerId) {
+  //     continue;
+  //   }
+  //   inflightDestination = input.args.destination;
+  // }
+  // humanDestination = inflightDestination ?? humanDestination;
 
   return (
     <PixiViewport
@@ -98,15 +88,11 @@ export const Game = (props: {
       viewportRef={viewportRef}
     >
       <PixiStaticMap onpointerup={onMapPointerUp} onpointerdown={onMapPointerDown} />
-      {players &&
-        players.map((interpolated) => (
-          <Player
-            key={interpolated.player._id}
-            interpolated={interpolated}
-            onClick={props.setSelectedElement}
-          />
-        ))}
-      {DEBUG_POSITIONS && humanDestination && <DestinationMarker destination={humanDestination} />}
+      {players.map((p) => (
+        <Player key={p._id} player={p} onClick={props.setSelectedElement} />
+      ))}
+      {/* {DEBUG_POSITIONS && humanDestination && <DestinationMarker destination={humanDestination} />}
+       */}
     </PixiViewport>
   );
 };

@@ -1,6 +1,6 @@
 import { DatabaseReader, DatabaseWriter } from '../_generated/server';
 import { Doc, Id, TableNames } from '../_generated/dataModel';
-import { WithoutSystemFields } from 'convex/server';
+import { FieldPaths, WithoutSystemFields } from 'convex/server';
 
 export abstract class GameTable<T extends TableNames> {
   abstract table: T;

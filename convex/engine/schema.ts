@@ -46,7 +46,10 @@ const engines = v.object({
   // atomically cancel that future execution. This provides mutual exclusion
   // for our core event loop.
   generationNumber: v.number(),
-  idleUntil: v.optional(v.number()),
+
+  // Timestamp of the next time we're scheduled. Eventually, this can be the
+  // direct id of the scheduled job.
+  idleUntil: v.number(),
 
   // How far has the engine processed in the input queue?
   processedInputNumber: v.optional(v.number()),

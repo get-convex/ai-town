@@ -6,7 +6,6 @@ import { MessageInput } from './MessageInput';
 import { ServerState } from '@/serverState';
 
 export function Messages(props: {
-  serverState: ServerState;
   conversation: Doc<'conversations'> & { typingName?: string };
   inConversationWithMe: boolean;
 }) {

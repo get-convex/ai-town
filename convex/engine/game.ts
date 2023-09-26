@@ -1,7 +1,7 @@
 import { Infer, Validator } from 'convex/values';
 import { Id } from '../_generated/dataModel';
 import { MutationCtx } from '../_generated/server';
-import { assertNever } from '../util/assertNever';
+import { ENGINE_WAKEUP_THRESHOLD } from './constants';
 
 export type InputHandler<Args extends any, ReturnValue extends any> = {
   args: Validator<Args, false, any>;
@@ -9,7 +9,6 @@ export type InputHandler<Args extends any, ReturnValue extends any> = {
 };
 
 export type InputHandlers = Record<string, InputHandler<any, any>>;
-
 export abstract class Game<Handlers extends InputHandlers> {
   abstract engineId: Id<'engines'>;
 
@@ -26,7 +25,7 @@ export abstract class Game<Handlers extends InputHandlers> {
 
   abstract tick(now: number): void;
   abstract save(): Promise<void>;
-  idleUntil(): null | number {
+  idleUntil(now: number): null | number {
     return null;
   }
 
@@ -96,12 +95,13 @@ export abstract class Game<Handlers extends InputHandlers> {
 
       // Decide how to advance time.
       let candidateTs = currentTs + this.tickDuration;
-      let idleUntil = this.idleUntil();
+      let idleUntil = this.idleUntil(currentTs);
       if (idleUntil) {
         if (inputIndex < inputs.length) {
           idleUntil = Math.min(idleUntil, inputs[inputIndex].received);
         }
-        idleUntil = Math.min(idleUntil, now);
+        // Clamp the idle time to between the next tick and now.
+        idleUntil = Math.max(candidateTs, Math.min(idleUntil, now));
         console.log(`Engine idle, advancing time to ${idleUntil}`);
         candidateTs = idleUntil;
       }
@@ -111,7 +111,7 @@ export abstract class Game<Handlers extends InputHandlers> {
       currentTs = candidateTs;
     }
 
-    let idleUntil = this.idleUntil();
+    let idleUntil = this.idleUntil(currentTs);
 
     // Force an immediate wakeup if we have more inputs to process or more time to simulate.
     if (inputs.length === this.maxInputsPerStep) {
@@ -141,7 +141,13 @@ export async function insertInput(
   engineId: Id<'engines'>,
   name: string,
   args: any,
-): Promise<Id<'inputs'>> {
+  preempt: boolean = false,
+): Promise<{ inputId: Id<'inputs'>; preemption?: { now: number; generationNumber: number } }> {
+  const now = Date.now();
+  const engine = await ctx.db.get(engineId);
+  if (!engine) {
+    throw new Error(`Invalid engine ID: ${engineId}`);
+  }
   const prevInput = await ctx.db
     .query('inputs')
     .withIndex('byInputNumber', (q) => q.eq('engineId', engineId))
@@ -153,7 +159,30 @@ export async function insertInput(
     number,
     name,
     args,
-    received: Date.now(),
+    received: now,
   });
-  return inputId;
+  let preemption;
+  if (
+    preempt &&
+    engine.active &&
+    engine.idleUntil &&
+    now + ENGINE_WAKEUP_THRESHOLD < engine.idleUntil
+  ) {
+    console.log(`Preempting engine ${engineId}`);
+    const generationNumber = engine.generationNumber + 1;
+    await ctx.db.patch(engineId, { idleUntil: now, generationNumber });
+    preemption = { now, generationNumber };
+  }
+  return { inputId, preemption };
+}
+
+export async function createEngine(ctx: MutationCtx) {
+  const now = Date.now();
+  const engineId = await ctx.db.insert('engines', {
+    active: true,
+    currentTime: now,
+    generationNumber: 0,
+    idleUntil: now,
+  });
+  return engineId;
 }

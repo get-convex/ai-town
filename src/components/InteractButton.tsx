@@ -5,24 +5,25 @@ import { api } from '../../convex/_generated/api';
 
 export default function InteractButton() {
   const { isAuthenticated } = useConvexAuth();
-  const humanStatus = useQuery(api.humans.humanStatus);
-  const join = useMutation(api.humans.join);
-  const leave = useMutation(api.humans.leave);
-  const isPlaying = !!humanStatus;
+  const world = useQuery(api.world.defaultWorld);
+  const userPlayerId = useQuery(api.world.userStatus, world ? { worldId: world._id } : 'skip');
+  const join = useMutation(api.world.joinWorld);
+  const leave = useMutation(api.world.leaveWorld);
+  const isPlaying = !!userPlayerId;
 
   const joinOrLeaveGame = () => {
-    if (!isAuthenticated || humanStatus === undefined) {
+    if (!world || !isAuthenticated || userPlayerId === undefined) {
       return;
     }
     if (isPlaying) {
-      console.log(`Leaving game for player ${humanStatus}`);
-      void leave();
+      console.log(`Leaving game for player ${userPlayerId}`);
+      void leave({ worldId: world._id });
     } else {
       console.log(`Joining game`);
-      void join();
+      void join({ worldId: world._id });
     }
   };
-  if (!isAuthenticated || humanStatus === undefined) {
+  if (!isAuthenticated || userPlayerId === undefined) {
     return null;
   }
   return (

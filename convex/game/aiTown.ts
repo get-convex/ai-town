@@ -408,10 +408,10 @@ export class AiTown extends Game<Inputs> {
     await this.conversationMembers.save();
   }
 
-  idleUntil(): number | null {
+  idleUntil(now: number): number | null {
     if (this.players.allDocuments().some((p) => !!p.pathfinding)) {
       return null;
     }
-    return 60 * 60 * 1000;
+    return now + 60 * 60 * 1000;
   }
 }
