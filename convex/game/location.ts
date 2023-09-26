@@ -4,25 +4,25 @@ import { defineTable } from 'convex/server';
 import { DatabaseWriter } from '../_generated/server';
 import { Players } from './players';
 import { Doc, Id } from '../_generated/dataModel';
-import { point, vector } from '../util/types';
 import { HistoricalTable } from '../engine/historicalTable';
 
 export const locations = defineTable({
-  position: point,
+  // Position.
+  x: v.number(),
+  y: v.number(),
+
   // Normalized orientation vector.
-  facing: vector,
+  dx: v.number(),
+  dy: v.number(),
+
+  // Velocity (in tiles/sec).
   velocity: v.number(),
 
+  // History buffer field out by `HistoricalTable`.
   history: v.optional(v.bytes()),
 });
 
-export const locationFieldPaths = [
-  'position.x',
-  'position.y',
-  'facing.dx',
-  'facing.dy',
-  'velocity',
-];
+export const locationFields = ['x', 'y', 'dx', 'dy', 'velocity'];
 export class Locations extends HistoricalTable<'locations'> {
   table = 'locations' as const;
 
@@ -48,6 +48,6 @@ export class Locations extends HistoricalTable<'locations'> {
     public engineId: Id<'engines'>,
     rows: Doc<'locations'>[],
   ) {
-    super(locationFieldPaths, rows);
+    super(locationFields, rows);
   }
 }

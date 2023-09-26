@@ -1,10 +1,12 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import uPlot, { AlignedData, Options } from 'uplot';
-import { ServerState } from '../serverState.ts';
 
-export function DebugPlot(props: { state?: ServerState; width: number; height: number }) {
+export function BufferHealth(props: { bufferHealth: number; width: number; height: number }) {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [plot, setPlot] = useState<uPlot>();
+
+  const bufferHealth = useRef(props.bufferHealth);
+  bufferHealth.current = props.bufferHealth;
 
   useLayoutEffect(() => {
     if (!el) return;
@@ -55,7 +57,7 @@ export function DebugPlot(props: { state?: ServerState; width: number; height: n
         }
         const now = Date.now();
         data.t.push(now);
-        data.y.push(props.state!.bufferHealth());
+        data.y.push(bufferHealth.current);
         plot.setData([data.t, data.y], true);
         plot.setScale('x', { min: now - 10000, max: now });
       }
@@ -63,7 +65,7 @@ export function DebugPlot(props: { state?: ServerState; width: number; height: n
     };
     update();
     return () => cancelAnimationFrame(reqId);
-  }, [plot, props.state]);
+  }, [plot, bufferHealth]);
   return (
     <div
       ref={setEl}

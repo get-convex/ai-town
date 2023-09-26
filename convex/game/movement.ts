@@ -76,13 +76,11 @@ export function findRoute(game: AiTown, now: number, player: Doc<'players'>, des
     return next;
   };
 
-  const { position: startingPosition, facing: startingFacing } = game.locations.lookup(
-    now,
-    player.locationId,
-  );
+  const startingLocation = game.locations.lookup(now, player.locationId);
+  const startingPosition = { x: startingLocation.x, y: startingLocation.y };
   let current: PathCandidate | undefined = {
     position: startingPosition,
-    facing: startingFacing,
+    facing: { dx: startingLocation.dx, dy: startingLocation.dy },
     t: now,
     length: 0,
     cost: manhattanDistance(startingPosition, destination),
@@ -139,7 +137,8 @@ export function blocked(game: AiTown, now: number, pos: Point, playerId?: Id<'pl
     if (otherPlayer._id === playerId) {
       continue;
     }
-    const { position: otherPos } = game.locations.lookup(now, otherPlayer.locationId);
+    const otherLocation = game.locations.lookup(now, otherPlayer.locationId);
+    const otherPos = { x: otherLocation.x, y: otherLocation.y };
     if (distance(otherPos, pos) < COLLISION_THRESHOLD) {
       return 'player collision';
     }

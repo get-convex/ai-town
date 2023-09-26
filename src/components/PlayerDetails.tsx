@@ -8,6 +8,7 @@ import { Messages } from './Messages';
 import { toastOnError } from '../toasts';
 
 export default function PlayerDetails(props: {
+  worldId: Id<'worlds'>;
   playerId?: Id<'players'>;
   setSelectedElement: SelectElement;
 }) {

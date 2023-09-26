@@ -1,7 +1,7 @@
 import Button from './Button';
-import interactImg from '../../assets/interact.svg';
+import interactImg from '../../../assets/interact.svg';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { api } from '../../../convex/_generated/api';
 
 export default function InteractButton() {
   const { isAuthenticated } = useConvexAuth();

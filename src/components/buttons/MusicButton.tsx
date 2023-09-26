@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import volumeImg from '../../assets/volume.svg';
+import volumeImg from '../../../assets/volume.svg';
 
 import { sound } from '@pixi/sound';
 import Button from './Button';

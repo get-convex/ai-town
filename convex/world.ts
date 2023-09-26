@@ -35,6 +35,23 @@ export const heartbeatWorld = mutation({
   },
 });
 
+export const engineStatus = query({
+  args: {
+    worldId: v.id('worlds'),
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new Error(`Invalid world ID: ${args.worldId}`);
+    }
+    const engine = await ctx.db.get(world.engineId);
+    if (!engine) {
+      throw new Error(`Invalid engine ID: ${world.engineId}`);
+    }
+    return engine;
+  },
+});
+
 export const userStatus = query({
   args: {
     worldId: v.id('worlds'),

@@ -1,99 +1,65 @@
-import { useApp } from '@pixi/react';
-import { Player, SelectElement } from './Player.tsx';
-import { useRef } from 'react';
-import { PixiStaticMap } from './PixiStaticMap.tsx';
-import PixiViewport from './PixiViewport.tsx';
-import { map } from '../../convex/data/world.ts';
-import { Viewport } from 'pixi-viewport';
+import { useState } from 'react';
+import PixiGame from './PixiGame.tsx';
+
+import { useElementSize } from 'usehooks-ts';
 import { Id } from '../../convex/_generated/dataModel';
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api.js';
-import { useSendInput } from '../hooks/sendInput.ts';
-import { toastOnError } from '../toasts.ts';
+import { Stage } from '@pixi/react';
+import { ConvexProvider, useConvex, useQuery } from 'convex/react';
+import PlayerDetails from './PlayerDetails.tsx';
+import { api } from '../../convex/_generated/api';
+import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
+import { useHistoricalTime } from '../hooks/useHistoricalTime.ts';
+import { BufferHealth } from './BufferHealth.tsx';
 
-export const Game = (props: {
-  worldId: Id<'worlds'>;
-  width: number;
-  height: number;
-  setSelectedElement: SelectElement;
-}) => {
-  // PIXI setup.
-  const pixiApp = useApp();
-  const viewportRef = useRef<Viewport | undefined>();
+export default function Game() {
+  const convex = useConvex();
+  const [selectedElement, setSelectedElement] = useState<{ kind: 'player'; id: Id<'players'> }>();
+  const [gameWrapperRef, { width, height }] = useElementSize();
 
-  const humanPlayerId = useQuery(api.world.userStatus, { worldId: props.worldId }) ?? null;
-  const players = useQuery(api.world.activePlayers, { worldId: props.worldId }) ?? [];
-  const moveTo = useSendInput(props.worldId, 'moveTo');
+  const world = useQuery(api.world.defaultWorld);
+  const worldId = world?._id;
 
-  // Interaction for clicking on the world to navigate.
-  const dragStart = useRef<{ screenX: number; screenY: number } | null>(null);
-  const onMapPointerDown = (e: any) => {
-    // https://pixijs.download/dev/docs/PIXI.FederatedPointerEvent.html
-    dragStart.current = { screenX: e.screenX, screenY: e.screenY };
-  };
-  const onMapPointerUp = async (e: any) => {
-    if (dragStart.current) {
-      const { screenX, screenY } = dragStart.current;
-      dragStart.current = null;
-      const [dx, dy] = [screenX - e.screenX, screenY - e.screenY];
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 10) {
-        console.log(`Skipping navigation on drag event (${dist}px)`);
-        return;
-      }
-    }
-    if (!humanPlayerId) {
-      return;
-    }
-    const viewport = viewportRef.current;
-    if (!viewport) {
-      return;
-    }
-    const gameSpacePx = viewport.toWorld(e.screenX, e.screenY);
-    const gameSpaceTiles = {
-      x: Math.floor(gameSpacePx.x / map.tileDim),
-      y: Math.floor(gameSpacePx.y / map.tileDim),
-    };
-    console.log(`Moving to ${JSON.stringify(gameSpaceTiles)}`);
-    await toastOnError(moveTo({ playerId: humanPlayerId, destination: gameSpaceTiles }));
-  };
+  // Send a periodic heartbeat to our world to keep it alive.
+  useWorldHeartbeat(worldId);
 
-  // if (!state) {
-  //   return;
-  // }
+  const { historicalTime, bufferHealth } = useHistoricalTime(worldId);
 
-  // let players: InterpolatedPlayer[] = Object.values(state.players);
-  // // Order the players by their y coordinates.
-  // players.sort((a, b) => a.position.y - b.position.y);
-
-  // const human = players.find((p) => p.player._id == humanPlayerId);
-  // let humanDestination = human && human.player.pathfinding?.destination;
-
-  // let inflightDestination;
-  // for (const input of state.inflightInputs) {
-  //   if (input.name !== 'moveTo' || input.args.playerId !== humanPlayerId) {
-  //     continue;
-  //   }
-  //   inflightDestination = input.args.destination;
-  // }
-  // humanDestination = inflightDestination ?? humanDestination;
-
+  if (!worldId) {
+    return null;
+  }
   return (
-    <PixiViewport
-      app={pixiApp}
-      screenWidth={props.width}
-      screenHeight={props.height}
-      worldWidth={map.tileSetDim}
-      worldHeight={map.tileSetDim}
-      viewportRef={viewportRef}
-    >
-      <PixiStaticMap onpointerup={onMapPointerUp} onpointerdown={onMapPointerDown} />
-      {players.map((p) => (
-        <Player key={p._id} player={p} onClick={props.setSelectedElement} />
-      ))}
-      {/* {DEBUG_POSITIONS && humanDestination && <DestinationMarker destination={humanDestination} />}
-       */}
-    </PixiViewport>
+    <>
+      <BufferHealth bufferHealth={bufferHealth} width={300} height={150} />
+      <div className="mx-auto w-full max-w mt-7 grid grid-rows-[240px_1fr] lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto] lg:h-[700px] max-w-[1400px] min-h-[480px] game-frame">
+        {/* Game area */}
+        <div className="relative overflow-hidden bg-brown-900" ref={gameWrapperRef}>
+          <div className="absolute inset-0">
+            <div className="container">
+              <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
+                {/* Re-propagate context because contexts are not shared between renderers.
+https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
+                <ConvexProvider client={convex}>
+                  <PixiGame
+                    worldId={worldId}
+                    width={width}
+                    height={height}
+                    historicalTime={historicalTime}
+                    setSelectedElement={setSelectedElement}
+                  />
+                </ConvexProvider>
+              </Stage>
+            </div>
+          </div>
+        </div>
+        {/* Right column area */}
+        <div className="flex flex-col overflow-y-auto shrink-0 px-4 py-6 sm:px-6 lg:w-96 xl:pr-6 bg-brown-800 text-brown-100">
+          <PlayerDetails
+            worldId={worldId}
+            playerId={selectedElement?.id}
+            setSelectedElement={setSelectedElement}
+          />
+        </div>
+      </div>
+    </>
   );
-};
-export default Game;
+}

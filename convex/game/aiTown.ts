@@ -93,8 +93,10 @@ export class AiTown extends Game<Inputs> {
       throw new Error(`Invalid character: ${character}`);
     }
     const locationId = await this.locations.insert(now, {
-      position,
-      facing,
+      x: position.x,
+      y: position.y,
+      dx: facing.dx,
+      dy: facing.dy,
       velocity: 0,
     });
     const playerId = await this.players.insert({
@@ -143,7 +145,8 @@ export class AiTown extends Game<Inputs> {
     ) {
       throw new Error(`Non-integral destination: ${JSON.stringify(destination)}`);
     }
-    const { position } = this.locations.lookup(now, player.locationId);
+    const { x, y } = this.locations.lookup(now, player.locationId);
+    const position = { x, y };
     // Close enough to current position or destination => no-op.
     if (pointsEqual(position, destination)) {
       return null;
@@ -283,7 +286,6 @@ export class AiTown extends Game<Inputs> {
     for (const conversation of this.conversations.allDocuments()) {
       this.tickConversation(now, conversation);
     }
-    this.locations.finishTick(now);
   }
 
   tickPathfinding(now: number, player: Doc<'players'>) {
@@ -292,7 +294,8 @@ export class AiTown extends Game<Inputs> {
     if (!pathfinding) {
       return;
     }
-    const { position } = this.locations.lookup(now, locationId);
+    const { x, y } = this.locations.lookup(now, locationId);
+    const position = { x, y };
 
     // Stop pathfinding if we've reached our destination.
     if (pathfinding.state.kind === 'moving' && pointsEqual(pathfinding.destination, position)) {
@@ -356,8 +359,10 @@ export class AiTown extends Game<Inputs> {
     }
     // Update the player's location.
     const location = this.locations.lookup(now, player.locationId);
-    location.position = position;
-    location.facing = facing;
+    location.x = position.x;
+    location.y = position.y;
+    location.dx = facing.dx;
+    location.dy = facing.dy;
     location.velocity = velocity;
   }
 
@@ -372,10 +377,13 @@ export class AiTown extends Game<Inputs> {
     if (member1.status.kind === 'walkingOver' && member2.status.kind === 'walkingOver') {
       const player1 = this.players.lookup(member1.playerId);
       const location1 = this.locations.lookup(now, player1.locationId);
+      const position1 = { x: location1.x, y: location1.y };
+
       const player2 = this.players.lookup(member2.playerId);
       const location2 = this.locations.lookup(now, player2.locationId);
+      const position2 = { x: location2.x, y: location2.y };
 
-      const playerDistance = distance(location1.position, location2.position);
+      const playerDistance = distance(position1, position2);
       if (playerDistance < CONVERSATION_DISTANCE) {
         console.log(`Starting conversation between ${player1._id} and ${player2._id}`);
 
@@ -388,10 +396,12 @@ export class AiTown extends Game<Inputs> {
 
         // Orient the players towards each other.
         if (playerDistance > EPSILON) {
-          const v = normalize(vector(location1.position, location2.position));
+          const v = normalize(vector(location1, location2));
           if (v) {
-            location1.facing = v;
-            location2.facing = { dx: -v.dx, dy: -v.dy };
+            location1.dx = v.dx;
+            location1.dy = v.dy;
+            location2.dx = -v.dx;
+            location2.dy = -v.dy;
           } else {
             console.warn(
               `Starting conversation between ${player1._id} and ${player2._id} who are *too* close!`,
@@ -402,9 +412,9 @@ export class AiTown extends Game<Inputs> {
     }
   }
 
-  async save(startTs: number, endTs: number): Promise<void> {
+  async save(): Promise<void> {
     await this.players.save();
-    await this.locations.save(startTs, endTs);
+    await this.locations.save();
     await this.conversations.save();
     await this.conversationMembers.save();
   }

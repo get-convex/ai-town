@@ -31,6 +31,7 @@ import type * as data_spritesheets_p3 from "../data/spritesheets/p3";
 import type * as data_spritesheets_player from "../data/spritesheets/player";
 import type * as data_spritesheets_types from "../data/spritesheets/types";
 import type * as data_world from "../data/world";
+import type * as debug from "../debug";
 import type * as engine_constants from "../engine/constants";
 import type * as engine_game from "../engine/game";
 import type * as engine_gameTable from "../engine/gameTable";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "data/spritesheets/player": typeof data_spritesheets_player;
   "data/spritesheets/types": typeof data_spritesheets_types;
   "data/world": typeof data_world;
+  debug: typeof debug;
   "engine/constants": typeof engine_constants;
   "engine/game": typeof engine_game;
   "engine/gameTable": typeof engine_gameTable;

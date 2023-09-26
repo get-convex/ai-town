@@ -1,11 +1,15 @@
 import { WithoutSystemFields } from 'convex/server';
 import { Doc, Id, TableNames } from '../_generated/dataModel';
 import { DatabaseWriter } from '../_generated/server';
-import { isSimpleObject } from '../util/isSimpleObject';
 
-type FieldPath = string;
+type FieldName = string;
 
-type Sample = {
+export type History = {
+  initialValue: number;
+  samples: Sample[];
+};
+
+export type Sample = {
   time: number;
   value: number;
 };
@@ -13,49 +17,48 @@ type Sample = {
 export abstract class HistoricalTable<T extends TableNames> {
   abstract table: T;
   abstract db: DatabaseWriter;
+  startTs?: number;
 
-  fields: FieldPath[];
+  fields: FieldName[];
 
   data: Map<Id<T>, Doc<T>> = new Map();
   modified: Set<Id<T>> = new Set();
   deleted: Set<Id<T>> = new Set();
 
-  history: Map<Id<T>, Map<number, Sample[]>> = new Map();
+  history: Map<Id<T>, Record<FieldName, History>> = new Map();
 
-  constructor(fields: FieldPath[], rows: Doc<T>[]) {
+  constructor(fields: FieldName[], rows: Doc<T>[]) {
     this.fields = fields;
     for (const row of rows) {
       if ('history' in row) {
         delete row.history;
         this.modified.add(row._id);
       }
-      this.checkNumeric(row);
+      this.checkShape(row);
       this.data.set(row._id, row);
     }
   }
 
   historyLength() {
     return [...this.history.values()]
-      .flatMap((sampleMap) => [...sampleMap.values()])
-      .map((b) => b.length)
+      .flatMap((sampleRecord) => Object.values(sampleRecord))
+      .map((h) => h.samples.length)
       .reduce((a, b) => a + b, 0);
   }
 
-  checkNumeric(obj: any) {
+  checkShape(obj: any) {
+    if ('history' in obj) {
+      throw new Error(`Cannot insert row with 'history' field`);
+    }
     for (const [key, value] of Object.entries(obj)) {
       if (this.isReservedFieldName(key)) {
         continue;
       }
-      if (typeof value === 'number') {
-        continue;
+      if (typeof value !== 'number') {
+        throw new Error(
+          `HistoricalTable only supports numeric values, found: ${JSON.stringify(value)}`,
+        );
       }
-      if (isSimpleObject(value)) {
-        this.checkNumeric(value);
-        continue;
-      }
-      throw new Error(
-        `HistoricalTable only supports numeric leaf values, found: ${JSON.stringify(value)}`,
-      );
     }
   }
 
@@ -64,10 +67,8 @@ export abstract class HistoricalTable<T extends TableNames> {
   }
 
   async insert(now: number, row: WithoutSystemFields<Doc<T>>): Promise<Id<T>> {
-    this.checkNumeric(row);
-    if ('history' in row) {
-      throw new Error(`Cannot insert row with 'history' field`);
-    }
+    this.checkShape(row);
+
     const id = await this.db.insert(this.table, row);
     const withSystemFields = await this.db.get(id);
     if (!withSystemFields) {
@@ -82,69 +83,61 @@ export abstract class HistoricalTable<T extends TableNames> {
     if (!row) {
       throw new Error(`Invalid ID: ${id}`);
     }
-    const handlers = (path: FieldPath) => {
-      return {
-        defineProperty: (target: any, key: any, descriptor: any) => {
-          throw new Error(`Adding new fields unsupported on HistoricalTable`);
-        },
-        get: (target: any, prop: any, receiver: any) => {
-          const value = Reflect.get(target, prop, receiver);
-          if (typeof value === 'object') {
-            return new Proxy<Doc<T>>(value, handlers(`${path}.${prop}`));
-          } else {
-            return value;
-          }
-        },
-        set: (obj: any, prop: any, value: any) => {
-          this.checkNumeric(value);
-          const subPath = path.length > 0 ? `${path}.${prop}` : prop;
-          this.markModified(id, now, subPath, value);
-          return Reflect.set(obj, prop, value);
-        },
-        deleteProperty: (target: any, prop: any) => {
-          throw new Error(`Deleting fields unsupported on HistoricalTable`);
-        },
-      };
+    const handlers = {
+      defineProperty: (target: any, key: any, descriptor: any) => {
+        throw new Error(`Adding new fields unsupported on HistoricalTable`);
+      },
+      get: (target: any, prop: any, receiver: any) => {
+        const value = Reflect.get(target, prop, receiver);
+        if (typeof value === 'object') {
+          throw new Error(`Nested objects unsupported on HistoricalTable`);
+        } else {
+          return value;
+        }
+      },
+      set: (obj: any, prop: any, value: any) => {
+        if (this.isReservedFieldName(prop)) {
+          throw new Error(`Cannot set reserved field '${prop}'`);
+        }
+        this.markModified(id, now, prop, value);
+        return Reflect.set(obj, prop, value);
+      },
+      deleteProperty: (target: any, prop: any) => {
+        throw new Error(`Deleting fields unsupported on HistoricalTable`);
+      },
     };
-    return new Proxy<Doc<T>>(row, handlers(''));
+
+    return new Proxy<Doc<T>>(row, handlers);
   }
 
-  private markModified(id: Id<T>, now: number, fieldPath: FieldPath, value: any) {
-    if (logged < 10) {
-      console.log(`markModified`, id, now, fieldPath, value);
-      logged++;
+  private markModified(id: Id<T>, now: number, fieldName: FieldName, value: any) {
+    if (typeof value !== 'number') {
+      throw new Error(`Cannot set field '${fieldName}' to ${JSON.stringify(value)}`);
     }
-    if (fieldPath == 'history') {
-      throw new Error(`Cannot modify 'history' field`);
+    if (this.fields.indexOf(fieldName) === -1) {
+      throw new Error(`Mutating undeclared field name: ${fieldName}`);
     }
-    this.modified.add(id);
-    let sampleMap = this.history.get(id);
-    if (!sampleMap) {
-      sampleMap = new Map();
-      this.history.set(id, sampleMap);
+    const doc = this.data.get(id);
+    if (!doc) {
+      throw new Error(`Invalid ID: ${id}`);
     }
-    this.appendToBuffer(sampleMap, now, fieldPath, value);
-  }
-
-  private appendToBuffer(
-    sampleMap: Map<number, Sample[]>,
-    now: number,
-    fieldPath: null | FieldPath,
-    value: any,
-  ) {
-    if (typeof value === 'number') {
-      if (!fieldPath) {
-        throw new Error(`Numeric value at document root`);
+    const currentValue = doc[fieldName];
+    if (currentValue === undefined || typeof currentValue !== 'number') {
+      throw new Error(`Invalid value ${currentValue} for ${fieldName} in ${id}`);
+    }
+    if (currentValue !== value) {
+      let historyRecord = this.history.get(id);
+      if (!historyRecord) {
+        historyRecord = {};
+        this.history.set(id, historyRecord);
       }
-      let fieldNumber = this.fields.indexOf(fieldPath);
-      if (fieldNumber === -1) {
-        return;
+      let history = historyRecord[fieldName];
+      if (!history) {
+        history = { initialValue: currentValue, samples: [] };
+        historyRecord[fieldName] = history;
       }
-      let samples = sampleMap.get(fieldNumber);
-      if (!samples) {
-        samples = [];
-        sampleMap.set(fieldNumber, samples);
-      }
+      const { samples } = history;
+      let inserted = false;
       if (samples.length > 0) {
         const last = samples[samples.length - 1];
         if (now < last.time) {
@@ -152,39 +145,22 @@ export abstract class HistoricalTable<T extends TableNames> {
         }
         if (now === last.time) {
           last.value = value;
-          return;
+          inserted = true;
         }
       }
-      samples.push({ time: now, value });
-      return;
-    }
-    if (!isSimpleObject(value)) {
-      throw new Error(
-        `HistoricalTable only supports numeric leaf values, found: ${JSON.stringify(value)}`,
-      );
-    }
-    for (const [key, objectValue] of Object.entries(value)) {
-      if (this.isReservedFieldName(key)) {
-        continue;
+      if (!inserted) {
+        samples.push({ time: now, value });
       }
-      this.appendToBuffer(sampleMap, now, `${fieldPath}.${key}`, objectValue);
     }
-  }
-
-  finishTick(now: number) {
-    for (const [id, sampleMap] of this.history.entries()) {
-      const row = this.data.get(id);
-      if (!row) {
-        throw new Error(`Invalid ID: ${id}`);
-      }
-      this.appendToBuffer(sampleMap, now, null, row);
-    }
+    this.modified.add(id);
   }
 
   async save() {
     for (const id of this.deleted) {
       await this.db.delete(id);
     }
+    let totalSize = 0;
+    let buffersPacked = 0;
     for (const id of this.modified) {
       const row = this.data.get(id);
       if (!row) {
@@ -193,43 +169,42 @@ export abstract class HistoricalTable<T extends TableNames> {
       if ('history' in row) {
         throw new Error(`Cannot save row with 'history' field`);
       }
-      const sampleMap = this.history.get(id);
-      if (sampleMap && sampleMap.size > 0) {
-        (row as any).history = this.packSampleMap(sampleMap);
+      const sampleRecord = this.history.get(id);
+      if (sampleRecord && Object.entries(sampleRecord).length > 0) {
+        const packed = packSampleRecord(sampleRecord);
+        (row as any).history = packed;
+        totalSize += packed.byteLength;
+        buffersPacked += 1;
       }
       // Somehow TypeScript isn't able to figure out that our
       // generic `Doc<T>` unifies with `replace()`'s type.
       await this.db.replace(id, row as any);
     }
+    if (buffersPacked > 0) {
+      console.log(
+        `Packed ${buffersPacked} buffers for ${this.table}, total size: ${(
+          totalSize / 1024
+        ).toFixed(2)}KiB`,
+      );
+    }
     this.modified.clear();
     this.deleted.clear();
   }
-
-  packSampleMap(sampleMap: Map<number, Sample[]>): ArrayBuffer {
-    const sampleArrays = [...sampleMap.entries()];
-    sampleArrays.sort(([a], [b]) => a - b);
-
-    const header = [];
-    const allFloats = [];
-    for (const [fieldPath, sampleBuffer] of sampleArrays) {
-      header.push([fieldPath, sampleBuffer.length]);
-      allFloats.push(...sampleBuffer.map((sample) => sample.time));
-      allFloats.push(...sampleBuffer.map((sample) => sample.value));
-    }
-    const headerLength = new Uint32Array([header.length]);
-    const textEncoder = new TextEncoder();
-    const headerJson = JSON.stringify(header);
-    const headerBytes = textEncoder.encode(headerJson);
-    const floatBuffer = new Float64Array(allFloats);
-
-    const out = new Uint8Array(
-      headerLength.byteLength + headerBytes.byteLength + floatBuffer.byteLength,
-    );
-    out.set(new Uint8Array(headerLength.buffer), 0);
-    out.set(new Uint8Array(headerBytes.buffer), headerLength.byteLength);
-    out.set(new Uint8Array(floatBuffer.buffer), headerLength.byteLength + headerBytes.byteLength);
-    return out.buffer;
-  }
 }
 
-let logged = 0;
+export function packSampleRecord(sampleMap: Record<FieldName, History>): ArrayBuffer {
+  // TODO: This is very inefficient in space.
+  // [ ] Switch to fixed point and quantize the floats.
+  // [ ] Delta encode differences
+  // [ ] Use an integer compressor: https://github.com/lemire/FastIntegerCompression.js/blob/master/FastIntegerCompression.js
+  const s = JSON.stringify(sampleMap);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(s);
+  return bytes.buffer;
+}
+
+export function unpackSampleRecord(buffer: ArrayBuffer): Record<FieldName, History> {
+  const decoder = new TextDecoder();
+  const s = decoder.decode(buffer);
+  return JSON.parse(s);
+}

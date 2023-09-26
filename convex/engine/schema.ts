@@ -35,6 +35,8 @@ const inputs = v.object({
 const engines = v.object({
   // What is the current simulation time for the engine? Monotonically increasing.
   currentTime: v.optional(v.number()),
+  // What was `currentTime` for the preceding step of the engine?
+  lastStepTs: v.optional(v.number()),
 
   // Should the engine be running this world? If this is set to false,
   // the engine will quickly stop simulating the world.

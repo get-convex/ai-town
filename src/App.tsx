@@ -1,4 +1,4 @@
-import GameWrapper from './components/GameWrapper.tsx';
+import Game from './components/Game.tsx';
 
 import { ToastContainer } from 'react-toastify';
 import a16zImg from '../assets/a16z.png';
@@ -6,12 +6,12 @@ import convexImg from '../assets/convex.svg';
 import starImg from '../assets/star.svg';
 import helpImg from '../assets/help.svg';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
-import LoginButton from './components/LoginButton.tsx';
+import LoginButton from './components/buttons/LoginButton.tsx';
 import { useState } from 'react';
 import ReactModal from 'react-modal';
-import MusicButton from './components/MusicButton.tsx';
-import Button from './components/Button.tsx';
-import InteractButton from './components/InteractButton.tsx';
+import MusicButton from './components/buttons/MusicButton.tsx';
+import Button from './components/buttons/Button.tsx';
+import InteractButton from './components/buttons/InteractButton.tsx';
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
@@ -81,7 +81,7 @@ export default function Home() {
           Log in to join the town and the conversation!
         </p>
 
-        <GameWrapper />
+        <Game />
 
         <footer className="absolute bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
           <div className="flex gap-4 flex-grow pointer-events-none">
