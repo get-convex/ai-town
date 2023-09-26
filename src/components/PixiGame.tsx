@@ -3,7 +3,7 @@ import { Player, SelectElement } from './Player.tsx';
 import { useRef } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
-import { map } from '../../convex/data/world.ts';
+import map from '../../convex/data/map.ts';
 import { Viewport } from 'pixi-viewport';
 import { Id } from '../../convex/_generated/dataModel';
 import { useQuery } from 'convex/react';

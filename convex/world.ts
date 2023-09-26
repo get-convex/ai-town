@@ -3,11 +3,13 @@ import { mutation, query } from './_generated/server';
 import { characters } from './data/characters';
 import { defineTable } from 'convex/server';
 import { sendInput } from './game/main';
+import { IDLE_WORLD_TIMEOUT } from './constants';
+import { api } from './_generated/api';
 
 export const worlds = defineTable({
   isDefault: v.boolean(),
   engineId: v.id('engines'),
-  lastViewed: v.optional(v.number()),
+  lastViewed: v.number(),
 });
 
 export const defaultWorld = query({
@@ -32,6 +34,51 @@ export const heartbeatWorld = mutation({
     const now = Date.now();
     world.lastViewed = Math.max(world.lastViewed ?? now, now);
     await ctx.db.replace(world._id, world);
+
+    // Restart the engine if it's stopped.
+    const engine = await ctx.db.get(world.engineId);
+    if (!engine) {
+      throw new Error(`Invalid engine ID: ${world.engineId}`);
+    }
+    if (engine.active) {
+      return;
+    }
+    console.log(`Restarting engine ${engine._id}...`);
+    engine.active = true;
+    const generationNumber = engine.generationNumber + 1;
+    engine.generationNumber = generationNumber;
+    engine.idleUntil = now;
+    await ctx.db.replace(engine._id, engine);
+    ctx.scheduler.runAt(now, api.game.main.runStep, {
+      engineId: engine._id,
+      generationNumber,
+    });
+  },
+});
+
+export const stopInactiveWorlds = mutation({
+  handler: async (ctx) => {
+    const cutoff = Date.now() - IDLE_WORLD_TIMEOUT;
+    const worlds = await ctx.db.query('worlds').collect();
+    for (const world of worlds) {
+      if (cutoff < world.lastViewed) {
+        continue;
+      }
+      console.log(`Stopping inactive world ${world._id}`);
+      const engine = await ctx.db.get(world.engineId);
+      if (!engine) {
+        throw new Error(`Invalid engine ID: ${world.engineId}`);
+      }
+      if (!engine.active) {
+        console.warn('Engine is already inactive?');
+        continue;
+      }
+      // TODO: When we can cancel scheduled jobs, do that transactionally here. For now,
+      // just bump the generation number to cancel future runs.
+      engine.active = false;
+      engine.generationNumber = engine.generationNumber + 1;
+      await ctx.db.replace(engine._id, engine);
+    }
   },
 });
 
@@ -197,5 +244,43 @@ export const playerLocation = query({
       throw new Error(`Invalid location ID: ${player.locationId}`);
     }
     return location;
+  },
+});
+
+export const conversationState = query({
+  args: {
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerId);
+    if (!player) {
+      throw new Error(`Invalid player ID: ${args.playerId}`);
+    }
+    // TODO: We could combine these queries if we had `.neq()` in our index query API.
+    const invited = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', player._id).eq('status.kind', 'invited'))
+      .unique();
+    const walkingOver = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', player._id).eq('status.kind', 'walkingOver'))
+      .unique();
+    const participating = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', player._id).eq('status.kind', 'participating'))
+      .unique();
+
+    if ([invited, walkingOver, participating].filter(Boolean).length > 1) {
+      throw new Error(`Player ${player._id} is in multiple conversations`);
+    }
+    const member = invited ?? walkingOver ?? participating;
+    if (!member) {
+      return null;
+    }
+    const conversation = await ctx.db.get(member.conversationId);
+    if (!conversation) {
+      throw new Error(`Invalid conversation ID: ${member.conversationId}`);
+    }
+    return { member, conversation };
   },
 });

@@ -22,7 +22,7 @@ export const init = mutation({
       engineId,
       generationNumber,
     });
-    const worldId = await ctx.db.insert('worlds', { engineId, isDefault: true });
+    const worldId = await ctx.db.insert('worlds', { engineId, isDefault: true, lastViewed: now });
     console.log(`Starting world ${worldId}...`);
   },
 });

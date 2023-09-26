@@ -11,7 +11,7 @@ import { EPSILON, distance, normalize, pathPosition, pointsEqual, vector } from 
 import { CONVERSATION_DISTANCE, PATHFINDING_BACKOFF, PATHFINDING_TIMEOUT } from '../constants';
 import { Conversations } from './conversations';
 import { ConversationMembers } from './conversationMembers';
-import { mapHeight, mapWidth } from '../data/world';
+import { mapHeight, mapWidth } from '../data/map';
 
 export class AiTown extends Game<Inputs> {
   tickDuration = 16;
@@ -294,8 +294,8 @@ export class AiTown extends Game<Inputs> {
     if (!pathfinding) {
       return;
     }
-    const { x, y } = this.locations.lookup(now, locationId);
-    const position = { x, y };
+    const location = this.locations.lookup(now, locationId);
+    const position = { x: location.x, y: location.y };
 
     // Stop pathfinding if we've reached our destination.
     if (pathfinding.state.kind === 'moving' && pointsEqual(pathfinding.destination, position)) {
@@ -306,6 +306,7 @@ export class AiTown extends Game<Inputs> {
     if (pathfinding.started + PATHFINDING_TIMEOUT < now) {
       console.warn(`Timing out pathfinding for ${player._id}`);
       delete player.pathfinding;
+      location.velocity = 0;
     }
 
     // Transition from "waiting" to "needsPath" if we're past the deadline.
@@ -393,6 +394,8 @@ export class AiTown extends Game<Inputs> {
         // Stop the two players from moving.
         delete player1.pathfinding;
         delete player2.pathfinding;
+        location1.velocity = 0;
+        location2.velocity = 0;
 
         // Orient the players towards each other.
         if (playerDistance > EPSILON) {

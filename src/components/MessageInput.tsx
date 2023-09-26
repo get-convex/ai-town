@@ -2,55 +2,52 @@ import clsx from 'clsx';
 import { useMutation, useQuery } from 'convex/react';
 import { KeyboardEvent, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
-import { Doc } from '../../convex/_generated/dataModel';
-import { ServerState } from '../serverState';
+import { Doc, Id } from '../../convex/_generated/dataModel';
 import { toastOnError } from '../toasts';
 
-export function MessageInput(props: {
-  serverState: ServerState;
+export function MessageInput({
+  humanPlayer,
+  conversation,
+}: {
+  humanPlayer: Doc<'players'>;
   conversation: Doc<'conversations'>;
 }) {
-  const humanPlayerId = useQuery(api.humans.humanStatus);
-  const humanPlayer = useQuery(
-    api.queryGameState.playerMetadata,
-    humanPlayerId ? { playerId: humanPlayerId } : 'skip',
-  );
   const inputRef = useRef<HTMLParagraphElement>(null);
   const [inflight, setInflight] = useState(0);
+  const writeMessage = useMutation(api.messages.writeMessage);
+  const startTyping = useMutation(api.messages.startTyping);
+  const currentlyTyping = useQuery(api.messages.currentlyTyping, {
+    conversationId: conversation._id,
+  });
 
-  if (!humanPlayerId || !humanPlayer) {
-    return;
-  }
   const onKeyDown = async (e: KeyboardEvent) => {
     e.stopPropagation();
     // Send the current message.
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (!humanPlayerId || !inputRef.current) {
+      if (!inputRef.current) {
         return;
       }
-      await toastOnError(
-        props.serverState.sendInput('writeMessage', {
-          playerId: humanPlayerId,
-          conversationId: props.conversation._id,
-          message: inputRef.current.innerText,
-          doneWriting: true,
-        }),
-      );
+      const text = inputRef.current.innerText;
       inputRef.current.innerText = '';
+      await writeMessage({
+        playerId: humanPlayer._id,
+        conversationId: conversation._id,
+        text,
+      });
       return;
     }
     // Try to set a typing indicator.
     else {
-      if (props.conversation.typing || !humanPlayerId || inflight > 0) {
+      if (currentlyTyping || inflight > 0) {
         return;
       }
       setInflight((i) => i + 1);
       try {
         // Don't show a toast on error.
-        await props.serverState.sendInput('startTyping', {
-          playerId: humanPlayerId,
-          conversationId: props.conversation._id,
+        startTyping({
+          playerId: humanPlayer._id,
+          conversationId: conversation._id,
         });
       } finally {
         setInflight((i) => i - 1);

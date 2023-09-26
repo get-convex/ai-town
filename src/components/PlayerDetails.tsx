@@ -6,233 +6,230 @@ import { SelectElement } from './Player';
 import { SignedIn } from '@clerk/clerk-react';
 import { Messages } from './Messages';
 import { toastOnError } from '../toasts';
+import { useSendInput } from '../hooks/sendInput';
 
-export default function PlayerDetails(props: {
+export default function PlayerDetails({
+  worldId,
+  playerId,
+  setSelectedElement,
+}: {
   worldId: Id<'worlds'>;
   playerId?: Id<'players'>;
   setSelectedElement: SelectElement;
 }) {
-  // const humanPlayerId = useQuery(api.humans.humanStatus);
-  // const player = useQuery(
-  //   api.queryGameState.playerMetadata,
-  //   props.playerId ? { playerId: props.playerId } : 'skip',
-  // );
-  // const humanPlayer = useQuery(
-  //   api.queryGameState.playerMetadata,
-  //   humanPlayerId ? { playerId: humanPlayerId } : 'skip',
-  // );
+  const humanPlayerId = useQuery(api.world.userStatus, { worldId });
+  const players = useQuery(api.world.activePlayers, { worldId }) ?? [];
+  const player = players.find((p) => p._id === playerId);
+  const humanPlayer = players.find((p) => p._id === humanPlayerId);
+
+  const playerConversationState = useQuery(
+    api.world.conversationState,
+    playerId ? { playerId } : 'skip',
+  );
+  const humanConversationState = useQuery(
+    api.world.conversationState,
+    humanPlayerId ? { playerId: humanPlayerId } : 'skip',
+  );
+
+  const startConversation = useSendInput(worldId, 'startConversation');
+  const acceptInvite = useSendInput(worldId, 'acceptInvite');
+  const rejectInvite = useSendInput(worldId, 'rejectInvite');
+  const leaveConversation = useSendInput(worldId, 'leaveConversation');
+
   // const previousConversation = useQuery(
   //   api.queryGameState.previousConversation,
   //   props.playerId ? { playerId: props.playerId } : 'skip',
   // );
 
-  // if (!props.playerId) {
-  return (
-    <div className="h-full text-xl flex text-center items-center p-4">
-      Click on an agent on the map to see chat history.
-    </div>
-  );
-  // }
-  // const loading =
-  //   (props.playerId && player === undefined) || (humanPlayer && humanPlayer === undefined);
-  // if (loading) {
-  //   return null;
-  // }
-  // if (!player) {
-  //   return null;
-  // }
-  // const isMe = humanPlayerId && props.playerId === humanPlayerId;
-  // const canInvite =
-  //   !isMe && player.conversation === null && humanPlayer && humanPlayer.conversation === null;
-  // const sameConversation =
-  //   !isMe &&
-  //   humanPlayer &&
-  //   humanPlayer.conversation &&
-  //   player.conversation &&
-  //   humanPlayer.conversation._id === player.conversation._id;
+  if (!playerId) {
+    return (
+      <div className="h-full text-xl flex text-center items-center p-4">
+        Click on an agent on the map to see chat history.
+      </div>
+    );
+  }
+  if (humanPlayerId === undefined || !player) {
+    return null;
+  }
+  const isMe = humanPlayerId && playerId === humanPlayerId;
+  const canInvite =
+    !isMe && playerConversationState === null && humanPlayer && humanConversationState === null;
+  const sameConversation =
+    !isMe &&
+    humanPlayer &&
+    humanConversationState &&
+    playerConversationState &&
+    humanConversationState.conversation._id === playerConversationState.conversation._id;
+  const haveInvite = sameConversation && humanConversationState.member.status.kind === 'invited';
+  const waitingForAccept =
+    sameConversation && playerConversationState.member.status.kind === 'invited';
+  const waitingForNearby =
+    sameConversation &&
+    playerConversationState.member.status.kind === 'walkingOver' &&
+    humanConversationState.member.status.kind === 'walkingOver';
 
-  // const haveInvite = sameConversation && humanPlayer.member?.status === 'invited';
-  // const waitingForAccept = sameConversation && player.member?.status === 'invited';
-  // const waitingForNearby =
-  //   sameConversation &&
-  //   player.member?.status === 'walkingOver' &&
-  //   humanPlayer.member?.status === 'walkingOver';
-  // const inConversationWithMe =
-  //   sameConversation &&
-  //   player.member?.status === 'participating' &&
-  //   humanPlayer.member?.status === 'participating';
+  const inConversationWithMe =
+    sameConversation &&
+    playerConversationState.member.status.kind === 'participating' &&
+    humanConversationState.member.status.kind === 'participating';
 
-  // const startConversation = async () => {
-  //   if (!props.humanPlayerId || !props.playerId) {
-  //     console.log(props);
-  //     return;
-  //   }
-  //   console.log(`Starting conversation`);
-  //   await toastOnError(
-  //     props.serverState.sendInput('startConversation', {
-  //       playerId: props.humanPlayerId,
-  //       invitee: props.playerId,
-  //     }),
-  //   );
-  // };
-  // const acceptInvite = async () => {
-  //   if (!props.humanPlayerId || !props.playerId) {
-  //     return;
-  //   }
-  //   if (!humanPlayer || !humanPlayer.conversation?._id) {
-  //     return;
-  //   }
-  //   await toastOnError(
-  //     props.serverState.sendInput('acceptInvite', {
-  //       playerId: props.humanPlayerId,
-  //       conversationId: humanPlayer.conversation?._id,
-  //     }),
-  //   );
-  // };
-  // const rejectInvite = async () => {
-  //   if (!props.humanPlayerId || !humanPlayer || !humanPlayer.conversation?._id) {
-  //     return;
-  //   }
-  //   await toastOnError(
-  //     props.serverState.sendInput('rejectInvite', {
-  //       playerId: props.humanPlayerId,
-  //       conversationId: humanPlayer.conversation?._id,
-  //     }),
-  //   );
-  // };
-  // const leaveConversation = async () => {
-  //   if (
-  //     !props.humanPlayerId ||
-  //     !humanPlayerId ||
-  //     !inConversationWithMe ||
-  //     !humanPlayer.conversation?._id
-  //   ) {
-  //     return;
-  //   }
-  //   await toastOnError(
-  //     props.serverState.sendInput('leaveConversation', {
-  //       playerId: props.humanPlayerId,
-  //       conversationId: humanPlayer.conversation?._id,
-  //     }),
-  //   );
-  // };
+  const onStartConversation = async () => {
+    if (!humanPlayerId || !playerId) {
+      return;
+    }
+    console.log(`Starting conversation`);
+    await toastOnError(startConversation({ playerId: humanPlayerId, invitee: playerId }));
+  };
+  const onAcceptInvite = async () => {
+    if (!humanPlayerId || !playerId) {
+      return;
+    }
+    if (!humanPlayer || !humanConversationState?.conversation) {
+      return;
+    }
+    await toastOnError(
+      acceptInvite({
+        playerId: humanPlayerId,
+        conversationId: humanConversationState.conversation._id,
+      }),
+    );
+  };
+  const onRejectInvite = async () => {
+    if (!humanPlayerId || !humanConversationState?.conversation) {
+      return;
+    }
+    await toastOnError(
+      rejectInvite({
+        playerId: humanPlayerId,
+        conversationId: humanConversationState.conversation._id,
+      }),
+    );
+  };
+  const onLeaveConversation = async () => {
+    if (
+      !humanPlayerId ||
+      !humanPlayerId ||
+      !inConversationWithMe ||
+      !humanConversationState.conversation
+    ) {
+      return;
+    }
+    await toastOnError(
+      leaveConversation({
+        playerId: humanPlayerId,
+        conversationId: humanConversationState.conversation._id,
+      }),
+    );
+  };
   // const pendingSuffix = (inputName: string) =>
   //   [...inflightInputs.values()].find((i) => i.name === inputName) ? ' opacity-50' : '';
-  // const pendingSuffix = (s: string) => '';
-  // return (
-  //   <>
-  //     <div className="flex gap-4">
-  //       <div className="box flex-grow">
-  //         <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
-  //           {player.name}
-  //         </h2>
-  //       </div>
-  //       <a
-  //         className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
-  //         onClick={() => {
-  //           props.setSelectedElement(undefined);
-  //         }}
-  //       >
-  //         <h2 className="h-full bg-clay-700">
-  //           <img className="w-5 h-5" src={closeImg} />
-  //         </h2>
-  //       </a>
-  //     </div>
-  //     <SignedIn>
-  //       {canInvite && (
-  //         <a
-  //           className={
-  //             'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-  //             pendingSuffix('startConversation')
-  //           }
-  //           onClick={startConversation}
-  //         >
-  //           <div className="h-full bg-clay-700 text-center">
-  //             <span>Start conversation</span>
-  //           </div>
-  //         </a>
-  //       )}
-  //       {waitingForAccept && (
-  //         <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
-  //           <div className="h-full bg-clay-700 text-center">
-  //             <span>Waiting for accept...</span>
-  //           </div>
-  //         </a>
-  //       )}
-  //       {waitingForNearby && (
-  //         <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
-  //           <div className="h-full bg-clay-700 text-center">
-  //             <span>Walking over...</span>
-  //           </div>
-  //         </a>
-  //       )}
-  //       {inConversationWithMe && (
-  //         <a
-  //           className={
-  //             'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-  //             pendingSuffix('leaveConversation')
-  //           }
-  //           onClick={leaveConversation}
-  //         >
-  //           <div className="h-full bg-clay-700 text-center">
-  //             <span>Leave conversation</span>
-  //           </div>
-  //         </a>
-  //       )}
-  //       {haveInvite && (
-  //         <>
-  //           <a
-  //             className={
-  //               'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-  //               pendingSuffix('acceptInvite')
-  //             }
-  //             onClick={acceptInvite}
-  //           >
-  //             <div className="h-full bg-clay-700 text-center">
-  //               <span>Accept</span>
-  //             </div>
-  //           </a>
-  //           <a
-  //             className={
-  //               'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
-  //               pendingSuffix('rejectInvite')
-  //             }
-  //             onClick={rejectInvite}
-  //           >
-  //             <div className="h-full bg-clay-700 text-center">
-  //               <span>Reject</span>
-  //             </div>
-  //           </a>
-  //         </>
-  //       )}
-  //     </SignedIn>
-  //     <div className="desc my-6">
-  //       <p className="leading-tight -m-4 bg-brown-700 text-lg">
-  //         {!isMe && player.description}
-  //         {isMe && <i>This is you!</i>}
-  //         {!isMe && inConversationWithMe && (
-  //           <>
-  //             <br />
-  //             <br />(<i>Conversing with you!</i>)
-  //           </>
-  //         )}
-  //       </p>
-  //     </div>
-  //     {!isMe && player.conversation && (
-  //       <Messages
-  //         inConversationWithMe={inConversationWithMe ?? false}
-  //         conversation={player.conversation}
-  //       />
-  //     )}
-  //     {(!player.member || player.member.status !== 'participating') && previousConversation && (
-  //       <>
-  //         <div className="box flex-grow">
-  //           <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
-  //         </div>
 
-  //         <Messages inConversationWithMe={false} conversation={previousConversation} />
-  //       </>
-  //     )}
-  //   </>
-  // );
+  const pendingSuffix = (s: string) => '';
+  return (
+    <>
+      <div className="flex gap-4">
+        <div className="box flex-grow">
+          <h2 className="bg-brown-700 p-2 font-display text-4xl tracking-wider shadow-solid text-center">
+            {player.name}
+          </h2>
+        </div>
+        <a
+          className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
+          onClick={() => setSelectedElement(undefined)}
+        >
+          <h2 className="h-full bg-clay-700">
+            <img className="w-5 h-5" src={closeImg} />
+          </h2>
+        </a>
+      </div>
+      <SignedIn>
+        {canInvite && (
+          <a
+            className={
+              'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+              pendingSuffix('startConversation')
+            }
+            onClick={onStartConversation}
+          >
+            <div className="h-full bg-clay-700 text-center">
+              <span>Start conversation</span>
+            </div>
+          </a>
+        )}
+        {waitingForAccept && (
+          <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
+            <div className="h-full bg-clay-700 text-center">
+              <span>Waiting for accept...</span>
+            </div>
+          </a>
+        )}
+        {waitingForNearby && (
+          <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
+            <div className="h-full bg-clay-700 text-center">
+              <span>Walking over...</span>
+            </div>
+          </a>
+        )}
+        {inConversationWithMe && (
+          <a
+            className={
+              'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+              pendingSuffix('leaveConversation')
+            }
+            onClick={onLeaveConversation}
+          >
+            <div className="h-full bg-clay-700 text-center">
+              <span>Leave conversation</span>
+            </div>
+          </a>
+        )}
+        {haveInvite && (
+          <>
+            <a
+              className={
+                'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+                pendingSuffix('acceptInvite')
+              }
+              onClick={onAcceptInvite}
+            >
+              <div className="h-full bg-clay-700 text-center">
+                <span>Accept</span>
+              </div>
+            </a>
+            <a
+              className={
+                'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
+                pendingSuffix('rejectInvite')
+              }
+              onClick={onRejectInvite}
+            >
+              <div className="h-full bg-clay-700 text-center">
+                <span>Reject</span>
+              </div>
+            </a>
+          </>
+        )}
+      </SignedIn>
+      <div className="desc my-6">
+        <p className="leading-tight -m-4 bg-brown-700 text-lg">
+          {!isMe && player.description}
+          {isMe && <i>This is you!</i>}
+          {!isMe && inConversationWithMe && (
+            <>
+              <br />
+              <br />(<i>Conversing with you!</i>)
+            </>
+          )}
+        </p>
+      </div>
+      {!isMe && playerConversationState && (
+        <Messages
+          worldId={worldId}
+          inConversationWithMe={inConversationWithMe ?? false}
+          conversation={playerConversationState.conversation}
+          humanPlayer={humanPlayer}
+        />
+      )}
+    </>
+  );
 }

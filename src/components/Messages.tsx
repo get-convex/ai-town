@@ -1,23 +1,30 @@
 import clsx from 'clsx';
-import { Doc } from '../../convex/_generated/dataModel';
+import { Doc, Id } from '../../convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { MessageInput } from './MessageInput';
-import { ServerState } from '@/serverState';
 
-export function Messages(props: {
-  conversation: Doc<'conversations'> & { typingName?: string };
+export function Messages({
+  worldId,
+  conversation,
+  inConversationWithMe,
+  humanPlayer,
+}: {
+  worldId: Id<'worlds'>;
+  conversation: Doc<'conversations'>;
   inConversationWithMe: boolean;
+  humanPlayer?: Doc<'players'>;
 }) {
-  const conversation = props.conversation;
-  const humanPlayerId = useQuery(api.humans.humanStatus);
-  const messages = useQuery(api.queryGameState.listConversation, {
-    conversationId: props.conversation._id,
+  const humanPlayerId = humanPlayer?._id;
+  const messages = useQuery(api.messages.listMessages, { conversationId: conversation._id });
+  const currentlyTyping = useQuery(api.messages.currentlyTyping, {
+    conversationId: conversation._id,
   });
-  if (humanPlayerId === undefined || messages === undefined) {
+
+  if (humanPlayerId === undefined || messages === undefined || currentlyTyping === undefined) {
     return null;
   }
-  if (messages.length === 0 && !props.inConversationWithMe) {
+  if (messages.length === 0 && !inConversationWithMe) {
     return null;
   }
   return (
@@ -33,18 +40,16 @@ export function Messages(props: {
                 </time>
               </div>
               <div className={clsx('bubble', m.author === humanPlayerId && 'bubble-mine')}>
-                <p className="bg-white -mx-3 -my-1">
-                  {m.textFragments.map((f) => f.text).join('')}
-                </p>
+                <p className="bg-white -mx-3 -my-1">{m.text}</p>
               </div>
             </div>
           ))}
-        {conversation.typing && conversation.typing.playerId !== humanPlayerId && (
+        {currentlyTyping && currentlyTyping.playerId !== humanPlayerId && (
           <div key="typing" className="leading-tight mb-6">
             <div className="flex gap-4">
-              <span className="uppercase flex-grow">{conversation.typingName}</span>
-              <time dateTime={conversation.typing.started.toString()}>
-                {new Date(conversation.typing.started).toLocaleString()}
+              <span className="uppercase flex-grow">{currentlyTyping.playerName}</span>
+              <time dateTime={currentlyTyping.since.toString()}>
+                {new Date(currentlyTyping.since).toLocaleString()}
               </time>
             </div>
             <div className={clsx('bubble')}>
@@ -54,8 +59,8 @@ export function Messages(props: {
             </div>
           </div>
         )}
-        {props.inConversationWithMe && !conversation.finished && (
-          <MessageInput serverState={props.serverState} conversation={conversation} />
+        {humanPlayer && inConversationWithMe && !conversation.finished && (
+          <MessageInput conversation={conversation} humanPlayer={humanPlayer} />
         )}
       </div>
     </div>

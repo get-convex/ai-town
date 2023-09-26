@@ -2,7 +2,7 @@ import { Doc, Id } from '../../convex/_generated/dataModel';
 import { Graphics } from '@pixi/react';
 import { Graphics as PixiGraphics } from 'pixi.js';
 import { Character } from './Character.tsx';
-import { map } from '../../convex/data/world.ts';
+import map from '../../convex/data/map.ts';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';

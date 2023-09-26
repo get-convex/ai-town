@@ -1,7 +1,8 @@
 import { Doc, Id } from '../_generated/dataModel';
 import { movementSpeed } from '../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
-import { map, mapHeight, mapWidth } from '../data/world';
+import { mapHeight, mapWidth } from '../data/map';
+import map from '../data/map';
 import { Point, Vector } from '../util/types';
 import { distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';

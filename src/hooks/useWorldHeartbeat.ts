@@ -2,8 +2,7 @@ import { useMutation } from 'convex/react';
 import { Id } from '../../convex/_generated/dataModel';
 import { useEffect } from 'react';
 import { api } from '../../convex/_generated/api';
-
-const HEARTBEAT_INTERVAL = 60 * 1000;
+import { WORLD_HEARTBEAT_INTERVAL } from '../../convex/constants';
 
 export function useWorldHeartbeat(worldId?: Id<'worlds'>) {
   // Send a periodic heartbeat to our world to keep it alive.
@@ -14,7 +13,7 @@ export function useWorldHeartbeat(worldId?: Id<'worlds'>) {
     }
     const id = setInterval(() => {
       heartbeat({ worldId });
-    }, HEARTBEAT_INTERVAL);
+    }, WORLD_HEARTBEAT_INTERVAL);
     return () => clearInterval(id);
   }, [worldId, heartbeat]);
 }

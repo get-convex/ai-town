@@ -18,7 +18,9 @@ export const conversationMembers = defineTable({
     v.object({ kind: v.literal('participating'), since: v.number() }),
     v.object({ kind: v.literal('left'), when: v.number() }),
   ),
-}).index('conversationId', ['conversationId', 'playerId']);
+})
+  .index('conversationId', ['conversationId', 'playerId'])
+  .index('playerId', ['playerId', 'status.kind']);
 
 export class ConversationMembers extends GameTable<'conversationMembers'> {
   table = 'conversationMembers' as const;
