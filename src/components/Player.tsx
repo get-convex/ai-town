@@ -6,8 +6,7 @@ import map from '../../convex/data/map.ts';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';
-import { api } from '../../convex/_generated/api';
-import { useHistoricalValue } from '../hooks/useHistoricalQuery.ts';
+import { useHistoricalValue } from '../hooks/useHistoricalValue.ts';
 import { Path } from '../../convex/util/types.ts';
 import { useCallback } from 'react';
 
