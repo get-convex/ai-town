@@ -46,12 +46,6 @@ export default function PlayerDetails({
   const rejectInvite = useSendInput(worldId, 'rejectInvite');
   const leaveConversation = useSendInput(worldId, 'leaveConversation');
 
-  // TODO: Readd previous conversations
-  // const previousConversation = useQuery(
-  //   api.queryGameState.previousConversation,
-  //   props.playerId ? { playerId: props.playerId } : 'skip',
-  // );
-
   if (!playerId) {
     return (
       <div className="h-full text-xl flex text-center items-center p-4">
