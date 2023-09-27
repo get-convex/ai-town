@@ -125,23 +125,26 @@ export function findRoute(game: AiTown, now: number, player: Doc<'players'>, des
 }
 
 export function blocked(game: AiTown, now: number, pos: Point, playerId?: Id<'players'>) {
-  if (isNaN(pos.x) || isNaN(pos.y)) {
-    throw new Error(`NaN position in ${JSON.stringify(pos)}`);
+  const otherPositions = game.players
+    .allDocuments()
+    .filter((p) => p._id !== playerId)
+    .map((p) => game.locations.lookup(now, p.locationId));
+  return blockedWithPositions(pos, otherPositions);
+}
+
+export function blockedWithPositions(position: Point, otherPositions: Point[]) {
+  if (isNaN(position.x) || isNaN(position.y)) {
+    throw new Error(`NaN position in ${JSON.stringify(position)}`);
   }
-  if (pos.x < 0 || pos.y < 0 || pos.x >= mapWidth || pos.y >= mapHeight) {
+  if (position.x < 0 || position.y < 0 || position.x >= mapWidth || position.y >= mapHeight) {
     return 'out of bounds';
   }
-  if (map.objectTiles[Math.floor(pos.y)][Math.floor(pos.x)] !== -1) {
+  if (map.objectTiles[Math.floor(position.y)][Math.floor(position.x)] !== -1) {
     return 'world blocked';
   }
-  for (const otherPlayer of game.players.allDocuments()) {
-    if (otherPlayer._id === playerId) {
-      continue;
-    }
-    const otherLocation = game.locations.lookup(now, otherPlayer.locationId);
-    const otherPos = { x: otherLocation.x, y: otherLocation.y };
-    if (distance(otherPos, pos) < COLLISION_THRESHOLD) {
-      return 'player collision';
+  for (const otherPosition of otherPositions) {
+    if (distance(otherPosition, position) < COLLISION_THRESHOLD) {
+      return 'player';
     }
   }
   return null;

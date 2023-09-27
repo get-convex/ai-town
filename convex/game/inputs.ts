@@ -67,5 +67,6 @@ export const inputs = {
   },
 };
 export type Inputs = typeof inputs;
-export type InputArgs<Name extends keyof Inputs> = Infer<Inputs[Name]['args']>;
-export type InputReturnValue<Name extends keyof Inputs> = Infer<Inputs[Name]['returnValue']>;
+export type InputNames = keyof Inputs;
+export type InputArgs<Name extends InputNames> = Infer<Inputs[Name]['args']>;
+export type InputReturnValue<Name extends InputNames> = Infer<Inputs[Name]['returnValue']>;

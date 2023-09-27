@@ -8,11 +8,10 @@ export function useWorldHeartbeat(worldId?: Id<'worlds'>) {
   // Send a periodic heartbeat to our world to keep it alive.
   const heartbeat = useMutation(api.world.heartbeatWorld);
   useEffect(() => {
-    if (!worldId) {
-      return;
-    }
     const id = setInterval(() => {
-      heartbeat({ worldId });
+      if (worldId) {
+        heartbeat({ worldId });
+      }
     }, WORLD_HEARTBEAT_INTERVAL);
     return () => clearInterval(id);
   }, [worldId, heartbeat]);

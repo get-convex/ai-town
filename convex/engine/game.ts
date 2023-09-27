@@ -147,7 +147,6 @@ export async function insertInput(
   engineId: Id<'engines'>,
   name: string,
   args: any,
-  preempt: boolean = false,
 ): Promise<{ inputId: Id<'inputs'>; preemption?: { now: number; generationNumber: number } }> {
   const now = Date.now();
   const engine = await ctx.db.get(engineId);
@@ -168,12 +167,9 @@ export async function insertInput(
     received: now,
   });
   let preemption;
-  if (
-    preempt &&
-    engine.active &&
-    engine.idleUntil &&
-    now + ENGINE_WAKEUP_THRESHOLD < engine.idleUntil
-  ) {
+  if (engine.active && engine.idleUntil && now + ENGINE_WAKEUP_THRESHOLD < engine.idleUntil) {
+    // TODO: We have to return the preemption to the layer above since we don't have
+    // a path to schedule ourselves.
     console.log(`Preempting engine ${engineId}`);
     const generationNumber = engine.generationNumber + 1;
     await ctx.db.patch(engineId, { idleUntil: now, generationNumber });

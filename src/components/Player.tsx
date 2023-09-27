@@ -7,7 +7,7 @@ import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { characters } from '../../convex/data/characters.ts';
 import { toast } from 'react-toastify';
 import { api } from '../../convex/_generated/api';
-import { useHistoricalQuery } from '../hooks/useHistoricalQuery.ts';
+import { useHistoricalValue } from '../hooks/useHistoricalQuery.ts';
 import { Path } from '../../convex/util/types.ts';
 import { useCallback } from 'react';
 
@@ -20,15 +20,13 @@ export const Player = ({
   onClick,
   historicalTime,
 }: {
-  player: Doc<'players'>;
+  player: Doc<'players'> & { location: Doc<'locations'> };
   onClick: SelectElement;
   historicalTime?: number;
 }) => {
   const tileDim = map.tileDim;
   const character = characters.find((c) => c.name === player.character);
-  const location = useHistoricalQuery<'locations'>(historicalTime, api.world.playerLocation, {
-    playerId: player._id,
-  });
+  const location = useHistoricalValue<'locations'>(historicalTime, player.location);
   if (!character) {
     if (!logged.has(player.character)) {
       logged.add(player.character);

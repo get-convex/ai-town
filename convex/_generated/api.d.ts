@@ -14,6 +14,12 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as agent_constants from "../agent/constants";
+import type * as agent_conversation from "../agent/conversation";
+import type * as agent_embeddingsCache from "../agent/embeddingsCache";
+import type * as agent_init from "../agent/init";
+import type * as agent_main from "../agent/main";
+import type * as agent_memory from "../agent/memory";
 import type * as constants from "../constants";
 import type * as crons from "../crons";
 import type * as data_characters from "../data/characters";
@@ -50,6 +56,7 @@ import type * as util_assertNever from "../util/assertNever";
 import type * as util_geometry from "../util/geometry";
 import type * as util_isSimpleObject from "../util/isSimpleObject";
 import type * as util_minheap from "../util/minheap";
+import type * as util_openai from "../util/openai";
 import type * as util_sleep from "../util/sleep";
 import type * as util_types from "../util/types";
 import type * as world from "../world";
@@ -63,6 +70,12 @@ import type * as world from "../world";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "agent/constants": typeof agent_constants;
+  "agent/conversation": typeof agent_conversation;
+  "agent/embeddingsCache": typeof agent_embeddingsCache;
+  "agent/init": typeof agent_init;
+  "agent/main": typeof agent_main;
+  "agent/memory": typeof agent_memory;
   constants: typeof constants;
   crons: typeof crons;
   "data/characters": typeof data_characters;
@@ -99,6 +112,7 @@ declare const fullApi: ApiFromModules<{
   "util/geometry": typeof util_geometry;
   "util/isSimpleObject": typeof util_isSimpleObject;
   "util/minheap": typeof util_minheap;
+  "util/openai": typeof util_openai;
   "util/sleep": typeof util_sleep;
   "util/types": typeof util_types;
   world: typeof world;

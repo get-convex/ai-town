@@ -5,6 +5,7 @@ import { defineTable } from 'convex/server';
 import { sendInput } from './game/main';
 import { IDLE_WORLD_TIMEOUT } from './constants';
 import { api } from './_generated/api';
+import { restartAgents } from './agent/init';
 
 export const worlds = defineTable({
   isDefault: v.boolean(),
@@ -53,6 +54,9 @@ export const heartbeatWorld = mutation({
       engineId: engine._id,
       generationNumber,
     });
+
+    // TODO: Only restart agents affiliated with this world.
+    await restartAgents(ctx, {});
   },
 });
 
@@ -221,32 +225,23 @@ export const activePlayers = query({
     if (!world) {
       throw new Error(`Invalid world ID: ${args.worldId}`);
     }
+    const out = [];
     const players = await ctx.db
       .query('players')
       .withIndex('active', (q) => q.eq('engineId', world.engineId).eq('active', true))
       .collect();
-    return players;
+    for (const player of players) {
+      const location = await ctx.db.get(player.locationId);
+      if (!location) {
+        throw new Error(`Invalid location ID: ${player.locationId}`);
+      }
+      out.push({ ...player, location });
+    }
+    return out;
   },
 });
 
-export const playerLocation = query({
-  args: {
-    playerId: v.id('players'),
-  },
-  handler: async (ctx, args) => {
-    const player = await ctx.db.get(args.playerId);
-    if (!player) {
-      throw new Error(`Invalid player ID: ${args.playerId}`);
-    }
-    const location = await ctx.db.get(player.locationId);
-    if (!location) {
-      throw new Error(`Invalid location ID: ${player.locationId}`);
-    }
-    return location;
-  },
-});
-
-export const conversationState = query({
+export const loadConversationState = query({
   args: {
     playerId: v.id('players'),
   },
@@ -280,6 +275,38 @@ export const conversationState = query({
     if (!conversation) {
       throw new Error(`Invalid conversation ID: ${member.conversationId}`);
     }
-    return { member, conversation };
+
+    const members = await ctx.db
+      .query('conversationMembers')
+      .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
+      .collect();
+    const otherMember = members.find((m) => m.playerId !== player._id);
+    if (!otherMember) {
+      throw new Error(`Conversation ${conversation._id} has no other member`);
+    }
+    const otherPlayerId = otherMember.playerId;
+
+    return { member, otherPlayerId, ...conversation };
+  },
+});
+
+export const previousConversation = query({
+  args: {
+    playerId: v.id('players'),
+  },
+  handler: async (ctx, args) => {
+    const member = await ctx.db
+      .query('conversationMembers')
+      .withIndex('playerId', (q) => q.eq('playerId', args.playerId).eq('status.kind', 'left'))
+      .order('desc')
+      .first();
+    if (!member) {
+      return null;
+    }
+    const conversation = await ctx.db.get(member.conversationId);
+    if (!conversation) {
+      throw new Error(`Invalid conversation ID: ${member.conversationId}`);
+    }
+    return conversation;
   },
 });

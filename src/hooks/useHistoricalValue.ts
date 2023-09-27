@@ -1,32 +1,29 @@
-import { FunctionReference, WithoutSystemFields } from 'convex/server';
+import { WithoutSystemFields } from 'convex/server';
 import { Doc, TableNames } from '../../convex/_generated/dataModel';
-import { useQuery } from 'convex/react';
 import { History, unpackSampleRecord } from '../../convex/engine/historicalTable';
 import { useMemo, useRef } from 'react';
 
-export function useHistoricalQuery<Name extends TableNames>(
+export function useHistoricalValue<Name extends TableNames>(
   historicalTime: number | undefined,
-  reference: FunctionReference<'query', 'public', any, Doc<Name>>,
-  args: any,
+  value: Doc<Name> | undefined,
 ): WithoutSystemFields<Doc<Name>> | undefined {
-  const result = useQuery(reference, args);
   const manager = useRef(new HistoryManager());
   const sampleRecord: Record<string, History> | undefined = useMemo(() => {
-    if (!result || !result.history) {
+    if (!value || !value.history) {
       return undefined;
     }
-    if (!(result.history instanceof ArrayBuffer)) {
-      throw new Error(`Expected ArrayBuffer, found ${typeof result.history}`);
+    if (!(value.history instanceof ArrayBuffer)) {
+      throw new Error(`Expected ArrayBuffer, found ${typeof value.history}`);
     }
-    return unpackSampleRecord(result.history as ArrayBuffer);
-  }, [result && result.history]);
+    return unpackSampleRecord(value.history as ArrayBuffer);
+  }, [value && value.history]);
   if (sampleRecord) {
     manager.current.receive(sampleRecord);
   }
-  if (result === undefined) {
+  if (value === undefined) {
     return undefined;
   }
-  const { _id, _creationTime, history, ...latest } = result;
+  const { _id, _creationTime, history, ...latest } = value;
   if (!historicalTime) {
     return latest as any;
   }

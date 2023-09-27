@@ -21,7 +21,7 @@ export function Messages({
     conversationId: conversation._id,
   });
 
-  if (humanPlayerId === undefined || messages === undefined || currentlyTyping === undefined) {
+  if (messages === undefined || currentlyTyping === undefined) {
     return null;
   }
   if (messages.length === 0 && !inConversationWithMe) {

@@ -12,6 +12,10 @@ export const clear = internalMutation({
       'engines',
       'locations',
       'worlds',
+      'agents',
+      'conversationMemories',
+      'messages',
+      'typingIndicator',
     ];
     const maxRows = 128;
     let deleted = 0;

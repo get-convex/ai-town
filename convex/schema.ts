@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from 'convex/server';
 import { gameTables } from './game/schema';
 import { worlds } from './world';
 import { v } from 'convex/values';
+import { agentTables } from './agent/schema';
 
 export default defineSchema({
   worlds,
@@ -18,4 +19,5 @@ export default defineSchema({
   }).index('conversationId', ['conversationId']),
 
   ...gameTables,
+  ...agentTables,
 });
