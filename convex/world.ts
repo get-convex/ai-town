@@ -295,18 +295,26 @@ export const previousConversation = query({
     playerId: v.id('players'),
   },
   handler: async (ctx, args) => {
-    const member = await ctx.db
+    const members = await ctx.db
       .query('conversationMembers')
       .withIndex('playerId', (q) => q.eq('playerId', args.playerId).eq('status.kind', 'left'))
-      .order('desc')
-      .first();
-    if (!member) {
-      return null;
+      .order('desc');
+
+    for await (const member of members) {
+      const conversation = await ctx.db.get(member.conversationId);
+      if (!conversation) {
+        throw new Error(`Invalid conversation ID: ${member.conversationId}`);
+      }
+      const firstMessage = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) => q.eq('conversationId', conversation._id))
+        .order('asc')
+        .first();
+      if (!firstMessage) {
+        continue;
+      }
+      return conversation;
     }
-    const conversation = await ctx.db.get(member.conversationId);
-    if (!conversation) {
-      throw new Error(`Invalid conversation ID: ${member.conversationId}`);
-    }
-    return conversation;
+    return null;
   },
 });
