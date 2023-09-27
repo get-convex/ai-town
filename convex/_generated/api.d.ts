@@ -9,57 +9,53 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
-import type * as agent_constants from "../agent/constants";
-import type * as agent_conversation from "../agent/conversation";
-import type * as agent_embeddingsCache from "../agent/embeddingsCache";
-import type * as agent_init from "../agent/init";
-import type * as agent_main from "../agent/main";
-import type * as agent_memory from "../agent/memory";
-import type * as constants from "../constants";
-import type * as crons from "../crons";
-import type * as data_characters from "../data/characters";
-import type * as data_map from "../data/map";
-import type * as data_spritesheets_f1 from "../data/spritesheets/f1";
-import type * as data_spritesheets_f2 from "../data/spritesheets/f2";
-import type * as data_spritesheets_f3 from "../data/spritesheets/f3";
-import type * as data_spritesheets_f4 from "../data/spritesheets/f4";
-import type * as data_spritesheets_f5 from "../data/spritesheets/f5";
-import type * as data_spritesheets_f6 from "../data/spritesheets/f6";
-import type * as data_spritesheets_f7 from "../data/spritesheets/f7";
-import type * as data_spritesheets_f8 from "../data/spritesheets/f8";
-import type * as data_spritesheets_p1 from "../data/spritesheets/p1";
-import type * as data_spritesheets_p2 from "../data/spritesheets/p2";
-import type * as data_spritesheets_p3 from "../data/spritesheets/p3";
-import type * as data_spritesheets_player from "../data/spritesheets/player";
-import type * as data_spritesheets_types from "../data/spritesheets/types";
-import type * as debug from "../debug";
-import type * as engine_constants from "../engine/constants";
-import type * as engine_game from "../engine/game";
-import type * as engine_gameTable from "../engine/gameTable";
-import type * as engine_historicalTable from "../engine/historicalTable";
-import type * as game_aiTown from "../game/aiTown";
-import type * as game_conversationMembers from "../game/conversationMembers";
-import type * as game_conversations from "../game/conversations";
-import type * as game_inputs from "../game/inputs";
-import type * as game_location from "../game/location";
-import type * as game_main from "../game/main";
-import type * as game_movement from "../game/movement";
-import type * as game_players from "../game/players";
-import type * as init from "../init";
-import type * as messages from "../messages";
-import type * as util_assertNever from "../util/assertNever";
-import type * as util_geometry from "../util/geometry";
-import type * as util_isSimpleObject from "../util/isSimpleObject";
-import type * as util_minheap from "../util/minheap";
-import type * as util_openai from "../util/openai";
-import type * as util_sleep from "../util/sleep";
-import type * as util_types from "../util/types";
-import type * as world from "../world";
+import type { ApiFromModules, FilterApi, FunctionReference } from 'convex/server';
+import type * as agent_constants from '../agent/constants';
+import type * as agent_conversation from '../agent/conversation';
+import type * as agent_embeddingsCache from '../agent/embeddingsCache';
+import type * as agent_init from '../agent/init';
+import type * as agent_main from '../agent/main';
+import type * as agent_memory from '../agent/memory';
+import type * as constants from '../constants';
+import type * as crons from '../crons';
+import type * as data_characters from '../data/characters';
+import type * as data_map from '../data/map';
+import type * as data_spritesheets_f1 from '../data/spritesheets/f1';
+import type * as data_spritesheets_f2 from '../data/spritesheets/f2';
+import type * as data_spritesheets_f3 from '../data/spritesheets/f3';
+import type * as data_spritesheets_f4 from '../data/spritesheets/f4';
+import type * as data_spritesheets_f5 from '../data/spritesheets/f5';
+import type * as data_spritesheets_f6 from '../data/spritesheets/f6';
+import type * as data_spritesheets_f7 from '../data/spritesheets/f7';
+import type * as data_spritesheets_f8 from '../data/spritesheets/f8';
+import type * as data_spritesheets_p1 from '../data/spritesheets/p1';
+import type * as data_spritesheets_p2 from '../data/spritesheets/p2';
+import type * as data_spritesheets_p3 from '../data/spritesheets/p3';
+import type * as data_spritesheets_player from '../data/spritesheets/player';
+import type * as data_spritesheets_types from '../data/spritesheets/types';
+import type * as debug from '../debug';
+import type * as engine_constants from '../engine/constants';
+import type * as engine_game from '../engine/game';
+import type * as engine_gameTable from '../engine/gameTable';
+import type * as engine_historicalTable from '../engine/historicalTable';
+import type * as game_aiTown from '../game/aiTown';
+import type * as game_conversationMembers from '../game/conversationMembers';
+import type * as game_conversations from '../game/conversations';
+import type * as game_inputs from '../game/inputs';
+import type * as game_location from '../game/locations';
+import type * as game_main from '../game/main';
+import type * as game_movement from '../game/movement';
+import type * as game_players from '../game/players';
+import type * as init from '../init';
+import type * as messages from '../messages';
+import type * as util_assertNever from '../util/assertNever';
+import type * as util_geometry from '../util/geometry';
+import type * as util_isSimpleObject from '../util/isSimpleObject';
+import type * as util_minheap from '../util/minheap';
+import type * as util_openai from '../util/openai';
+import type * as util_sleep from '../util/sleep';
+import type * as util_types from '../util/types';
+import type * as world from '../world';
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -70,58 +66,52 @@ import type * as world from "../world";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  "agent/constants": typeof agent_constants;
-  "agent/conversation": typeof agent_conversation;
-  "agent/embeddingsCache": typeof agent_embeddingsCache;
-  "agent/init": typeof agent_init;
-  "agent/main": typeof agent_main;
-  "agent/memory": typeof agent_memory;
+  'agent/constants': typeof agent_constants;
+  'agent/conversation': typeof agent_conversation;
+  'agent/embeddingsCache': typeof agent_embeddingsCache;
+  'agent/init': typeof agent_init;
+  'agent/main': typeof agent_main;
+  'agent/memory': typeof agent_memory;
   constants: typeof constants;
   crons: typeof crons;
-  "data/characters": typeof data_characters;
-  "data/map": typeof data_map;
-  "data/spritesheets/f1": typeof data_spritesheets_f1;
-  "data/spritesheets/f2": typeof data_spritesheets_f2;
-  "data/spritesheets/f3": typeof data_spritesheets_f3;
-  "data/spritesheets/f4": typeof data_spritesheets_f4;
-  "data/spritesheets/f5": typeof data_spritesheets_f5;
-  "data/spritesheets/f6": typeof data_spritesheets_f6;
-  "data/spritesheets/f7": typeof data_spritesheets_f7;
-  "data/spritesheets/f8": typeof data_spritesheets_f8;
-  "data/spritesheets/p1": typeof data_spritesheets_p1;
-  "data/spritesheets/p2": typeof data_spritesheets_p2;
-  "data/spritesheets/p3": typeof data_spritesheets_p3;
-  "data/spritesheets/player": typeof data_spritesheets_player;
-  "data/spritesheets/types": typeof data_spritesheets_types;
+  'data/characters': typeof data_characters;
+  'data/map': typeof data_map;
+  'data/spritesheets/f1': typeof data_spritesheets_f1;
+  'data/spritesheets/f2': typeof data_spritesheets_f2;
+  'data/spritesheets/f3': typeof data_spritesheets_f3;
+  'data/spritesheets/f4': typeof data_spritesheets_f4;
+  'data/spritesheets/f5': typeof data_spritesheets_f5;
+  'data/spritesheets/f6': typeof data_spritesheets_f6;
+  'data/spritesheets/f7': typeof data_spritesheets_f7;
+  'data/spritesheets/f8': typeof data_spritesheets_f8;
+  'data/spritesheets/p1': typeof data_spritesheets_p1;
+  'data/spritesheets/p2': typeof data_spritesheets_p2;
+  'data/spritesheets/p3': typeof data_spritesheets_p3;
+  'data/spritesheets/player': typeof data_spritesheets_player;
+  'data/spritesheets/types': typeof data_spritesheets_types;
   debug: typeof debug;
-  "engine/constants": typeof engine_constants;
-  "engine/game": typeof engine_game;
-  "engine/gameTable": typeof engine_gameTable;
-  "engine/historicalTable": typeof engine_historicalTable;
-  "game/aiTown": typeof game_aiTown;
-  "game/conversationMembers": typeof game_conversationMembers;
-  "game/conversations": typeof game_conversations;
-  "game/inputs": typeof game_inputs;
-  "game/location": typeof game_location;
-  "game/main": typeof game_main;
-  "game/movement": typeof game_movement;
-  "game/players": typeof game_players;
+  'engine/constants': typeof engine_constants;
+  'engine/game': typeof engine_game;
+  'engine/gameTable': typeof engine_gameTable;
+  'engine/historicalTable': typeof engine_historicalTable;
+  'game/aiTown': typeof game_aiTown;
+  'game/conversationMembers': typeof game_conversationMembers;
+  'game/conversations': typeof game_conversations;
+  'game/inputs': typeof game_inputs;
+  'game/location': typeof game_location;
+  'game/main': typeof game_main;
+  'game/movement': typeof game_movement;
+  'game/players': typeof game_players;
   init: typeof init;
   messages: typeof messages;
-  "util/assertNever": typeof util_assertNever;
-  "util/geometry": typeof util_geometry;
-  "util/isSimpleObject": typeof util_isSimpleObject;
-  "util/minheap": typeof util_minheap;
-  "util/openai": typeof util_openai;
-  "util/sleep": typeof util_sleep;
-  "util/types": typeof util_types;
+  'util/assertNever': typeof util_assertNever;
+  'util/geometry': typeof util_geometry;
+  'util/isSimpleObject': typeof util_isSimpleObject;
+  'util/minheap': typeof util_minheap;
+  'util/openai': typeof util_openai;
+  'util/sleep': typeof util_sleep;
+  'util/types': typeof util_types;
   world: typeof world;
 }>;
-export declare const api: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "public">
->;
-export declare const internal: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "internal">
->;
+export declare const api: FilterApi<typeof fullApi, FunctionReference<any, 'public'>>;
+export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, 'internal'>>;
