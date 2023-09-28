@@ -133,8 +133,19 @@ The engine then schedules steps to run periodically. To avoid running steps when
 declare if the game is currently idle and for how long with the `idleUntil` method. If the game is idle, the engine
 will automatically schedule the next step past the idleness period but also wake it up if an input comes in.
 
-One core invariant is that the game engine is fully "single-threaded" per world. As a game developer, you'll never
-have to worry about multithreaded or database race conditions: Just write your code the naive way!
+One core invariant is that the game engine is fully "single-threaded" per world. Not having to think about
+race conditions or concurrency makes writing game engine code a lot easier.
+
+However, preserving this invariant is a little tricky. If the engine is idle for a minute and an
+input comes in, we want to run the engine immediately but then cancel its run after the minute's
+up. If we're not careful, a race condition may cause us to run multiple copies of the engine if an
+input comes just as an idle timeout is expiring!
+
+Our approach is to store a generation number with the engine that monotonically increases over time.
+All scheduled runs of the engine contain their expected generation number as an argument. Then, if
+we'd like to cancel a future run of the engine, we can bump the generation number by one, and then
+we're guaranteed that the subsequent run will fail immediately as it'll notice that the engine's
+generation number does not match its expected one.
 
 ### Managing game state
 
@@ -207,17 +218,72 @@ waits for the engine to process them and return their outcome.
 
 ## Agent architecture (`convex/agent`)
 
-TODO
+### The agent loop (`convex/agent/main.ts`)
 
-- decoupled from engine
-- mutation event loop
+The LLM-powered agents (the `Agent` class in `convex/agent/main.ts`) control a player and have the following behaviors:
+
+1. Wander around the map
+2. Invite nearby players to conversations.
+3. Decide if they want to accept an invite .
+4. Call into OpenAI to generate message text for conversations, using previous memories from talking with that player.
+5. Decide when to leave a conversation.
+6. Call into OpenAI to summarize conversations and form a memory in Convex's vector database.
+
+Each agent runs in a mutation (`convex/agent/main.ts:agentRun`) that's scheduled periodically. Each run, it looks at
+the current game state, sends some inputs to the engine, and then decides what to do next. If the agent decides to
+send a message in a conversation, it calls into an action (e.g. `convex/agent/main.ts:agentStartConversation`) that
+coordinates calling into OpenAI, sending the message, and then rescheduling the agent to run again.
+
+This scheduled mutation loop uses the same pattern as the engine to handle safely preempting it and retrying on action
+errors without potentially having multiple instances of `agentRun` running at the same time.
+
+### Conversations (`convex/agent/conversations.ts`)
+
+The agent layer calls into the conversation layer which implements the prompt engineering for
+injecting personality and memories into the GPT responses. It has functions for starting a
+conversation (`startConversation`), continuing after the first message (`continueConversation`), and
+politely leaving a conversation (`leaveConversation`). Each function loads structured data from the
+database, queries the memory layer for the agent's opinion about the player they're talking with,
+and then calls into the OpenAI client (`convex/util/openai.ts`).
+
+### Memories (`convex/agent/memory.ts`)
+
+After each conversation, GPT summarizes its message history, and we compute an embedding of the
+summary text and write it into Convex's vector database. Then, when starting a new conversation
+with, Danny, we embed "What you think about Danny?", find the three most similar memories, and fetch
+their summary texts to inject into the conversation prompt.
+
+### Embeddings cache (`convex/agent/embeddingsCache.ts`)
+
+To avoid computing the same embedding over and over again, we cache embeddings by a hash of their
+text in a Convex table.
 
 ## Design goals and limitations
 
-TODO
+AI Town's game engine has a few design goals:
 
-- All data loaded into memory each step
-- Inputs are fed through the database
-- Single threaded
-- Optimistic updates
-- Input latency
+- Try to be as close to a regular Convex app as possible. Use regular client hooks (like `useQuery`)
+  when possible, and store game state in regular tables.
+- Be as similar to existing engines as possible, so it's easy to change the behavior. We chose a
+  `tick()` based model for simulation since it's commonly used elsewhere and intuitive.
+- Decouple agent behavior from the game engine. It's nice to allow human players and AI agents to do
+  all the same things in the game.
+
+These design goals imply some inherent limitations:
+
+- All data is loaded into memory each step. The active game state loaded by the game should be small
+  enough to fit into and load and save frequently. Try to keep game state to less than a few dozen
+  kilobytes: Games that require tens of thousands of objects interacting together may not be a good
+  fit.
+- All inputs are fed through the database in the `inputs` table, so applications that require very
+  large or frequent inputs may not be a good fit.
+- Input latency will be around one RTT (time for the input to make it to the server and the response
+  to come back) plus half the step size (for expected server input delay when the input's waiting
+  for the next step). Historical values add another half step size of input latency since their
+  values are viewed slightly in the past. As configured, this will roughly be around 1.5s of input
+  latency, which won't be a good fit for competitive games. You can configure the step size to be
+  smaller (e.g. 250ms) which will decrease input latency at the cost of adding more Convex function
+  calls and database bandwidth.
+- The game engine is designed to be single threaded. JavaScript operating over plain objects
+  in-memory can be surprisingly fast, but if your simulation is very computationally expensive, it
+  may not be a good fit on AI Town's engine today.
