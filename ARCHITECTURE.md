@@ -30,6 +30,10 @@ So, if you'd like to tweak agent behavior but keep the same game mechanics, chec
 If you would like to add new gameplay elements (that both humans and agents can interact with), add
 the feature to `convex/game`, render it in the UI in `src/`, and then add agent behavior in `convex/agent`.
 
+If you have parts of your game that are more latency sensitive, you can move them out of engine
+into regular Convex tables, queries, and mutations, only logging key bits into game state. See
+"Message data model" below for an example.
+
 ## AI Town game logic (`convex/game`)
 
 ### Data model
@@ -78,7 +82,16 @@ notice and replan their paths, trying to avoid obstacles.
 
 ### Message data model
 
-We manage the tables for tracking chat messages in separate tables not affiliated with the game engine.
+We manage the tables for tracking chat messages in separate tables not affiliated with the game engine. This is for a few reasons:
+
+- The core simulation doesn't need to know about messages, so keeping them
+  out keeps game state small.
+- Messages are updated very frequently (when streamed out from OpenAI) and
+  benefit from lower input latency, so they're not a great fit for the engine. See "Design goals and limitations" below.
+- It's convenient to be able to directly mutate the typing indicator from
+  other mutations without having to go through the game engine.
+
+There are two tables for messages:
 
 - Messages (`convex/schema.ts`) are in a conversation and indicate an author and message text.
 - Each conversation has a typing indicator (`convex/schema.ts`) that indicates that a player
@@ -162,6 +175,10 @@ engine often only cares about a small "active" subset of game state in the table
 can implement an `isActive` method that tells the system when a row is no longer active should be excluded from
 game processing. For example, AI Town's `Conversations` class only keeps conversations that are currently active.
 
+Just as we assume that the game engine is "single threaded", we also assume that the game engine _exclusively_
+owns the tables that store game engine state. Only the game engine should programmatically modify these tables,
+so components outside the engine can only mutate them by sending inputs.
+
 ### Historical tables
 
 If we're only writing updates out to the database at the end of the step, and steps are only running at once per
@@ -225,7 +242,7 @@ The LLM-powered agents (the `Agent` class in `convex/agent/main.ts`) control a p
 
 1. Wander around the map
 2. Invite nearby players to conversations.
-3. Decide if they want to accept an invite .
+3. Decide if they want to accept an invite.
 4. Call into OpenAI to generate message text for conversations, using previous memories from talking with that player.
 5. Decide when to leave a conversation.
 6. Call into OpenAI to summarize conversations and form a memory in Convex's vector database.
@@ -273,7 +290,7 @@ AI Town's game engine has a few design goals:
 These design goals imply some inherent limitations:
 
 - All data is loaded into memory each step. The active game state loaded by the game should be small
-  enough to fit into and load and save frequently. Try to keep game state to less than a few dozen
+  enough to fit into memory and load and save frequently. Try to keep game state to less than a few dozen
   kilobytes: Games that require tens of thousands of objects interacting together may not be a good
   fit.
 - All inputs are fed through the database in the `inputs` table, so applications that require very
