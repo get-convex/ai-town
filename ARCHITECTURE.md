@@ -18,9 +18,9 @@ AI Town is split into a few layers:
 - The client-side game UI in `src/`: AI Town uses `pixi-react` to render the game state to the
   browser for human consumption.
 - The game engine in `convex/engine`: To make it easy to hack on the game rules, we've separated
-  out the game engine from the game logic. The game engine is responsible for saving and loading
-  game state from the database, coordinating feeding inputs into the engine, and actually
-  running the game engine in Convex functions.
+  out the game engine from the AI Town-specific game rules. The game engine is responsible for
+  saving and loading game state from the database, coordinating feeding inputs into the engine,
+  and actually running the game engine in Convex functions.
 - The agent in `convex/agent`: Agents run in Convex functions that observe game state and
   submit inputs to the game engine. Agents are responsible for deciding what inputs to submit
   based on the game state. Internally, our agents use a combination of simple rule-based systems
@@ -71,10 +71,10 @@ the conversation first if so, and then updates their pathfinding state with the 
 
 ### Simulation
 
-Other than when processing player inputs, the game state can change over time as the simulation runs time
-forward. For example, if the player has decided to move along a path, their position will gradually update
-as time moves forward. Similarly, if two players collide into each other, they'll notice and replan their
-paths, trying to avoid obstacles.
+Other than when processing player inputs, the game state can change over time in the background as the
+simulation runs time forward. For example, if a player has decided to move along a path, their position
+will gradually update as time moves forward. Similarly, if two players collide into each other, they'll
+notice and replan their paths, trying to avoid obstacles.
 
 ### Message data model
 
@@ -114,8 +114,8 @@ on an input's status with the `inputStatus` query.
 `AiTown` specifies how it simulates time forward with the `tick` method:
 
 - `tick(now)` runs the simulation forward until the given timestamp
-- Ticks are run at a high frequency, configurable with `tickDuration` (milliseconds). Since AI town has smooth motion,
-  it runs at 60 ticks per second.
+- Ticks are run at a high frequency, configurable with `tickDuration` (milliseconds). Since AI town has smooth motion
+  for player movement, it runs at 60 ticks per second.
 - It's generally a good idea to break up game logic into separate systems that can be ticked forward independently.
   For example, AI Town's `tick` method advances pathfinding with `tickPathfinding`, player positions with
   `tickPosition`, and conversations with `tickConversation`.
@@ -133,13 +133,14 @@ The engine then schedules steps to run periodically. To avoid running steps when
 declare if the game is currently idle and for how long with the `idleUntil` method. If the game is idle, the engine
 will automatically schedule the next step past the idleness period but also wake it up if an input comes in.
 
-One core invariant is that the game engine is fully "single-threaded" per world. Not having to think about
-race conditions or concurrency makes writing game engine code a lot easier.
+One core invariant is that the game engine is fully "single-threaded" per world, so there are never two runs of
+an engine's step overlapping in time. Not having to think about race conditions or concurrency makes writing game
+engine code a lot easier.
 
 However, preserving this invariant is a little tricky. If the engine is idle for a minute and an
 input comes in, we want to run the engine immediately but then cancel its run after the minute's
 up. If we're not careful, a race condition may cause us to run multiple copies of the engine if an
-input comes just as an idle timeout is expiring!
+input comes in just as an idle timeout is expiring!
 
 Our approach is to store a generation number with the engine that monotonically increases over time.
 All scheduled runs of the engine contain their expected generation number as an argument. Then, if
@@ -199,8 +200,8 @@ export const locations = defineTable({
 });
 ```
 
-In the future, we'd also like to quantize and compress the historical values to keep the history buffers small, since
-they're sent to every observing client on every step for every moving character.
+By specializing to just continuous numeric quantities, we can compress these buffers. It's important to keep
+these history buffers small since they're sent to to every observing client on every step for every moving character.
 
 ## Client-side game UI (`src/`)
 
