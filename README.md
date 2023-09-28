@@ -22,8 +22,7 @@ a simple project to play around with to a scalable, multi-player game. A seconda
 
 ## Stack
 
-- Game engine & Database: [Convex](https://convex.dev/)
-- VectorDB: Convex or [Pinecone](https://www.pinecone.io/)
+- Game engine, database, and vector search: [Convex](https://convex.dev/)
 - Auth: [Clerk](https://clerk.com/)
 - Text model: [OpenAI](https://platform.openai.com/docs/models)
 - Deployment: [Vercel](https://vercel.com/)
@@ -108,69 +107,53 @@ npm run dev:backend
 
 See package.json for details, but dev:backend runs `npx convex dev`
 
-\*Note: The simulation will pause after 5 minutes if the window is idle.
+**Note**: The simulation will pause after 5 minutes if the window is idle.
 Loading the page will unpause it. If you want to run the world without the
 browser, you can comment-out the "stop inactive worlds" cron in `convex/crons.ts`.
 
 ### Various commands to run / test / debug
-
-**To add a new world, seed it, and start it running**
-TODO
 
 **Note**: you can add `--no-push` to run these commands without first syncing
 the functions. If you already have `npm run dev` running, this will be faster.
 If you remove it, it'll push up the latest version of code before running the
 command.
 
-```bash
-npx convex run init:reset
-```
-
 **To stop the back end, in case of too much activity**
-TODO
 
 ```bash
-npx convex run --no-push engine:freezeAll
-
-# when ready to rerun (defaults to latest world)
-npx convex run --no-push engine:unfreeze
+npx convex run --no-push init:stop
 ```
 
 **To restart the back end after stopping it**
-TODO
+Reinitializing the engine (which also happens within `npm run dev`) will restart a stopped engine:
 
 ```bash
+npx convex run init
+```
 
+**To archive the world**
+If you'd like to reset the world and start from scratch, you can archive the current world:
+
+```bash
+npx convex run init:archive
+```
+
+Then, you can still look at the world's data in the dashboard, but the engine and agents will
+no longer run.
+
+You can then create a fresh world with `init`.
+
+```bash
+npx convex run init
 ```
 
 **To clear all databases**
-TODO
 
-Many options:
-
-- Go to the dashboard `npx convex dashboard` and clear tables from there.
-- Adjust the variables in [`crons.ts`](./convex/crons.ts) to automatically clear
-  up space from old journal and memory entries.
-- Run `npx convex run --no-push testing:debugClearAll` to wipe all the tables.
-- As a fallback, if things are stuck, you can check out the `origin/reset-town`
-  git branch. Doing `npm run dev` from there will clear your schema, stop your
-  functions, and allow you to delete your tables in the dashboard.
-
-To delete all vectors from the Pinecone index, you can run:
-
-Run the following in a side terminal
+You can wipe all tables with the `wipeAllTables` testing function.
 
 ```bash
-npx convex run testing:listMessages --no-push --watch
+npx convex run --no-push testing:wipeAllTables
 ```
-
-Or to watch one player's state:
-
-```bash
-npx convex run testing:latestPlayer --no-push --watch
-```
-
-See more functions in [`testing.ts`](./convex/testing.ts).
 
 ### Deploy the app
 
@@ -181,8 +164,6 @@ See more functions in [`testing.ts`](./convex/testing.ts).
 - Deploy the app to Vercel with `vercel --prod`.
 
 #### Deploy Convex functions to prod environment
-
-TODO
 
 Before you can run the app, you will need to make sure the Convex functions are deployed to its production environment.
 
@@ -197,12 +178,11 @@ NOTE: every time you change character data, you should re-run
 `npx convex run testing:debugClearAll` and then
 `npm run dev` to re-upload everything to Convex.
 This is because character data is sent to Convex on the initial load.
-However, beware that `npx convex run testing:debugClearAll --no-push` WILL wipe
-all of your data, including your vector store.
+However, beware that `npx convex run testing:debugClearAll --no-push` WILL wipe all of your data.
 
 1. Create your own characters and stories: All characters and stories, as well as their spritesheet references are stored in [data.ts](./convex/characterdata/data.ts#L4). You can start by changing character descriptions.
 
-TODO 2. Updating spritesheets: in `convex/data/characters.ts`, you will see this code:
+2. Updating spritesheets: in `convex/data/characters.ts`, you will see this code:
 
 ```export const characters = [
   {
@@ -215,8 +195,8 @@ TODO 2. Updating spritesheets: in `convex/data/characters.ts`, you will see this
 
 You should find a sprite sheet for your character, and define sprite motion / assets in the corresponding file (in the above example, `f1SpritesheetData` was defined in f1.ts)
 
-3. Update the background (environment): `convex/maps/firstmap.ts` is where the map gets loaded. The easiest way to export a tilemap is by using [Tiled](https://www.mapeditor.org/) -- Tiled exports tilemaps as a CSV and you can convert CSV to a 2d array accepted by firstmap.ts
-4. Change the background music by modifying the prompt in `convex/lib/replicate.ts`
+3. Update the background (environment): `convex/data/map.ts` is where the map gets loaded. The easiest way to export a tilemap is by using [Tiled](https://www.mapeditor.org/) -- Tiled exports tilemaps as a CSV and you can convert CSV to a 2d array accepted by firstmap.ts
+4. Change the background music by modifying the prompt in `convex/backgroundMusic.ts`
 5. Change how often to generate new music at `convex/crons.ts` by modifying the `generate new background music` job
 
 ## Credits
