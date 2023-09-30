@@ -15,7 +15,7 @@ import { ConversationMembers } from './conversationMembers';
 const MAX_PATHFINDING_RUNS_PER_STEP = 8;
 
 export class AiTown extends Game<Inputs> {
-  tickDuration = 32;
+  tickDuration = 16;
   stepDuration = 1000;
   maxTicksPerStep = 120;
   maxInputsPerStep = 16;
