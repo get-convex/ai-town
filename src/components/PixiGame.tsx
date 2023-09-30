@@ -1,5 +1,5 @@
-import { useApp } from '@pixi/react';
-import { Player, SelectElement } from './Player.tsx';
+import { Container, useApp } from '@pixi/react';
+import { Player, PlayerPath, SelectElement } from './Player.tsx';
 import { useRef } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
@@ -24,7 +24,12 @@ export const PixiGame = (props: {
   const world = useQuery(api.world.defaultWorld);
 
   const humanPlayerId = useQuery(api.world.userStatus, { worldId: props.worldId }) ?? null;
+
   const players = useQuery(api.world.activePlayers, { worldId: props.worldId }) ?? [];
+
+  // Sort the players in ascending y order.
+  players.sort((a, b) => a.location.y - b.location.y);
+
   const moveTo = useSendInput(props.worldId, 'moveTo');
 
   // Interaction for clicking on the world to navigate.
@@ -77,8 +82,11 @@ export const PixiGame = (props: {
         onpointerdown={onMapPointerDown}
       />
       {players.map((p) => (
+        <PlayerPath key={`path-${p._id}`} player={p} />
+      ))}
+      {players.map((p) => (
         <Player
-          key={p._id}
+          key={`player-${p._id}`}
           player={p}
           onClick={props.setSelectedElement}
           historicalTime={props.historicalTime}

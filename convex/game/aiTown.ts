@@ -12,11 +12,15 @@ import { CONVERSATION_DISTANCE, PATHFINDING_BACKOFF, PATHFINDING_TIMEOUT } from 
 import { Conversations } from './conversations';
 import { ConversationMembers } from './conversationMembers';
 
+const MAX_PATHFINDING_RUNS_PER_STEP = 8;
+
 export class AiTown extends Game<Inputs> {
-  tickDuration = 16;
+  tickDuration = 32;
   stepDuration = 1000;
   maxTicksPerStep = 120;
-  maxInputsPerStep = 32;
+  maxInputsPerStep = 16;
+
+  pathfindingRuns = 0;
 
   constructor(
     public engineId: Id<'engines'>,
@@ -144,9 +148,11 @@ export class AiTown extends Game<Inputs> {
     { playerId, destination }: InputArgs<'moveTo'>,
   ): Promise<InputReturnValue<'moveTo'>> {
     const player = this.players.lookup(playerId);
+    const location = this.locations.lookup(now, player.locationId);
 
     if (destination === null) {
       delete player.pathfinding;
+      location.velocity = 0;
       return null;
     }
     if (
@@ -310,6 +316,7 @@ export class AiTown extends Game<Inputs> {
     // Stop pathfinding if we've reached our destination.
     if (pathfinding.state.kind === 'moving' && pointsEqual(pathfinding.destination, position)) {
       delete player.pathfinding;
+      location.velocity = 0;
     }
 
     // Stop pathfinding if we've timed out.
@@ -325,11 +332,16 @@ export class AiTown extends Game<Inputs> {
     }
 
     // Perform pathfinding if needed.
-    if (pathfinding.state.kind === 'needsPath') {
+    if (
+      pathfinding.state.kind === 'needsPath' &&
+      this.pathfindingRuns < MAX_PATHFINDING_RUNS_PER_STEP
+    ) {
+      this.pathfindingRuns += 1;
       const route = findRoute(this, now, player, pathfinding.destination);
       if (route === null) {
-        console.log(`Failed to route to ${pathfinding.destination}`);
+        console.log(`Failed to route to ${JSON.stringify(pathfinding.destination)}`);
         delete player.pathfinding;
+        location.velocity = 0;
       } else {
         if (route.newDestination) {
           console.warn(

@@ -39,13 +39,16 @@ import type * as init from "../init";
 import type * as messages from "../messages";
 import type * as music from "../music";
 import type * as testing from "../testing";
+import type * as util_FastIntegerCompression from "../util/FastIntegerCompression";
 import type * as util_assertNever from "../util/assertNever";
+import type * as util_compression from "../util/compression";
 import type * as util_geometry from "../util/geometry";
 import type * as util_isSimpleObject from "../util/isSimpleObject";
 import type * as util_minheap from "../util/minheap";
 import type * as util_openai from "../util/openai";
 import type * as util_sleep from "../util/sleep";
 import type * as util_types from "../util/types";
+import type * as util_xxhash from "../util/xxhash";
 import type * as world from "../world";
 
 /**
@@ -82,13 +85,16 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   music: typeof music;
   testing: typeof testing;
+  "util/FastIntegerCompression": typeof util_FastIntegerCompression;
   "util/assertNever": typeof util_assertNever;
+  "util/compression": typeof util_compression;
   "util/geometry": typeof util_geometry;
   "util/isSimpleObject": typeof util_isSimpleObject;
   "util/minheap": typeof util_minheap;
   "util/openai": typeof util_openai;
   "util/sleep": typeof util_sleep;
   "util/types": typeof util_types;
+  "util/xxhash": typeof util_xxhash;
   world: typeof world;
 }>;
 export declare const api: FilterApi<

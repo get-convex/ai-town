@@ -10,6 +10,7 @@ import { Path } from '../../convex/util/types.ts';
 import { useCallback } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { locationFields } from '../../convex/game/locations.ts';
 
 export type SelectElement = (element?: { kind: 'player'; id: Id<'players'> }) => void;
 
@@ -26,7 +27,7 @@ export const Player = ({
 }) => {
   const world = useQuery(api.world.defaultWorld);
   const character = characters.find((c) => c.name === player.character);
-  const location = useHistoricalValue<'locations'>(historicalTime, player.location);
+  const location = useHistoricalValue<'locations'>(locationFields, historicalTime, player.location);
   if (!character) {
     if (!logged.has(player.character)) {
       logged.add(player.character);
@@ -43,27 +44,37 @@ export const Player = ({
   const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
   const tileDim = world.map.tileDim;
   return (
-    <>
-      {path && <DebugPath id={player._id} path={path} tileDim={tileDim} />}
-      <Character
-        x={location.x * tileDim + tileDim / 2}
-        y={location.y * tileDim + tileDim / 2}
-        orientation={orientationDegrees({ dx: location.dx, dy: location.dy })}
-        isMoving={location.velocity > 0}
-        isThinking={false}
-        isSpeaking={false}
-        textureUrl={character.textureUrl}
-        spritesheetData={character.spritesheetData}
-        speed={character.speed}
-        onClick={() => {
-          onClick({ kind: 'player', id: player._id });
-        }}
-      />
-    </>
+    <Character
+      x={location.x * tileDim + tileDim / 2}
+      y={location.y * tileDim + tileDim / 2}
+      orientation={orientationDegrees({ dx: location.dx, dy: location.dy })}
+      isMoving={location.velocity > 0}
+      isThinking={false}
+      isSpeaking={false}
+      textureUrl={character.textureUrl}
+      spritesheetData={character.spritesheetData}
+      speed={character.speed}
+      onClick={() => {
+        onClick({ kind: 'player', id: player._id });
+      }}
+    />
   );
 };
 
-function DebugPath({ id, path, tileDim }: { id: string; path: Path; tileDim: number }) {
+export function PlayerPath({ player }: { player: Doc<'players'> }) {
+  const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
+  if (!path) {
+    return null;
+  }
+  return <DebugPath id={player._id} path={path} />;
+}
+
+function DebugPath({ id, path }: { id: string; path: Path }) {
+  const world = useQuery(api.world.defaultWorld);
+  if (!world) {
+    return null;
+  }
+  const tileDim = world.map.tileDim;
   const draw = useCallback(
     (g: PixiGraphics) => {
       g.clear();

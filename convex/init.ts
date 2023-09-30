@@ -26,6 +26,9 @@ const init = mutation({
           '/settings?var=OPENAI_API_KEY',
       );
     }
+    const now = Date.now();
+
+    // Make the engine active, if needed, and schedule another run.
     const { world, engine } = await getOrCreateDefaultWorld(ctx.db);
     if (!engine.active) {
       console.warn(
