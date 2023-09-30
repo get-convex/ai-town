@@ -131,6 +131,7 @@ npx convex run init:resume
 ```
 
 **To archive the world**
+
 If you'd like to reset the world and start from scratch, you can archive the current world:
 
 ```bash
