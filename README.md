@@ -125,10 +125,9 @@ npx convex run --no-push init:stop
 ```
 
 **To restart the back end after stopping it**
-Reinitializing the engine (which also happens within `npm run dev`) will restart a stopped engine:
 
 ```bash
-npx convex run init
+npx convex run init:resume
 ```
 
 **To archive the world**

@@ -41,7 +41,7 @@ export const heartbeatWorld = mutation({
     if (!engine) {
       throw new Error(`Invalid engine ID: ${world.engineId}`);
     }
-    if (engine.active) {
+    if (!engine.active) {
       return;
     }
     await restartWorld(ctx, args.worldId);
@@ -67,7 +67,6 @@ export const stopInactiveWorlds = internalMutation({
       }
       // TODO: When we can cancel scheduled jobs, do that transactionally here. For now,
       // just bump the generation number to cancel future runs.
-      engine.active = false;
       engine.generationNumber = engine.generationNumber + 1;
       await ctx.db.replace(engine._id, engine);
     }

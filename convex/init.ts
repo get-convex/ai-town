@@ -27,9 +27,14 @@ const init = mutation({
     }
     const { world, engine } = await getOrCreateDefaultWorld(ctx.db);
     if (!engine.active) {
-      console.warn(`Engine ${engine._id} is not active, restarting...`);
-      await restartWorld(ctx, world._id);
+      console.warn(
+        `Engine ${engine._id} is not active! Run "npx convex run init:resume" to restart it.`,
+      );
+      return;
     }
+    // Restart the engine.
+    await restartWorld(ctx, world._id);
+
     // Send inputs to create players for all of the agents.
     if (await shouldCreateAgents(ctx.db, engine._id)) {
       for (const agent of Descriptions) {
@@ -45,6 +50,7 @@ const init = mutation({
         });
       }
     }
+
     // Restart the agents if needed.
     await restartAgents(ctx, { engineId: engine._id });
   },
@@ -61,6 +67,19 @@ export const stop = internalMutation({
     console.log(`Stopping engine ${engine._id}...`);
     await ctx.db.patch(engine._id, { active: false });
     stopAgents(ctx, { engineId: world.engineId });
+  },
+});
+
+export const resume = internalMutation({
+  handler: async (ctx) => {
+    const { world, engine } = await getDefaultWorld(ctx.db);
+    if (engine.active) {
+      console.warn(`Engine ${engine._id} is already active`);
+      return;
+    }
+    await ctx.db.patch(engine._id, { active: true });
+    await restartWorld(ctx, world._id);
+    await restartAgents(ctx, { engineId: engine._id });
   },
 });
 
@@ -181,13 +200,11 @@ export async function restartWorld(ctx: MutationCtx, worldId: Id<'worlds'>) {
   if (!engine) {
     throw new Error(`Invalid engine ID: ${world.engineId}`);
   }
-  if (engine.active) {
-    console.warn(`Engine ${engine._id} is already active`);
-    return;
+  if (!engine.active) {
+    throw new Error(`Engine ${engine._id} isn't active`);
   }
   console.log(`Restarting engine ${engine._id}...`);
   const now = Date.now();
-  engine.active = true;
   const generationNumber = engine.generationNumber + 1;
   engine.generationNumber = generationNumber;
   engine.idleUntil = now;
