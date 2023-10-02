@@ -61,6 +61,9 @@ export async function rememberConversation(
   if (!messages.length) {
     return;
   }
+  const now = Date.now();
+  await ctx.runMutation(selfInternal.startThinking, { agentId, now });
+  await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',
@@ -245,6 +248,7 @@ export const loadMessages = internalQuery({
   },
 });
 
+<<<<<<< HEAD
 async function calculateImportance(player: Doc<'players'>, description: string) {
   // TODO: make a better prompt based on the user's memories
   const { content } = await chatCompletion({
@@ -283,6 +287,37 @@ async function calculateImportance(player: Doc<'players'>, description: string) 
 }
 
 const { embeddingId, ...memoryFieldsWithoutEmbeddingId } = memoryFields;
+=======
+export const startThinking = internalMutation({
+  args: {
+    agentId: v.id('agents'),
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.agentId, { isThinking: { since: args.now } });
+  },
+});
+
+export const clearThinking = internalMutation({
+  args: {
+    agentId: v.id('agents'),
+    since: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+    if (!agent) {
+      throw new Error(`Agent ${args.agentId} not found`);
+    }
+    if (!agent.isThinking) {
+      return;
+    }
+    if (agent.isThinking.since !== args.since) {
+      return;
+    }
+    await ctx.db.patch(args.agentId, { isThinking: undefined });
+  },
+});
+>>>>>>> d818980 (Add thinking and talking indicators back in)
 
 export const insertMemory = internalMutation({
   args: {
@@ -302,13 +337,14 @@ export const insertMemory = internalMutation({
         `Agent ${agentId} generation number ${agent.generationNumber} does not match ${generationNumber}`,
       );
     }
-    const embeddingId = await ctx.db.insert('memoryEmbeddings', {
-      playerId: memory.playerId,
-      embedding: embedding,
-    });
-    await ctx.db.insert('memories', {
-      ...memory,
-      embeddingId,
+    await ctx.db.patch(args.agentId, { isThinking: undefined });
+    await ctx.db.insert('conversationMemories', {
+      owner: args.owner,
+      conversation: args.conversation,
+      talkingTo: args.talkingTo,
+      conversationTag: conversationTag(args.owner, args.talkingTo),
+      summary: args.summary,
+      embedding: args.embedding,
     });
   },
 });
