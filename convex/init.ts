@@ -11,6 +11,7 @@ import { MemoryDB } from './lib/memory';
 import { Characters } from './schema';
 import { tiledim, objmap, tilefiledim, bgtiles, tilesetpath } from './maps/firstmap';
 import { Descriptions, characters as characterData } from './characterdata/data';
+import { getAllPlayers } from './players';
 
 if (!process.env.OPENAI_API_KEY) {
   const deploymentName = process.env.CONVEX_CLOUD_URL?.slice(8).replace('.convex.cloud', '');
@@ -27,6 +28,21 @@ if (!process.env.OPENAI_API_KEY) {
 export const existingWorld = internalQuery({
   handler: async (ctx): Promise<Doc<'worlds'> | null> => {
     return await ctx.db.query('worlds').first();
+  },
+});
+
+export const existingWorldAndPlayers = internalQuery({
+  handler: async (
+    ctx,
+  ): Promise<{ worldId: Id<'worlds'>; playersByName: { [name: string]: Id<'players'> } }> => {
+    const world = await ctx.db.query('worlds').first();
+    if (!world) throw new Error('No world found');
+    const players = await getAllPlayers(ctx.db, world._id);
+    const playersByName: Record<string, Id<'players'>> = {};
+    for (const player of players) {
+      playersByName[player.name] = player._id;
+    }
+    return { worldId: world._id, playersByName };
   },
 });
 
@@ -114,6 +130,39 @@ export const resetFrozen = internalAction({
         noSchedule: true,
       }),
     );
+  },
+});
+
+export const restoreSeedMemories = internalAction({
+  args: {},
+  handler: async (ctx, args) => {
+    const { worldId, playersByName } = await ctx.runQuery(internal.init.existingWorldAndPlayers);
+    if (!worldId) throw new Error('No world found');
+    const memories = Descriptions.flatMap(({ name, memories }) => {
+      const playerId = playersByName[name]!;
+      return memories.map((memory) => {
+        const { description, ...rest } = memory;
+        let data: Doc<'memories'>['data'] | undefined;
+        if (rest.type === 'relationship') {
+          const { playerName, ...relationship } = rest;
+          const otherId = playersByName[playerName];
+          if (!otherId) throw new Error(`No player named ${playerName}`);
+          data = { ...relationship, playerId: otherId };
+        } else {
+          data = rest;
+        }
+        const newMemory = {
+          playerId,
+          data,
+          description,
+        };
+
+        return newMemory;
+      });
+    });
+    // It will check the cache, calculate missing embeddings, and add them.
+    // If it fails here, it won't be retried. But you could clear the memor
+    await MemoryDB(ctx).addMemories(memories);
   },
 });
 
