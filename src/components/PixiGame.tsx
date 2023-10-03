@@ -1,5 +1,5 @@
 import { useApp } from '@pixi/react';
-import { PlayerMetadata, SelectElement } from './Player.tsx';
+import { Player, SelectElement } from './Player.tsx';
 import { useRef } from 'react';
 import { PixiStaticMap } from './PixiStaticMap.tsx';
 import PixiViewport from './PixiViewport.tsx';
