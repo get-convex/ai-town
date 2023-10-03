@@ -95,7 +95,8 @@ export function MemoryDB(ctx: ActionCtx): MemoryDB {
                   'How important is this? Answer on a scale of 0 to 9. Respond with number only, e.g. "5"',
               },
             ],
-            max_tokens: 1,
+            temperature: 0.0,
+            max_tokens: 10,
           });
           const importanceRaw = await importanceRawStream.readAll();
           let importance = NaN;
