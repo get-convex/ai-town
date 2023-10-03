@@ -4,6 +4,7 @@ import { ActionCtx, DatabaseReader, internalMutation, internalQuery } from '../_
 import { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { LLMMessage, chatCompletion, fetchEmbedding } from '../util/openai';
+import { ACTION_TIMEOUT } from './constants';
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
@@ -248,7 +249,6 @@ export const loadMessages = internalQuery({
   },
 });
 
-<<<<<<< HEAD
 async function calculateImportance(player: Doc<'players'>, description: string) {
   // TODO: make a better prompt based on the user's memories
   const { content } = await chatCompletion({
@@ -287,7 +287,6 @@ async function calculateImportance(player: Doc<'players'>, description: string) 
 }
 
 const { embeddingId, ...memoryFieldsWithoutEmbeddingId } = memoryFields;
-=======
 export const startThinking = internalMutation({
   args: {
     agentId: v.id('agents'),
@@ -317,7 +316,6 @@ export const clearThinking = internalMutation({
     await ctx.db.patch(args.agentId, { isThinking: undefined });
   },
 });
->>>>>>> d818980 (Add thinking and talking indicators back in)
 
 export const insertMemory = internalMutation({
   args: {
@@ -337,14 +335,15 @@ export const insertMemory = internalMutation({
         `Agent ${agentId} generation number ${agent.generationNumber} does not match ${generationNumber}`,
       );
     }
-    await ctx.db.patch(args.agentId, { isThinking: undefined });
-    await ctx.db.insert('conversationMemories', {
-      owner: args.owner,
-      conversation: args.conversation,
-      talkingTo: args.talkingTo,
-      conversationTag: conversationTag(args.owner, args.talkingTo),
-      summary: args.summary,
-      embedding: args.embedding,
+    // Clear the `isThinking` flag atomically with inserting the memory.
+    await ctx.db.patch(agentId, { isThinking: undefined });
+    const embeddingId = await ctx.db.insert('memoryEmbeddings', {
+      playerId: memory.playerId,
+      embedding: embedding,
+    });
+    await ctx.db.insert('memories', {
+      ...memory,
+      embeddingId,
     });
   },
 });
