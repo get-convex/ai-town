@@ -206,7 +206,7 @@ export const sendWorldInput = mutation({
   },
 });
 
-export type ActivePlayer = Doc<'players'> & {
+export type PlayerMetadata = Doc<'players'> & {
   location: Doc<'locations'>;
   isSpeaking: boolean;
   isThinking: boolean;
@@ -216,7 +216,7 @@ export const activePlayers = query({
   args: {
     worldId: v.id('worlds'),
   },
-  handler: async (ctx, args): Promise<ActivePlayer[]> => {
+  handler: async (ctx, args): Promise<PlayerMetadata[]> => {
     const world = await ctx.db.get(args.worldId);
     if (!world) {
       throw new Error(`Invalid world ID: ${args.worldId}`);

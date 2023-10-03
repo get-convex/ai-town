@@ -63,8 +63,12 @@ export async function rememberConversation(
     return;
   }
   const now = Date.now();
+
+  // Set the `isThinking` flag and schedule a function to clear it after 60s. We'll
+  // also clear the flag in `insertMemory` below to stop thinking early on success.
   await ctx.runMutation(selfInternal.startThinking, { agentId, now });
   await ctx.scheduler.runAfter(ACTION_TIMEOUT, selfInternal.clearThinking, { agentId, since: now });
+
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',

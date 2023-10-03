@@ -10,7 +10,7 @@ import { Path } from '../../convex/util/types.ts';
 import { useCallback } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { ActivePlayer } from '../../convex/world.ts';
+import { PlayerMetadata } from '../../convex/world.ts';
 
 export type SelectElement = (element?: { kind: 'player'; id: Id<'players'> }) => void;
 
@@ -23,7 +23,7 @@ export const Player = ({
   historicalTime,
 }: {
   isViewer: boolean;
-  player: ActivePlayer;
+  player: PlayerMetadata;
   onClick: SelectElement;
   historicalTime?: number;
 }) => {
