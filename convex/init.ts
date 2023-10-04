@@ -35,7 +35,7 @@ export const existingWorldAndPlayers = internalQuery({
   handler: async (
     ctx,
   ): Promise<{ worldId: Id<'worlds'>; playersByName: { [name: string]: Id<'players'> } }> => {
-    const world = await ctx.db.query('worlds').first();
+    const world = await ctx.db.query('worlds').order('desc').first();
     if (!world) throw new Error('No world found');
     const players = await getAllPlayers(ctx.db, world._id);
     const playersByName: Record<string, Id<'players'>> = {};
