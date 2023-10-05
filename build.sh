@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 if [[ $VERCEL_ENV == "preview"  ]] ; then
   echo "Creating preview deployment!"
