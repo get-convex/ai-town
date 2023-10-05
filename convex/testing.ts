@@ -38,17 +38,11 @@ export const deletePage = internalMutation({
     }
     const table = tables[args.tableIndex];
     const { isDone, cursor } = await deleteBatch(ctx.db, table, args.cursor);
-    if (isDone) {
-      await ctx.scheduler.runAfter(0, internal.testing.deletePage, {
-        tableIndex: args.tableIndex + 1,
-        cursor: null,
-      });
-    } else {
-      await ctx.scheduler.runAfter(0, internal.testing.deletePage, {
-        tableIndex: args.tableIndex,
-        cursor,
-      });
-    }
+
+    const newArgs = isDone
+      ? { tableIndex: args.tableIndex + 1, cursor: null }
+      : { tableIndex: args.tableIndex, cursor };
+    await ctx.scheduler.runAfter(0, internal.testing.deletePage, newArgs);
   },
 });
 
