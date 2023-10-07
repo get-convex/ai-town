@@ -254,6 +254,7 @@ async function calculateImportance(description: string) {
         Answer on a scale of 0 to 9. Respond with number only, e.g. "5"`,
       },
     ],
+    temperature: 0.0,
     max_tokens: 1,
   });
 
