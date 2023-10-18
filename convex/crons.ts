@@ -166,6 +166,7 @@ export const vacuumOldMemories = internalMutation({
       .paginate({ cursor: args.cursor, numItems: VACUUM_BATCH_SIZE });
     const vectorsToDelete = [];
     for (const doc of results.page) {
+      if (doc.data.type === 'identity') continue;
       await ctx.db.delete(doc._id);
       await ctx.db.delete(doc.embeddingId);
       vectorsToDelete.push(doc.embeddingId);
